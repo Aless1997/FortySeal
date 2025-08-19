@@ -92,10 +92,7 @@ WSGI_APPLICATION = 'Cripto.wsgi.application'
 #         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
-<<<<<<< HEAD
 
-=======
->>>>>>> 5e0fffe8df18410efcf40eedb9fa5578262b3959
 
 # PostgreSQL Configuration
 DATABASES = {
