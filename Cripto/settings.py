@@ -181,11 +181,7 @@ EMAIL_HOST_USER = 'ale.social97@gmail.com'  # Sostituisci con la tua email
 EMAIL_HOST_PASSWORD = 'qjch lohe smcy pwsk'  # Usa una App Password di Google
 DEFAULT_FROM_EMAIL = 'FortySeal <ale.social97@gmail.com>'
 SERVER_EMAIL = 'ale.social97@gmail.com'
-<<<<<<< HEAD
-'''
-=======
 
->>>>>>> 5e0fffe8df18410efcf40eedb9fa5578262b3959
 
 
 # Ottimizzazioni PostgreSQL per applicazioni blockchain
