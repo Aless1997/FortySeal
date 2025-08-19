@@ -1,0 +1,307 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block title %}Security Alerts - Monitoraggio Sicurezza{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-shield-alt"></i> Security Alerts
+                    <small class="text-muted">Monitoraggio Sicurezza in Tempo Reale</small>
+                </h2>
+                <div>
+                    <a href="{% url 'Cripto1:audit_logs' %}" class="btn btn-primary">
+                        <i class="fas fa-list"></i> Audit Logs
+                    </a>
+                    <a href="{% url 'Cripto1:audit_logs_analytics' %}" class="btn btn-info">
+                        <i class="fas fa-chart-line"></i> Analytics
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Banner -->
+    {% if critical_events or failed_logins or suspicious_ips %}
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Attenzione!</strong> Sono stati rilevati eventi di sicurezza che richiedono la tua attenzione.
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% else %}
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle"></i>
+            <strong>Sistema Sicuro!</strong> Nessun evento critico rilevato negli ultimi 7 giorni.
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endif %}
+
+    <!-- Eventi Critici -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> Eventi Critici (Ultimi 7 giorni)
+                        <span class="badge bg-light text-danger">{{ critical_events.count }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if critical_events %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Utente</th>
+                                        <th>Azione</th>
+                                        <th>IP Address</th>
+                                        <th>Descrizione</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for event in critical_events %}
+                                        <tr class="table-danger">
+                                            <td>{{ event.timestamp|date:"d/m/Y H:i:s" }}</td>
+                                            <td>
+                                                {% if event.user %}
+                                                    <span class="badge bg-primary">{{ event.user.username }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Anonymous</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-danger">{{ event.get_action_type_display }}</span>
+                                            </td>
+                                            <td><code>{{ event.ip_address|default:"N/A" }}</code></td>
+                                            <td>{{ event.description|truncatechars:50 }}</td>
+                                            <td>
+                                                <a href="{% url 'Cripto1:audit_log_detail' event.id %}" class="btn btn-sm btn-outline-danger">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-shield-check fa-3x text-success mb-3"></i>
+                            <h5 class="text-success">Nessun evento critico</h5>
+                            <p class="text-muted">Il sistema è sicuro!</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tentativi di Login Falliti -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-times"></i> Login Falliti (Ultimi 7 giorni)
+                        <span class="badge bg-light text-warning">{{ failed_logins.count }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if failed_logins %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>IP Address</th>
+                                        <th>User Agent</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for login in failed_logins %}
+                                        <tr class="table-warning">
+                                            <td>{{ login.timestamp|date:"d/m/Y H:i" }}</td>
+                                            <td><code>{{ login.ip_address|default:"N/A" }}</code></td>
+                                            <td><small>{{ login.user_agent|truncatechars:30 }}</small></td>
+                                            <td>
+                                                <a href="{% url 'Cripto1:audit_log_detail' login.id %}" class="btn btn-sm btn-outline-warning">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-user-check fa-2x text-success mb-2"></i>
+                            <p class="text-muted mb-0">Nessun login fallito</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- IP Sospetti -->
+        <div class="col-md-6">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-ban"></i> IP Sospetti (Ultime 24h)
+                        <span class="badge bg-light text-danger">{{ suspicious_ips.count }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if suspicious_ips %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>IP Address</th>
+                                        <th>Tentativi Falliti</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for ip in suspicious_ips %}
+                                        <tr class="table-danger">
+                                            <td><code>{{ ip.ip_address }}</code></td>
+                                            <td>
+                                                <span class="badge bg-danger">{{ ip.failed_attempts }}</span>
+                                            </td>
+                                            <td>
+                                                <a href="{% url 'Cripto1:audit_logs' %}?ip_address={{ ip.ip_address }}" class="btn btn-sm btn-outline-danger">
+                                                    <i class="fas fa-search"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
+                            <p class="text-muted mb-0">Nessun IP sospetto</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Azioni Amministrative -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-shield"></i> Azioni Amministrative (Ultimi 7 giorni)
+                        <span class="badge bg-light text-info">{{ admin_actions.count }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if admin_actions %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Amministratore</th>
+                                        <th>Azione</th>
+                                        <th>IP Address</th>
+                                        <th>Descrizione</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for action in admin_actions %}
+                                        <tr class="table-info">
+                                            <td>{{ action.timestamp|date:"d/m/Y H:i:s" }}</td>
+                                            <td>
+                                                {% if action.user %}
+                                                    <span class="badge bg-info">{{ action.user.username }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Unknown</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-primary">{{ action.get_action_type_display }}</span>
+                                            </td>
+                                            <td><code>{{ action.ip_address|default:"N/A" }}</code></td>
+                                            <td>{{ action.description|truncatechars:50 }}</td>
+                                            <td>
+                                                <a href="{% url 'Cripto1:audit_log_detail' action.id %}" class="btn btn-sm btn-outline-info">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-user-tie fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0">Nessuna azione amministrativa</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Raccomandazioni di Sicurezza -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb"></i> Raccomandazioni di Sicurezza
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-check-circle text-success"></i> Best Practices Implementate</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-shield-alt text-primary"></i> Audit log completo di tutte le azioni</li>
+                                <li><i class="fas fa-user-lock text-primary"></i> Tracciamento IP e User Agent</li>
+                                <li><i class="fas fa-clock text-primary"></i> Timestamp precisi per ogni evento</li>
+                                <li><i class="fas fa-exclamation-triangle text-primary"></i> Sistema di alert per eventi critici</li>
+                                <li><i class="fas fa-chart-line text-primary"></i> Analytics e reportistica avanzata</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-exclamation-triangle text-warning"></i> Raccomandazioni Aggiuntive</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-lock text-warning"></i> Implementare rate limiting per login</li>
+                                <li><i class="fas fa-ban text-warning"></i> Bloccare IP con troppi tentativi falliti</li>
+                                <li><i class="fas fa-bell text-warning"></i> Notifiche email per eventi critici</li>
+                                <li><i class="fas fa-database text-warning"></i> Backup automatici degli audit log</li>
+                                <li><i class="fas fa-eye text-warning"></i> Monitoraggio 24/7 del sistema</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Auto-refresh script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-refresh della pagina ogni 5 minuti per aggiornamenti in tempo reale
+    setInterval(function() {
+        location.reload();
+    }, 300000); // 5 minuti
+});
+</script>
+{% endblock %} 

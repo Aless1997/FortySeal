@@ -1,0 +1,110 @@
+{# Vista desktop: tabella #}
+<div class="table-responsive d-none d-md-block">
+    <table class="table" id="transactionsTable">
+        <thead>
+            <tr>
+                <th>Tipo</th>
+                <th>Direzione</th>
+                <th>Controparte</th>
+                <th>Timestamp</th>
+                <th>Hash Transazione</th>
+                <th>Note</th>
+                <th>Dettagli</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tx in all_transactions %}
+            <tr>
+                <td>{{ tx.type }}</td>
+                <td>{{ tx.direction }}</td>
+                <td>
+                    {% if tx.sender == request.user %}
+                        {{ tx.receiver.username|truncatechars:10 }}
+                    {% else %}
+                        {{ tx.sender.username|truncatechars:10 }}
+                    {% endif %}
+                </td>
+                <td>{{ tx.timestamp_datetime|date:"d/m/Y H:i:s" }}</td>
+                <td>{{ tx.transaction_hash|truncatechars:10 }}</td>
+                <td>{{ tx.notes }}</td>
+                <td><a href="{% url 'Cripto1:transaction_details' tx.id %}" class="btn btn-info btn-sm">Vedi</a></td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="fas fa-search fa-2x mb-2"></i><br>
+                    Nessuna transazione trovata
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{# Vista mobile: lista #}
+<div class="d-md-none">
+    <div class="list-group" id="transactionsList">
+        {% for tx in all_transactions %}
+        <a href="{% url 'Cripto1:transaction_details' tx.id %}" class="list-group-item list-group-item-action swipe-container">
+            <div class="d-flex w-100 justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-1">
+                        {% if tx.type == 'text' %}
+                            <i class="fas fa-envelope me-2"></i>
+                        {% else %}
+                            <i class="fas fa-file me-2"></i>
+                        {% endif %}
+                        {{ tx.type|title }}
+                        <small class="text-muted ms-2">
+                            {% if tx.direction == 'Inviata' %}
+                                <i class="fas fa-arrow-right text-primary"></i>
+                            {% else %}
+                                <i class="fas fa-arrow-left text-success"></i>
+                            {% endif %}
+                        </small>
+                    </h5>
+                    <p class="mb-1">
+                        {% if tx.sender == request.user %}
+                            A: {{ tx.receiver.username }}
+                        {% else %}
+                            Da: {{ tx.sender.username }}
+                        {% endif %}
+                    </p>
+                    <small class="text-muted">{{ tx.timestamp_datetime|date:"d/m/Y H:i" }}</small>
+                </div>
+                <i class="fas fa-chevron-right text-muted"></i>
+            </div>
+        </a>
+        {% empty %}
+        <div class="list-group-item text-center text-muted py-4">
+            <i class="fas fa-search fa-2x mb-2"></i><br>
+            Nessuna transazione trovata
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{# Pagination controls #}
+<nav aria-label="Page navigation" class="mt-4" id="paginationControls">
+    <ul class="pagination justify-content-center">
+        {% if all_transactions.has_previous %}
+            <li class="page-item"><a class="page-link" href="#" data-page="{{ all_transactions.previous_page_number }}">Previous</a></li>
+        {% else %}
+            <li class="page-item disabled"><a class="page-link" href="#">Previous</a></li>
+        {% endif %}
+
+        {% for num in all_transactions.paginator.page_range %}
+            {% if all_transactions.number == num %}
+                <li class="page-item active"><a class="page-link" href="#" data-page="{{ num }}">{{ num }}</a></li>
+            {% else %}
+                <li class="page-item"><a class="page-link" href="#" data-page="{{ num }}">{{ num }}</a></li>
+            {% endif %}
+        {% endfor %}
+
+        {% if all_transactions.has_next %}
+            <li class="page-item"><a class="page-link" href="#" data-page="{{ all_transactions.next_page_number }}">Next</a></li>
+        {% else %}
+            <li class="page-item disabled"><a class="page-link" href="#">Next</a></li>
+        {% endif %}
+    </ul>
+</nav>

@@ -1,0 +1,297 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Crea Nuovo Utente{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-user-plus"></i> Crea Nuovo Utente
+                    <small class="text-muted">Aggiungi un nuovo utente al sistema</small>
+                </h2>
+                <div>
+                    <a href="{% url 'Cripto1:user_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Torna alla Lista
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10">
+            <form method="POST">
+                {% csrf_token %}
+                
+                <!-- Informazioni di base -->
+                <div class="card border-primary mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-user"></i> Informazioni di Base</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Username <span class="text-danger">*</span></label>
+                                    <input type="text" name="username" class="form-control" required
+                                           placeholder="Inserisci username">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Email <span class="text-danger">*</span></label>
+                                    <input type="email" name="email" class="form-control" required
+                                           placeholder="Inserisci email">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Nome</label>
+                                    <input type="text" name="first_name" class="form-control"
+                                           placeholder="Inserisci nome">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Cognome</label>
+                                    <input type="text" name="last_name" class="form-control"
+                                           placeholder="Inserisci cognome">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Password -->
+                <div class="card border-danger mb-4">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0"><i class="fas fa-lock"></i> Password</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Password <span class="text-danger">*</span></label>
+                                    <input type="password" name="password" id="password" class="form-control" required
+                                           placeholder="Inserisci password">
+                                    <div class="password-strength mt-2" id="password-strength"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Conferma Password <span class="text-danger">*</span></label>
+                                    <input type="password" name="confirm_password" id="confirm_password" class="form-control" required
+                                           placeholder="Conferma password">
+                                    <div class="password-strength mt-2" id="password-match"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Password chiave privata -->
+                <div class="card border-warning mb-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="fas fa-key"></i> Password Chiave Privata</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Password Chiave Privata <span class="text-danger">*</span></label>
+                                    <input type="password" name="private_key_password" id="private_key_password" class="form-control" required placeholder="Password per cifrare la chiave privata">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Conferma Password Chiave Privata <span class="text-danger">*</span></label>
+                                    <input type="password" name="confirm_private_key_password" id="confirm_private_key_password" class="form-control" required placeholder="Conferma password chiave privata">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="alert alert-info mt-2">
+                            Questa password verrà usata per cifrare la chiave privata dell'utente.<br>
+                            <strong>Conservala con cura!</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informazioni aziendali -->
+                <div class="card border-info mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-building"></i> Informazioni Aziendali</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Dipartimento</label>
+                                    <input type="text" name="department" class="form-control"
+                                           placeholder="Inserisci dipartimento">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Posizione</label>
+                                    <input type="text" name="position" class="form-control"
+                                           placeholder="Inserisci posizione">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Telefono</label>
+                                    <input type="tel" name="phone" class="form-control"
+                                           placeholder="Inserisci telefono">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ruolo di default -->
+                <div class="card border-success mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-user-tag"></i> Ruolo di Default</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Seleziona ruolo iniziale</label>
+                            <select name="default_role" class="form-select" id="default_role">
+                                <option value="">Nessun ruolo (da assegnare successivamente)</option>
+                                {% for role in roles %}
+                                <option value="{{ role.name }}" data-description="{{ role.description }}">
+                                    {{ role.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="alert alert-light mt-3" id="role-info" style="display: none;">
+                                <div class="role-description" id="role-description"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pulsanti -->
+                <div class="d-flex justify-content-center gap-3 mb-5">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fas fa-save"></i> Crea Utente
+                    </button>
+                    <a href="{% url 'Cripto1:user_list' %}" class="btn btn-secondary btn-lg">
+                        <i class="fas fa-times"></i> Annulla
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Controllo forza password
+    $('#password').on('input', function() {
+        var password = $(this).val();
+        var strength = 0;
+        var feedback = '';
+        
+        if (password.length >= 8) strength++;
+        if (password.match(/[a-z]/)) strength++;
+        if (password.match(/[A-Z]/)) strength++;
+        if (password.match(/[0-9]/)) strength++;
+        if (password.match(/[^a-zA-Z0-9]/)) strength++;
+        
+        if (strength < 3) {
+            feedback = '<span class="text-danger">Password debole</span>';
+        } else if (strength < 4) {
+            feedback = '<span class="text-warning">Password media</span>';
+        } else {
+            feedback = '<span class="text-success">Password forte</span>';
+        }
+        
+        $('#password-strength').html(feedback);
+    });
+    
+    // Controllo corrispondenza password
+    $('#confirm_password').on('input', function() {
+        var password = $('#password').val();
+        var confirm = $(this).val();
+        
+        if (confirm === '') {
+            $('#password-match').html('');
+        } else if (password === confirm) {
+            $('#password-match').html('<span class="text-success">Password corrispondono</span>');
+        } else {
+            $('#password-match').html('<span class="text-danger">Password non corrispondono</span>');
+        }
+    });
+    
+    // Mostra informazioni ruolo
+    $('#default_role').on('change', function() {
+        var selectedOption = $(this).find('option:selected');
+        var description = selectedOption.data('description');
+        
+        if (description) {
+            $('#role-description').text(description);
+            $('#role-info').show();
+        } else {
+            $('#role-info').hide();
+        }
+    });
+    
+    // Validazione password chiave privata
+    $('#confirm_private_key_password').on('input', function() {
+        var pk = $('#private_key_password').val();
+        var confirm = $(this).val();
+        if (confirm === '') {
+            // nessun feedback
+        } else if (pk === confirm) {
+            $(this).removeClass('is-invalid').addClass('is-valid');
+        } else {
+            $(this).removeClass('is-valid').addClass('is-invalid');
+        }
+    });
+    // Validazione form
+    $('form').on('submit', function(e) {
+        var password = $('#password').val();
+        var confirm = $('#confirm_password').val();
+        
+        if (password !== confirm) {
+            e.preventDefault();
+            alert('Le password non corrispondono!');
+            return false;
+        }
+        
+        if (password.length < 8) {
+            e.preventDefault();
+            alert('La password deve essere di almeno 8 caratteri!');
+            return false;
+        }
+        var pk = $('#private_key_password').val();
+        var pk_confirm = $('#confirm_private_key_password').val();
+        if (!pk || !pk_confirm) {
+            e.preventDefault();
+            alert('La password della chiave privata è obbligatoria!');
+            return false;
+        }
+        if (pk !== pk_confirm) {
+            e.preventDefault();
+            alert('Le password della chiave privata non corrispondono!');
+            return false;
+        }
+        if (pk.length < 8) {
+            e.preventDefault();
+            alert('La password della chiave privata deve essere di almeno 8 caratteri!');
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}

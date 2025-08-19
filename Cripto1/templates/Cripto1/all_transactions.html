@@ -1,0 +1,150 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block title %}Tutte le Transazioni - Blockchain App{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Tutte le Transazioni</h2>
+
+    {# Campo di ricerca migliorato #}
+    <div class="mb-3">
+        <div class="input-group">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+            <input type="text" id="transactionSearch" class="form-control" placeholder="Cerca per hash, note, tipo, utente...">
+            <button class="btn btn-outline-secondary" type="button" id="clearSearch">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <small class="form-text text-muted mt-1">
+            Cerca in tempo reale tra hash transazioni, note, tipi e nomi utente
+        </small>
+    </div>
+
+    {# Loading indicator #}
+    <div id="loadingIndicator" class="text-center py-3" style="display: none;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Caricamento...</span>
+        </div>
+        <p class="mt-2 text-muted">Ricerca in corso...</p>
+    </div>
+
+    {# Risultati ricerca #}
+    <div id="searchResults" class="mb-3" style="display: none;">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i>
+            <span id="resultsCount"></span>
+        </div>
+    </div>
+
+    {# Container per le transazioni #}
+    <div id="transactionsContainer">
+        {% include 'Cripto1/partials/transactions_list.html' %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+$(document).ready(function() {
+    let searchTimeout;
+    const searchInput = $('#transactionSearch');
+    const loadingIndicator = $('#loadingIndicator');
+    const searchResults = $('#searchResults');
+    const transactionsContainer = $('#transactionsContainer');
+    const clearButton = $('#clearSearch');
+    
+    // Funzione per eseguire la ricerca AJAX
+    function performSearch(query = '', page = 1) {
+        // Mostra loading
+        loadingIndicator.show();
+        
+        $.ajax({
+            url: '{% url "Cripto1:search_transactions_ajax" %}',
+            method: 'GET',
+            data: {
+                'q': query,
+                'page': page
+            },
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function(response) {
+                // Aggiorna il contenuto
+                transactionsContainer.html(response.html);
+                
+                // Mostra risultati ricerca
+                if (query.trim()) {
+                    $('#resultsCount').text(`Trovate ${response.total_results} transazioni per "${query}"`);
+                    searchResults.show();
+                } else {
+                    searchResults.hide();
+                }
+                
+                // Nascondi loading
+                loadingIndicator.hide();
+                
+                // Reinizializza event handlers per paginazione
+                initializePagination();
+            },
+            error: function(xhr, status, error) {
+                console.error('Errore nella ricerca:', error);
+                loadingIndicator.hide();
+                
+                // Mostra messaggio di errore
+                transactionsContainer.html(`
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Errore durante la ricerca. Riprova.
+                    </div>
+                `);
+            }
+        });
+    }
+    
+    // Funzione per inizializzare la paginazione AJAX
+    function initializePagination() {
+        $('#paginationControls .page-link').off('click').on('click', function(e) {
+            e.preventDefault();
+            const page = $(this).data('page');
+            if (page) {
+                const currentQuery = searchInput.val();
+                performSearch(currentQuery, page);
+            }
+        });
+    }
+    
+    // Event handler per la ricerca in tempo reale
+    searchInput.on('input', function() {
+        const query = $(this).val();
+        
+        // Cancella il timeout precedente
+        clearTimeout(searchTimeout);
+        
+        // Imposta un nuovo timeout per evitare troppe richieste
+        searchTimeout = setTimeout(function() {
+            performSearch(query);
+        }, 300); // Attesa di 300ms dopo l'ultimo carattere digitato
+    });
+    
+    // Event handler per il pulsante clear
+    clearButton.on('click', function() {
+        searchInput.val('');
+        searchResults.hide();
+        performSearch(''); // Ricarica tutte le transazioni
+    });
+    
+    // Inizializza la paginazione al caricamento della pagina
+    initializePagination();
+    
+    // Gestione della ricerca con Enter
+    searchInput.on('keypress', function(e) {
+        if (e.which === 13) { // Enter key
+            e.preventDefault();
+            clearTimeout(searchTimeout);
+            performSearch($(this).val());
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,215 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Crea Nuovo Ruolo{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-user-tag"></i> Crea Nuovo Ruolo
+                    <small class="text-muted">Definisci un nuovo ruolo con permessi personalizzati</small>
+                </h2>
+                <div>
+                    <a href="{% url 'Cripto1:role_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Torna alla Lista
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10">
+            <form method="POST">
+                {% csrf_token %}
+                
+                <!-- Informazioni di base -->
+                <div class="card border-primary mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-info-circle"></i> Informazioni Ruolo</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Nome Ruolo <span class="text-danger">*</span></label>
+                                    <input type="text" name="name" class="form-control" required
+                                           placeholder="Inserisci nome del ruolo">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Codice Ruolo</label>
+                                    <input type="text" name="code" class="form-control"
+                                           placeholder="Codice univoco (opzionale)">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Descrizione</label>
+                            <textarea name="description" class="form-control" rows="3"
+                                      placeholder="Descrivi il ruolo e le sue responsabilità"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Permessi -->
+                <div class="card border-success mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-key"></i> Permessi</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Seleziona tutto -->
+                        <div class="alert alert-light mb-4">
+                            <div class="form-check">
+                                <input type="checkbox" id="select-all" class="form-check-input">
+                                <label for="select-all" class="form-check-label fw-bold">Seleziona tutti i permessi</label>
+                                <span class="badge bg-primary ms-2" id="selected-count">0 selezionati</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Categorie permessi -->
+                        {% regroup permissions by category as permission_categories %}
+                        {% for category in permission_categories %}
+                        <div class="card mb-3">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-folder"></i> {{ category.grouper|default:"Generale" }}
+                                    <span class="badge bg-secondary">{{ category.list|length }} permessi</span>
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                {% for permission in category.list %}
+                                <div class="mb-2">
+                                    <div class="form-check">
+                                        <input type="checkbox" name="permissions" value="{{ permission.id }}" 
+                                               id="perm_{{ permission.id }}" class="form-check-input">
+                                        <label for="perm_{{ permission.id }}" class="form-check-label fw-bold">
+                                            {{ permission.name }}
+                                        </label>
+                                    </div>
+                                    {% if permission.description %}
+                                    <div class="text-muted small ms-4">{{ permission.description }}</div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i> Nessun permesso disponibile
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Impostazioni avanzate -->
+                <div class="card border-info mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-cogs"></i> Impostazioni Avanzate</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input type="checkbox" name="is_active" class="form-check-input" id="is_active" checked>
+                                    <label class="form-check-label" for="is_active">
+                                        Ruolo attivo
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input type="checkbox" name="is_system_role" class="form-check-input" id="is_system_role">
+                                    <label class="form-check-label" for="is_system_role">
+                                        Ruolo di sistema (non modificabile)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Note</label>
+                            <textarea name="notes" class="form-control" rows="3"
+                                      placeholder="Note aggiuntive sul ruolo"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pulsanti -->
+                <div class="d-flex justify-content-center gap-3 mb-5">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fas fa-save"></i> Crea Ruolo
+                    </button>
+                    <a href="{% url 'Cripto1:role_list' %}" class="btn btn-secondary btn-lg">
+                        <i class="fas fa-times"></i> Annulla
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Gestione "Seleziona tutto"
+    $('#select-all').on('change', function() {
+        var isChecked = $(this).is(':checked');
+        $('input[name="permissions"]').prop('checked', isChecked);
+        updateSelectedCount();
+    });
+    
+    // Gestione singoli permessi
+    $('input[name="permissions"]').on('change', function() {
+        updateSelectedCount();
+        updateSelectAllState();
+    });
+    
+    // Aggiorna contatore permessi selezionati
+    function updateSelectedCount() {
+        var selectedCount = $('input[name="permissions"]:checked').length;
+        $('#selected-count').text(selectedCount + ' selezionati');
+    }
+    
+    // Aggiorna stato checkbox "Seleziona tutto"
+    function updateSelectAllState() {
+        var totalPermissions = $('input[name="permissions"]').length;
+        var selectedPermissions = $('input[name="permissions"]:checked').length;
+        
+        if (selectedPermissions === 0) {
+            $('#select-all').prop('indeterminate', false).prop('checked', false);
+        } else if (selectedPermissions === totalPermissions) {
+            $('#select-all').prop('indeterminate', false).prop('checked', true);
+        } else {
+            $('#select-all').prop('indeterminate', true);
+        }
+    }
+    
+    // Inizializza contatore
+    updateSelectedCount();
+    
+    // Validazione form
+    $('form').on('submit', function(e) {
+        var roleName = $('input[name="name"]').val().trim();
+        var selectedPermissions = $('input[name="permissions"]:checked').length;
+        
+        if (roleName === '') {
+            e.preventDefault();
+            alert('Il nome del ruolo è obbligatorio!');
+            return false;
+        }
+        
+        if (selectedPermissions === 0) {
+            if (!confirm('Non hai selezionato nessun permesso. Vuoi continuare comunque?')) {
+                e.preventDefault();
+                return false;
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

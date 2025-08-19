@@ -1,0 +1,53 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block title %}Invia Documento - Blockchain App{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Invia Documento come Transazione</h3>
+                </div>
+                <div class="card-body">
+                    <p><strong>Documento:</strong> {{ document.title }}</p>
+                    {% if document.is_encrypted %}
+                    <p><span class="badge bg-success"><i class="fas fa-lock"></i> Documento Crittografato</span></p>
+                    {% endif %}
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="receiver_key" class="form-label">Chiave Destinatario</label>
+                            <input type="text" class="form-control" id="receiver_key" name="receiver_key" required>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_encrypted" name="is_encrypted">
+                            <label class="form-check-label" for="is_encrypted">Cripta la transazione</label>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="max_downloads" class="form-label">Numero massimo di download (opzionale)</label>
+                            <input type="number" class="form-control" id="max_downloads" name="max_downloads" min="1">
+                            <small class="form-text text-muted">Lascia vuoto per download illimitati.</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="private_key_password" class="form-label">Password Chiave Privata</label>
+                            <input type="password" class="form-control" id="private_key_password" name="private_key_password" required>
+                            <small class="form-text text-muted">Necessaria per firmare la transazione{% if document.is_encrypted %} e decifrare il documento{% endif %}.</small>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'Cripto1:personal_documents' %}" class="btn btn-secondary">Annulla</a>
+                            <button type="submit" class="btn btn-primary">Invia Documento</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

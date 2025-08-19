@@ -1,0 +1,281 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block title %}Audit Logs - Sistema di Tracciabilità{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-clipboard-list"></i> Audit Logs
+                    <small class="text-muted">Sistema di Tracciabilità Completo</small>
+                </h2>
+                <div>
+                    <a href="{% url 'Cripto1:audit_logs_analytics' %}" class="btn btn-info">
+                        <i class="fas fa-chart-line"></i> Analytics
+                    </a>
+                    <a href="{% url 'Cripto1:security_alerts' %}" class="btn btn-warning">
+                        <i class="fas fa-exclamation-triangle"></i> Security Alerts
+                    </a>
+                    <a href="{% url 'Cripto1:export_audit_logs' %}?{{ request.GET.urlencode }}" class="btn btn-success">
+                        <i class="fas fa-download"></i> Export CSV
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiche Rapide -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Totale Log</h5>
+                    <h3>{{ total_logs }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Successi</h5>
+                    <h3>{{ success_count }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Errori</h5>
+                    <h3>{{ error_count }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Tasso Successo</h5>
+                    <h3>{% if total_logs > 0 %}{{ success_count|floatformat:1 }}{% else %}0{% endif %}%</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtri Avanzati -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-filter"></i> Filtri Avanzati
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-2">
+                            <label for="action_type" class="form-label">Tipo Azione</label>
+                            <select name="action_type" id="action_type" class="form-select">
+                                <option value="">Tutti</option>
+                                {% for action_code, action_name in action_types %}
+                                    <option value="{{ action_code }}" {% if filters.action_type == action_code %}selected{% endif %}>
+                                        {{ action_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="severity" class="form-label">Severità</label>
+                            <select name="severity" id="severity" class="form-select">
+                                <option value="">Tutte</option>
+                                {% for severity_code, severity_name in severity_levels %}
+                                    <option value="{{ severity_code }}" {% if filters.severity == severity_code %}selected{% endif %}>
+                                        {{ severity_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="user_id" class="form-label">Utente</label>
+                            <select name="user_id" id="user_id" class="form-select">
+                                <option value="">Tutti</option>
+                                {% for user in users %}
+                                    <option value="{{ user.id }}" {% if filters.user_id == user.id|stringformat:"s" %}selected{% endif %}>
+                                        {{ user.username }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="date_from" class="form-label">Data Da</label>
+                            <input type="date" name="date_from" id="date_from" class="form-control" value="{{ filters.date_from }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="date_to" class="form-label">Data A</label>
+                            <input type="date" name="date_to" id="date_to" class="form-control" value="{{ filters.date_to }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="success_only" class="form-label">Stato</label>
+                            <select name="success_only" id="success_only" class="form-select">
+                                <option value="">Tutti</option>
+                                <option value="true" {% if filters.success_only == 'true' %}selected{% endif %}>Solo Successi</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i> Filtra
+                            </button>
+                            <a href="{% url 'Cripto1:audit_logs' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Reset
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista Audit Log -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list"></i> Log Dettagliati
+                        <span class="badge bg-secondary">{{ logs.paginator.count }} risultati</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if logs %}
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Timestamp</th>
+                                        <th>Utente</th>
+                                        <th>Azione</th>
+                                        <th>Severità</th>
+                                        <th>IP Address</th>
+                                        <th>Stato</th>
+                                        <th>Descrizione</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in logs %}
+                                        <tr class="{% if not log.success %}table-danger{% elif log.severity == 'CRITICAL' %}table-warning{% endif %}">
+                                            <td>{{ log.id }}</td>
+                                            <td>
+                                                <small>{{ log.timestamp|date:"d/m/Y H:i:s" }}</small>
+                                            </td>
+                                            <td>
+                                                {% if log.user %}
+                                                    <span class="badge bg-primary">{{ log.user.username }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Anonymous</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">{{ log.get_action_type_display }}</span>
+                                            </td>
+                                            <td>
+                                                {% if log.severity == 'CRITICAL' %}
+                                                    <span class="badge bg-danger">{{ log.get_severity_display }}</span>
+                                                {% elif log.severity == 'HIGH' %}
+                                                    <span class="badge bg-warning">{{ log.get_severity_display }}</span>
+                                                {% elif log.severity == 'MEDIUM' %}
+                                                    <span class="badge bg-info">{{ log.get_severity_display }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ log.get_severity_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <code>{{ log.ip_address|default:"N/A" }}</code>
+                                            </td>
+                                            <td>
+                                                {% if log.success %}
+                                                    <span class="badge bg-success">Successo</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">Errore</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <small>{{ log.description|truncatechars:50 }}</small>
+                                            </td>
+                                            <td>
+                                                <a href="{% url 'Cripto1:audit_log_detail' log.id %}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Paginazione -->
+                        {% if logs.has_other_pages %}
+                            <nav aria-label="Paginazione audit log">
+                                <ul class="pagination justify-content-center">
+                                    {% if logs.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1&{{ request.GET.urlencode }}">Prima</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ logs.previous_page_number }}&{{ request.GET.urlencode }}">Precedente</a>
+                                        </li>
+                                    {% endif %}
+
+                                    {% for num in logs.paginator.page_range %}
+                                        {% if logs.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                        {% elif num > logs.number|add:'-3' and num < logs.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page={{ num }}&{{ request.GET.urlencode }}">{{ num }}</a>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+
+                                    {% if logs.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ logs.next_page_number }}&{{ request.GET.urlencode }}">Successivo</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ logs.paginator.num_pages }}&{{ request.GET.urlencode }}">Ultima</a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                            <h4 class="text-muted">Nessun log trovato</h4>
+                            <p class="text-muted">Prova a modificare i filtri di ricerca</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-submit form quando cambiano i filtri
+    const filterForm = document.querySelector('form[method="GET"]');
+    const filterInputs = filterForm.querySelectorAll('select, input[type="date"]');
+    
+    filterInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            filterForm.submit();
+        });
+    });
+});
+</script>
+{% endblock %} 

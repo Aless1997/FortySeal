@@ -1,0 +1,148 @@
+{% extends 'Cripto1/base.html' %}
+
+{% load static %}
+
+{% block title %}Dettagli Transazione{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Transaction Details</h3>
+                    <span class="badge {% if is_valid %}bg-success{% else %}bg-danger{% endif %}">
+                        {% if is_valid %}Valid{% else %}Invalid{% endif %}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h5>Transaction Information</h5>
+                        <p><strong>Type:</strong> {{ transaction.type|title }}</p>
+                        <p><strong>From:</strong> {{ transaction.sender.username }}</p>
+                        <p><strong>To:</strong> {{ transaction.receiver.username }}</p>
+                        <p><strong>Date:</strong> {{ transaction.timestamp_datetime }}</p>
+                        <p><strong>Transaction Hash:</strong> <small class="text-muted">{{ transaction.transaction_hash }}</small></p>
+                        <p><strong>Status:</strong> 
+                            {% if transaction.block %}
+                                <span class="badge bg-success">Confirmed</span>
+                            {% else %}
+                                <span class="badge bg-warning">Pending</span>
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    {% if transaction.type == 'text' %}
+                        <div class="mb-3">
+                            <h5>Message Content</h5>
+                            <div class="card">
+                                <div class="card-body">
+                                    {% if transaction.is_encrypted %}
+                                        <p class="text-muted">This message is encrypted.</p>
+                                        {% if is_sender or is_receiver %}
+                                            <button class="btn btn-primary" onclick="decryptMessage()">Decrypt Message</button>
+                                        {% endif %}
+                                    {% else %}
+                                        <p>{{ transaction.content }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    <!-- Modifica la sezione dei pulsanti per i file -->
+                    {% if transaction.type == 'file' and transaction.file %}
+                        <div class="mb-3">
+                            <h5>File Information</h5>
+                            <div class="card">
+                                <div class="card-body">
+                                    <p><strong>File Name:</strong> {{ transaction.file.name|slice:"19:" }}</p>
+                                    {% if is_sender or is_receiver %}
+                                        <div class="btn-group">
+                                            <a href="{% url 'Cripto1:download_file' transaction.id %}" class="btn btn-primary">
+                                                <i class="fas fa-download"></i> Download File
+                                            </a>
+                                            <a href="{% url 'Cripto1:view_transaction_file' transaction.id %}" class="btn btn-info">
+                                                <i class="fas fa-eye"></i> Visualizza File
+                                            </a>
+                                            {% if is_receiver and transaction.is_shareable %}
+                                                <a href="{% url 'Cripto1:add_transaction_file_to_personal_documents' transaction.id %}" class="btn btn-success">
+                                                    <i class="fas fa-plus"></i> Aggiungi ai miei documenti
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if transaction.block %}
+                        <div class="mb-3">
+                            <h5>Block Information</h5>
+                            <p><strong>Block Index:</strong> {{ transaction.block.index }}</p>
+                            <p><strong>Block Hash:</strong> <small class="text-muted">{{ transaction.block.hash }}</small></p>
+                            <p><strong>Previous Hash:</strong> <small class="text-muted">{{ transaction.block.previous_hash }}</small></p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal per la password della chiave privata -->
+<div class="modal fade" id="privateKeyModal" tabindex="-1" aria-labelledby="privateKeyModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="privateKeyModalLabel">Inserisci la password della chiave privata</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="password" id="privateKeyPassword" class="form-control" placeholder="Password chiave privata">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="submitPrivateKeyPassword">Decripta</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if transaction.is_encrypted %}
+<script>
+function decryptMessage() {
+    var modal = new bootstrap.Modal(document.getElementById('privateKeyModal'));
+    modal.show();
+
+    document.getElementById('submitPrivateKeyPassword').onclick = function() {
+        var password = document.getElementById('privateKeyPassword').value;
+        modal.hide();
+
+        fetch('{% url "Cripto1:decrypt_transaction" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                transaction_id: '{{ transaction.id }}',
+                password: password
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.querySelector('.card-body p').textContent = data.decrypted_content;
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while decrypting the message.');
+        });
+    };
+}
+</script>
+{% endif %}
+{% endblock %}

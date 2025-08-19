@@ -1,0 +1,402 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Lista Utenti{% endblock %}
+
+{% block content %}
+<style>
+    /* Stili per le card utente moderne */
+    .user-card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 10px 20px rgba(99, 102, 241, 0.1);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+        height: 100%;
+        min-height: 220px; /* Altezza minima aumentata */
+    }
+    
+    .user-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px rgba(99, 102, 241, 0.2);
+    }
+    
+    .user-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(79, 70, 229, 0.05) 100%);
+        z-index: 0;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .user-card:hover::before {
+        opacity: 1;
+    }
+    
+    .user-avatar {
+        width: 70px; /* Dimensione aumentata */
+        height: 70px; /* Dimensione aumentata */
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem; /* Dimensione font aumentata */
+        font-weight: 600;
+        margin-right: 1rem;
+        background-color: var(--primary-color);
+        color: white;
+        transition: transform 0.3s ease;
+    }
+    
+    .user-card:hover .user-avatar {
+        transform: scale(1.1);
+    }
+    
+    .user-info {
+        position: relative;
+        z-index: 1;
+        flex: 1;
+    }
+    
+    .user-name {
+        font-size: 1.4rem; /* Dimensione font aumentata */
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+        word-break: break-word; /* Evita che il testo esca dalla card */
+    }
+    
+    .user-email {
+        color: var(--text-secondary);
+        font-size: 1rem; /* Dimensione font aumentata */
+        margin-bottom: 0.5rem;
+        word-break: break-word; /* Evita che l'email esca dalla card */
+    }
+    
+    .user-badges {
+        margin-top: 0.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .user-badges .badge {
+        font-size: 0.85rem; /* Dimensione badge aumentata */
+        padding: 0.4em 0.6em;
+    }
+    
+    .user-actions {
+        margin-top: 1.5rem; /* Margine aumentato */
+        display: flex;
+        gap: 0.8rem; /* Spazio tra i pulsanti aumentato */
+        position: relative;
+        z-index: 2; /* Z-index per essere sopra altri elementi */
+    }
+    
+    .user-actions .btn {
+        border-radius: 8px;
+        padding: 0.5rem 1rem; /* Dimensione pulsanti aumentata */
+        transition: all 0.2s ease;
+        font-size: 1rem; /* Dimensione icone aumentata */
+    }
+    
+    .user-actions .btn:hover {
+        transform: translateY(-2px);
+    }
+    
+    /* Rimosso il tooltip per informazioni aggiuntive */
+    
+    /* Rimossa l'animazione per le emoji fluttuanti */
+    
+    /* Stili per i filtri */
+    .filter-card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        margin-bottom: 2rem;
+        overflow: hidden;
+    }
+    
+    .filter-header {
+        background: linear-gradient(135deg, var(--info-color) 0%, #36b9cc 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        font-weight: 600;
+    }
+    
+    .filter-body {
+        padding: 1.5rem;
+    }
+    
+    .filter-btn {
+        border-radius: 10px;
+        font-weight: 600;
+        padding: 0.6rem 1.2rem;
+        transition: all 0.3s ease;
+    }
+    
+    .filter-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Stili per la paginazione */
+    .modern-pagination .page-link {
+        border-radius: 8px;
+        margin: 0 3px;
+        border: none;
+        color: var(--primary-color);
+        transition: all 0.2s ease;
+    }
+    
+    .modern-pagination .page-item.active .page-link {
+        background-color: var(--primary-color);
+        color: white;
+    }
+    
+    .modern-pagination .page-link:hover {
+        background-color: rgba(99, 102, 241, 0.1);
+        transform: translateY(-2px);
+    }
+</style>
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-users"></i> Lista Utenti
+                    <small class="text-muted">Gestione Completa</small>
+                </h2>
+                <div>
+                    <a href="{% url 'Cripto1:create_user' %}" class="btn btn-success">
+                        <i class="fas fa-user-plus"></i> Nuovo Utente
+                    </a>
+                    <a href="{% url 'Cripto1:user_management_dashboard' %}" class="btn btn-primary">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtri Modernizzati -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card filter-card">
+                <div class="filter-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-filter"></i> Filtri
+                    </h5>
+                </div>
+                <div class="filter-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" value="{{ request.GET.username|default:'' }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" value="{{ request.GET.email|default:'' }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="status" class="form-label">Stato</label>
+                            <select class="form-select" id="status" name="status">
+                                <option value="">Tutti</option>
+                                <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Attivi</option>
+                                <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inattivi</option>
+                                <option value="locked" {% if request.GET.status == 'locked' %}selected{% endif %}>Bloccati</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="role" class="form-label">Ruolo</label>
+                            <select class="form-select" id="role" name="role">
+                                <option value="">Tutti</option>
+                                {% for role in all_roles %}
+                                    <option value="{{ role.id }}" {% if request.GET.role == role.id|stringformat:"i" %}selected{% endif %}>{{ role.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <div class="d-grid gap-2 w-100">
+                                <button type="submit" class="btn btn-primary filter-btn">
+                                    <i class="fas fa-search"></i> Filtra
+                                </button>
+                                <a href="{% url 'Cripto1:user_list' %}" class="btn btn-outline-secondary filter-btn">
+                                    <i class="fas fa-undo"></i> Reset
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista Utenti con Card Moderne -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card filter-card">
+                <div class="filter-header bg-primary">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list"></i> Utenti
+                        <span class="badge bg-light text-primary">{{ page_obj.paginator.count }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if page_obj %}
+                        <div class="row">
+                            {% for user_profile in page_obj %}
+                                <!-- Modifica alla struttura della card nel loop for -->
+                                <div class="col-md-6 col-lg-4 col-xl-3 mb-4"> <!-- Aggiunto margine sotto -->
+                                    <div class="card user-card">
+                                        <div class="card-body p-4"> <!-- Padding aumentato -->
+                                            <div class="d-flex align-items-center mb-3">
+                                                <div class="user-avatar">
+                                                    {{ user_profile.user.username|first|upper }}
+                                                </div>
+                                                <div class="user-info">
+                                                    <div class="user-name">{{ user_profile.user.username }}</div>
+                                                    <div class="user-email">{{ user_profile.user.email|default:"Nessuna email" }}</div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="user-badges">
+                                                {% if user_profile.is_active %}
+                                                    <span class="badge bg-success">Attivo</span>
+                                                {% else %}
+                                                    {% if user_profile.login_attempts >= 3 %}
+                                                        <span class="badge bg-danger">Bloccato</span>
+                                                    {% else %}
+                                                        <span class="badge bg-warning text-dark">Inattivo</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                                
+                                                {% for user_role in user_profile.user.userrole_set.all %}
+                                                    <span class="badge bg-info">{{ user_role.role.name }}</span>
+                                                {% empty %}
+                                                    <span class="badge bg-secondary">Nessun ruolo</span>
+                                                {% endfor %}
+                                            </div>
+                                            
+                                            <div class="user-actions">
+                                                <a href="{% url 'Cripto1:user_detail' user_profile.user.id %}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="{% url 'Cripto1:edit_user' user_profile.user.id %}" class="btn btn-sm btn-outline-success">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                {% if user_profile.is_active %}
+                                                    <a href="{% url 'Cripto1:toggle_user_status' user_profile.user.id %}" class="btn btn-sm btn-outline-warning">
+                                                        <i class="fas fa-user-slash"></i>
+                                                    </a>
+                                                {% else %}
+                                                    <a href="{% url 'Cripto1:toggle_user_status' user_profile.user.id %}" class="btn btn-sm btn-outline-success">
+                                                        <i class="fas fa-user-check"></i>
+                                                    </a>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <!-- Rimosso il tooltip con statistiche aggiuntive -->
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nessun utente trovato</h5>
+                            <p>Prova a modificare i filtri o <a href="{% url 'Cripto1:create_user' %}">crea un nuovo utente</a>.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paginazione Modernizzata -->
+    {% if is_paginated %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <nav aria-label="Navigazione pagine">
+                <ul class="pagination justify-content-center modern-pagination">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                <i class="fas fa-angle-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                <i class="fas fa-angle-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    {{ num }}
+                                </a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                <i class="fas fa-angle-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                <i class="fas fa-angle-double-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Rimuovere completamente questo script -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Animazione per le emoji fluttuanti
+        const cards = document.querySelectorAll('.user-card');
+        
+        cards.forEach(card => {
+            card.addEventListener('mousemove', function(e) {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const emojis = card.querySelectorAll('.floating-emoji');
+                emojis.forEach((emoji, index) => {
+                    // Calcola una posizione leggermente diversa per ogni emoji
+                    const offsetX = (x / rect.width - 0.5) * 20;
+                    const offsetY = (y / rect.height - 0.5) * 20;
+                    
+                    // Applica un offset diverso per ogni emoji
+                    emoji.style.setProperty('--x', `${-20 + offsetX + (index * 10)}px`);
+                    emoji.style.setProperty('--y', `${-40 - offsetY - (index * 5)}px`);
+                    emoji.style.setProperty('--r', `${(index * 10) - 10 + (offsetX / 2)}deg`);
+                });
+            });
+        });
+    });
+</script>
+{% endblock %}

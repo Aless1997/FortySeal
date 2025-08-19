@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benvenuto in FortySeal</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        .welcome-title {
+            color: #28a745;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .credentials {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .security-info {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #666;
+            font-size: 14px;
+        }
+        .highlight {
+            background: #fff3cd;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🔐 FortySeal</div>
+            <p>Piattaforma Sicura per Transazioni Crittografiche</p>
+        </div>
+        
+        <h2 class="welcome-title">🎉 Benvenuto {{ username }}!</h2>
+        
+        <p>Congratulazioni per esserti unito a <strong>FortySeal</strong>! Hai appena fatto il primo passo verso un futuro di transazioni sicure e crittografate.</p>
+        
+        <div class="info-box">
+            <h3>🚀 Cos'è FortySeal?</h3>
+            <p><strong>FortySeal</strong> è una piattaforma avanzata che ti permette di:</p>
+            <ul>
+                <li>📤 <strong>Inviare transazioni crittografate</strong> con sicurezza militare</li>
+                <li>🔒 <strong>Proteggere i tuoi documenti</strong> con crittografia end-to-end</li>
+                <li>🌐 <strong>Gestire la tua identità digitale</strong> attraverso chiavi crittografiche</li>
+                <li>📊 <strong>Monitorare tutte le tue attività</strong> in tempo reale</li>
+                <li>🛡️ <strong>Mantenere la privacy assoluta</strong> dei tuoi dati</li>
+            </ul>
+        </div>
+        
+        <div class="credentials">
+            <h3>📋 Riepilogo del tuo Profilo</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold;">👤 Username:</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ username }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold;">📧 Email:</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ email }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold;">🔑 Chiave Pubblica:</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd; font-family: monospace; font-size: 12px;">{{ user_key }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold;">🌍 IP di Registrazione:</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;"><span class="highlight">{{ registration_ip }}</span></td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold;">📅 Data Registrazione:</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ registration_date }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; font-weight: bold;">🎭 Ruolo Assegnato:</td>
+                    <td style="padding: 8px;"><span style="background: #28a745; color: white; padding: 4px 8px; border-radius: 4px;">{{ user_role }}</span></td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="security-info">
+            <h3>🔐 Informazioni di Sicurezza</h3>
+            <p><strong>⚠️ IMPORTANTE:</strong> La tua chiave privata è protetta dalla password che hai scelto durante la registrazione. <strong>Non condividere mai questa password</strong> con nessuno!</p>
+            <p>🛡️ Il tuo account è protetto da autenticazione a due fattori (2FA). Assicurati di completare la configurazione per massima sicurezza.</p>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <p>🚀 <strong>Inizia subito ad esplorare FortySeal!</strong></p>
+            <a href="https://block-lxlw.onrender.com" style="background: #007bff; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Accedi alla Dashboard</a>
+        </div>
+        
+        <div class="footer">
+            <p>Grazie per aver scelto FortySeal per le tue esigenze di sicurezza digitale!</p>
+            <p>Se hai domande, non esitare a contattare il nostro team di supporto.</p>
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+            <p style="font-size: 12px; color: #999;">© 2024 FortySeal - Piattaforma Sicura per Transazioni Crittografiche<br>
+            Questa email è stata generata automaticamente. Non rispondere a questo messaggio.</p>
+        </div>
+    </div>
+</body>
+</html>

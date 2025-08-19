@@ -1,0 +1,113 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Gestione Ruoli{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-user-tag"></i> Gestione Ruoli
+                    <small class="text-muted">Amministrazione Ruoli e Permessi</small>
+                </h2>
+                <div>
+                    <a href="{% url 'Cripto1:create_role' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Nuovo Ruolo
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        {% for role in roles %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card mb-4 border-{% if role.is_active %}primary{% else %}danger{% endif %}">
+                <div class="card-header bg-{% if role.is_active %}primary{% else %}danger{% endif %} text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        {{ role.name }}
+                        {% if role.is_system_role %}
+                            <span class="badge bg-purple ms-2">Sistema</span>
+                        {% endif %}
+                    </h5>
+                    <span class="badge bg-light text-{% if role.is_active %}primary{% else %}danger{% endif %}">
+                        {% if role.is_active %}Attivo{% else %}Inattivo{% endif %}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">{{ role.description|default:"Nessuna descrizione" }}</p>
+                    
+                    <div class="row text-center mb-3">
+                        <div class="col-4">
+                            <h5 class="mb-0 text-primary">{{ role.permissions.count }}</h5>
+                            <small class="text-muted">Permessi</small>
+                        </div>
+                        <div class="col-4">
+                            <h5 class="mb-0 text-primary">{{ role.user_assignments.count }}</h5>
+                            <small class="text-muted">Utenti</small>
+                        </div>
+                        <div class="col-4">
+                            <h5 class="mb-0 text-primary">{{ role.user_assignments.filter.is_active.count }}</h5>
+                            <small class="text-muted">Attivi</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Anteprima permessi -->
+                    <div class="mb-3">
+                        <strong>Permessi principali:</strong><br>
+                        {% for permission in role.permissions.all|slice:":5" %}
+                            <span class="badge bg-light text-dark me-1 mb-1">{{ permission.name }}</span>
+                        {% empty %}
+                            <span class="text-muted">Nessun permesso</span>
+                        {% endfor %}
+                        {% if role.permissions.count > 5 %}
+                            <span class="text-muted">... e altri {{ role.permissions.count|add:"-5" }}</span>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Azioni -->
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'Cripto1:role_detail' role.id %}" class="btn btn-outline-primary">
+                            <i class="fas fa-eye"></i> Dettagli
+                        </a>
+                        {% if not role.is_system_role %}
+                            <button class="btn btn-outline-{% if role.is_active %}warning{% else %}success{% endif %}" onclick="toggleRoleStatus({{ role.id }}, '{{ role.name }}')">
+                                <i class="fas fa-toggle-on"></i> 
+                                {% if role.is_active %}Disattiva{% else %}Attiva{% endif %}
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-user-tag fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">Nessun ruolo trovato</h4>
+                    <p class="text-muted">Non ci sono ancora ruoli nel sistema</p>
+                    <a href="{% url 'Cripto1:create_role' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Crea Primo Ruolo
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleRoleStatus(roleId, roleName) {
+    if (confirm('Sei sicuro di voler cambiare lo stato del ruolo "' + roleName + '"?')) {
+        // Qui potresti implementare una chiamata AJAX per cambiare lo stato
+        // Per ora ricarica la pagina
+        location.reload();
+    }
+}
+</script>
+{% endblock %}

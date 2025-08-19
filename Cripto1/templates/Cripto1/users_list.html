@@ -1,0 +1,133 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Header Section -->
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <h2 class="mb-0 fw-bold">
+                    <i class="fas fa-users me-2"></i>Utenti Registrati
+                </h2>
+                <div class="search-box position-relative">
+                    <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                    <input type="text" id="searchUsers" class="form-control ps-5 rounded-pill" placeholder="Cerca utenti..." style="min-width: 300px;">
+                </div>
+            </div>
+
+            <!-- Users Grid -->
+            <div class="row g-4" id="usersGrid">
+                {% for user in users %}
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow-sm hover-card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-3">
+                                {% if user.userprofile and user.userprofile.profile_picture %}
+                                    <img src="/media/{{ user.userprofile.profile_picture }}" class="rounded-circle me-3" width="50" height="50" style="object-fit: cover; border: 2px solid #007bff;" alt="{{ user.username }}'s profile picture">
+                                {% else %}
+                                    <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px; border: 2px solid #e9ecef;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-person-circle text-primary" viewBox="0 0 16 16">
+                                            <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0"/>
+                                            <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1"/>
+                                        </svg>
+                                    </div>
+                                {% endif %}
+                                <div>
+                                    <h5 class="mb-1">{{ user.username }}</h5>
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock me-1"></i>
+                                        Registrato il {{ user.date_joined|date:"d/m/Y" }}
+                                    </small>
+                                    {% if user.email %}
+                                        <small class="text-muted d-block">
+                                            <i class="fas fa-envelope me-1"></i>{{ user.email }}
+                                        </small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="public-key-container bg-light p-3 rounded-3 position-relative">
+                                <small class="text-muted d-block mb-2">Chiave Pubblica:</small>
+                                <code class="user-key text-break fs-6">{{ user.userprofile.user_key }}</code>
+                                <button class="btn btn-sm btn-primary position-absolute top-0 end-0 m-3 copy-btn" 
+                                        data-key="{{ user.userprofile.user_key }}">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.hover-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+
+.public-key-container {
+    background-color: #f8f9fa;
+    border: 1px solid rgba(0,0,0,0.1);
+}
+
+.copy-btn {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.hover-card:hover .copy-btn {
+    opacity: 1;
+}
+</style>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Search functionality
+    const searchInput = document.getElementById('searchUsers');
+    const usersGrid = document.getElementById('usersGrid');
+    const userCards = usersGrid.getElementsByClassName('col-md-6');
+
+    searchInput.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        
+        Array.from(userCards).forEach(card => {
+            const username = card.querySelector('h5').textContent.toLowerCase();
+            const publicKey = card.querySelector('.user-key').textContent.toLowerCase();
+            
+            if (username.includes(searchTerm) || publicKey.includes(searchTerm)) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    });
+
+    // Copy functionality
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const key = this.dataset.key;
+            navigator.clipboard.writeText(key).then(() => {
+                // Change button icon temporarily
+                const icon = this.querySelector('i');
+                icon.classList.remove('fa-copy');
+                icon.classList.add('fa-check');
+                setTimeout(() => {
+                    icon.classList.remove('fa-check');
+                    icon.classList.add('fa-copy');
+                }, 2000);
+            });
+        });
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

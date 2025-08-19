@@ -1,0 +1,24 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block title %}Benvenuto - Blockchain App{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card text-center">
+            <div class="card-header bg-primary text-white">
+                <h2>Benvenuto su Blockchain App</h2>
+            </div>
+            <div class="card-body">
+                <p class="lead">Questa è una piattaforma demo per la gestione di una blockchain con crittografia avanzata e smart contract.</p>
+                <hr>
+                <a href="{% url 'Cripto1:login' %}" class="btn btn-primary btn-lg m-2">Accedi</a>
+                <a href="{% url 'Cripto1:register' %}" class="btn btn-outline-primary btn-lg m-2">Registrati</a>
+            </div>
+            <div class="card-footer text-muted">
+                Progetto didattico - {{ request.get_host }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

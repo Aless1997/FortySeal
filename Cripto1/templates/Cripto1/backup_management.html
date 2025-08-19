@@ -1,0 +1,212 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block title %}Gestione Backup - Blockchain App{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-3"><!-- Ridotto il margine da mb-4 a mb-3 -->
+        <div class="col-md-12">
+            <h2>Gestione Backup della Blockchain</h2>
+            <p class="text-muted mb-0">Crea, ripristina e gestisci i backup della blockchain</p><!-- Rimosso margine inferiore -->
+        </div>
+    </div>
+    
+    <!-- Prima riga con i form di creazione e importazione -->
+    <div class="row mb-3">
+        <div class="col-md-6 mb-3"><!-- Modificato da col-md-4 a col-md-6 -->
+            <div class="card">
+                <div class="card-header bg-primary text-white py-2"><!-- Ridotto padding verticale -->
+                    <h5 class="mb-0">Crea Nuovo Backup</h5>
+                </div>
+                <div class="card-body py-2"><!-- Ridotto padding verticale -->
+                    <form method="post" action="{% url 'Cripto1:backup_management' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="create_backup">
+                        
+                        <div class="form-check mb-2"><!-- Ridotto margine -->
+                            <input class="form-check-input" type="checkbox" id="include_files" name="include_files">
+                            <label class="form-check-label" for="include_files">
+                                Includi file allegati
+                            </label>
+                            <small class="form-text text-muted d-block">Aumenta dimensione backup</small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-sm w-100"><!-- Ridotto dimensione pulsante -->
+                            <i class="fas fa-save me-1"></i> Crea Backup
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Nuovo form per importare un backup -->
+        <div class="col-md-6 mb-3"><!-- Modificato da col-md-4 a col-md-6 -->
+            <div class="card">
+                <div class="card-header bg-success text-white py-2">
+                    <h5 class="mb-0">Importa Backup</h5>
+                </div>
+                <div class="card-body py-2">
+                    <form method="post" action="{% url 'Cripto1:upload_backup' %}" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="mb-2">
+                            <label for="backup_file" class="form-label small">Seleziona file ZIP</label>
+                            <input class="form-control form-control-sm" type="file" id="backup_file" name="backup_file" accept=".zip" required>
+                            <small class="form-text text-muted d-block">Solo file .zip</small>
+                        </div>
+                        <button type="submit" class="btn btn-success btn-sm w-100">
+                            <i class="fas fa-upload me-1"></i> Importa Backup
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Seconda riga con la tabella dei backup disponibili -->
+    <div class="row mb-3">
+        <div class="col-md-12"><!-- Modificato da col-md-4 a col-md-12 per occupare tutta la larghezza -->
+            <div class="card">
+                <div class="card-header bg-info text-white py-2"><!-- Ridotto padding verticale -->
+                    <h5 class="mb-0">Backup Disponibili</h5>
+                </div>
+                <div class="card-body p-0"><!-- Rimosso padding per massimizzare spazio -->
+                    {% if backups %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped mb-0"><!-- Tabella più compatta e senza margine inferiore -->
+                            <thead>
+                                <tr>
+                                    <th>Nome File</th>
+                                    <th>Data</th><!-- Abbreviato -->
+                                    <th>Dim.</th><!-- Abbreviato -->
+                                    <th>Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for backup in backups %}
+                                <tr id="backup-row-{{ forloop.counter }}">
+                                    <td>{{ backup.filename }}</td>
+                                    <td>{{ backup.created|date:"d/m/Y H:i" }}</td>
+                                    <td>{{ backup.size|filesizeformat }}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{{ backup.download_url }}" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-download"></i>
+                                            </a>
+                                            
+                                            <button type="button" class="btn btn-sm btn-warning" onclick="toggleConfirm('restore', {{ forloop.counter }})">
+                                                <i class="fas fa-undo"></i>
+                                            </button>
+                                            
+                                            <button type="button" class="btn btn-sm btn-danger" onclick="toggleConfirm('delete', {{ forloop.counter }})">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Form per il ripristino -->
+                                        <form id="restoreForm{{ forloop.counter }}" method="post" action="{% url 'Cripto1:backup_management' %}" style="display: none;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="restore_backup">
+                                            <input type="hidden" name="backup_file" value="{{ backup.filename }}">
+                                        </form>
+                                        
+                                        <!-- Form per l'eliminazione -->
+                                        <form id="deleteForm{{ forloop.counter }}" method="post" action="{% url 'Cripto1:backup_management' %}" style="display: none;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="delete_backup">
+                                            <input type="hidden" name="backup_file" value="{{ backup.filename }}">
+                                        </form>
+                                    </td>
+                                </tr>
+                                <!-- Riga per conferma (inizialmente nascosta) -->
+                                <tr id="restore-confirm-{{ forloop.counter }}" class="confirm-row bg-warning-subtle" style="display: none;">
+                                    <td colspan="4" class="p-2"><!-- Ridotto padding -->
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <p class="mb-1 text-danger"><small><strong>ATTENZIONE:</strong> Il ripristino sovrascriverà tutti i dati attuali.</small></p>
+                                                <p class="mb-1"><small>Ripristinare <strong>{{ backup.filename }}</strong>?</small></p>
+                                            </div>
+                                            <div>
+                                                <button type="button" class="btn btn-sm btn-secondary me-1" onclick="toggleConfirm('restore', {{ forloop.counter }})">Annulla</button>
+                                                <button type="button" class="btn btn-sm btn-warning" onclick="document.getElementById('restoreForm{{ forloop.counter }}').submit();">Ripristina</button>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <!-- Riga per eliminazione (inizialmente nascosta) -->
+                                <tr id="delete-confirm-{{ forloop.counter }}" class="confirm-row bg-danger-subtle" style="display: none;">
+                                    <td colspan="4" class="p-2"><!-- Ridotto padding -->
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <p class="mb-0"><small>Eliminare <strong>{{ backup.filename }}</strong>?</small></p>
+                                            <div>
+                                                <button type="button" class="btn btn-sm btn-secondary me-1" onclick="toggleConfirm('delete', {{ forloop.counter }})">Annulla</button>
+                                                <button type="button" class="btn btn-sm btn-danger" onclick="document.getElementById('deleteForm{{ forloop.counter }}').submit();">Elimina</button>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info m-2"><!-- Ridotto margine -->
+                        <i class="fas fa-info-circle me-1"></i> Nessun backup disponibile. Crea il tuo primo backup!
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white py-2"><!-- Ridotto padding verticale -->
+                    <h5 class="mb-0">Informazioni sul Backup</h5>
+                </div>
+                <div class="card-body py-2"><!-- Ridotto padding verticale -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="alert alert-info py-2 mb-2"><!-- Ridotto padding e margine -->
+                                <h6 class="mb-1"><i class="fas fa-info-circle me-1"></i> Contenuto del backup:</h6>
+                                <ul class="mb-0 ps-3 small"><!-- Lista più compatta -->
+                                    <li>Blocchi, transazioni, stato blockchain</li>
+                                    <li>Smart contract e saldi utenti</li>
+                                    <li>Opzionalmente, file allegati</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="alert alert-warning py-2 mb-0"><!-- Ridotto padding e margine -->
+                                <h6 class="mb-1"><i class="fas fa-exclamation-triangle me-1"></i> Raccomandazioni:</h6>
+                                <ul class="mb-0 ps-3 small"><!-- Lista più compatta -->
+                                    <li>Esegui backup regolari</li>
+                                    <li>Conservali in luogo sicuro</li>
+                                    <li>Testa il processo di ripristino</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleConfirm(action, id) {
+        // Nascondi tutte le righe di conferma
+        document.querySelectorAll('.confirm-row').forEach(el => {
+            el.style.display = 'none';
+        });
+        
+        // Mostra/nascondi la riga di conferma specifica
+        const confirmRow = document.getElementById(action + '-confirm-' + id);
+        if (confirmRow.style.display === 'none') {
+            confirmRow.style.display = 'table-row';
+        } else {
+            confirmRow.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}

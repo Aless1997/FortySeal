@@ -1,0 +1,422 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block title %}Admin Dashboard - Blockchain App{% endblock %}
+
+{% block content %}
+<style>
+    /* Force light theme styles to override base template */
+    body {
+        background-color: #ffffff !important; /* White background */
+        color: #212529 !important; /* Dark text for contrast */
+    }
+    h1, h2, h3, h4, h5, h6 {
+        color: #212529 !important; /* Ensure headings are dark */
+    }
+    .card {
+        background-color: #ffffff !important; /* White background for cards */
+        color: #212529 !important; /* Dark text */
+        border: 1px solid rgba(0, 0, 0, 0.125) !important; /* Restore default card border */
+        margin-bottom: 15px;
+    }
+    .card-title {
+        color: #212529 !important; /* Dark text for titles */
+    }
+    .display-4 {
+        color: #007bff !important; /* A standard blue for numbers */
+        font-weight: bold;
+    }
+    /* Ensure default button styles are used or define light ones if needed */
+    .btn-primary {
+        /* Using default Bootstrap primary button styles */
+    }
+     .btn-success {
+        /* Using default Bootstrap success button styles */
+    }
+    /* Adjust alert colors for better visibility on light background */
+    .alert-info {
+        color: #055160 !important;
+        background-color: #cff4fc !important;
+        border-color: #b6effb !important;
+    }
+    .alert-success {
+        color: #0f5132 !important;
+        background-color: #d1e7dd !important;
+        border-color: #badbcc !important;
+    }
+    .alert-danger {
+        color: #842029 !important;
+        background-color: #f8d7da !important;
+        border-color: #f5c2c7 !important;
+    }
+
+</style>
+
+<div class="container mt-4">
+    <h2>Admin Dashboard</h2>
+
+    <!-- Lista utenti con pulsante rigenera chiave -->
+    <div class="card mb-4">
+        <div class="card-header">Gestione Chiavi Utenti</div>
+        <div class="card-body">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Dettagli</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for up in user_profiles %}
+                    <tr>
+                        <td>{{ up.user.username }}</td>
+                        <td>{{ up.user.email }}</td>
+                        <td><a href="{% url 'Cripto1:admin_user_detail' up.user.id %}" class="btn btn-info btn-sm">Dettagli</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Sezione Audit Log e Sicurezza -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <i class="fas fa-shield-alt"></i> Sistema di Audit Log e Sicurezza
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <i class="fas fa-clipboard-list fa-3x text-primary mb-2"></i>
+                        <h5>Audit Logs</h5>
+                        <p class="text-muted">Tracciamento completo delle azioni</p>
+                        <a href="{% url 'Cripto1:audit_logs' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-eye"></i> Visualizza Log
+                        </a>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <i class="fas fa-chart-line fa-3x text-info mb-2"></i>
+                        <h5>Analytics</h5>
+                        <p class="text-muted">Dashboard analitica avanzata</p>
+                        <a href="{% url 'Cripto1:audit_logs_analytics' %}" class="btn btn-info btn-sm">
+                            <i class="fas fa-chart-bar"></i> Analytics
+                        </a>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <i class="fas fa-exclamation-triangle fa-3x text-warning mb-2"></i>
+                        <h5>Security Alerts</h5>
+                        <p class="text-muted">Monitoraggio sicurezza in tempo reale</p>
+                        <a href="{% url 'Cripto1:security_alerts' %}" class="btn btn-warning btn-sm">
+                            <i class="fas fa-shield-alt"></i> Alerts
+                        </a>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <i class="fas fa-download fa-3x text-success mb-2"></i>
+                        <h5>Export Dati</h5>
+                        <p class="text-muted">Esportazione log in formato CSV</p>
+                        <a href="{% url 'Cripto1:export_audit_logs' %}" class="btn btn-success btn-sm">
+                            <i class="fas fa-file-csv"></i> Export CSV
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card text-center mb-3">
+                <div class="card-body">
+                    <h3 class="card-title">Utenti Registrati</h3>
+                    <p class="display-4">{{ total_users }}</p>
+                    <div class="btn-group" role="group" aria-label="User Actions">
+                        <a href="{% url 'admin:Cripto1_userprofile_changelist' %}" class="btn btn-primary btn-sm">Gestisci</a>
+                        <a href="{% url 'Cripto1:export_csv' 'userprofile' %}" class="btn btn-success btn-sm">Esporta CSV</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center mb-3">
+                <div class="card-body">
+                    <h3 class="card-title">Transazioni Totali</h3>
+                    <p class="display-4">{{ total_transactions }}</p>
+                    <div class="btn-group" role="group" aria-label="Transaction Actions">
+                        <a href="{% url 'admin:Cripto1_transaction_changelist' %}" class="btn btn-primary btn-sm">Gestisci</a>
+                        <a href="{% url 'Cripto1:export_csv' 'transaction' %}" class="btn btn-success btn-sm">Esporta CSV</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center mb-3">
+                <div class="card-body">
+                    <h3 class="card-title">Blocchi Minati</h3>
+                    <p class="display-4">{{ total_blocks }}</p>
+                     <div class="btn-group" role="group" aria-label="Block Actions">
+                        <a href="{% url 'admin:Cripto1_block_changelist' %}" class="btn btn-primary btn-sm">Gestisci</a>
+                        <a href="{% url 'Cripto1:export_csv' 'block' %}" class="btn btn-success btn-sm">Esporta CSV</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    </div>
+
+    <div class="mt-4">
+        <button id="verifyBlockchainBtn" class="btn btn-primary">Verifica Blockchain</button>
+        <div id="verificationStatus" class="mt-3"></div>
+    </div>
+
+    <!-- Sostituiamo i placeholder per i grafici con grafici reali -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Crescita Blockchain</h5>
+                    <canvas id="blockchainGrowthChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Distribuzione Transazioni</h5>
+                    <canvas id="transactionDistributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aggiungiamo una nuova riga per altri grafici -->
+    <!-- Aggiungi una riga con due colonne per i pulsanti di gestione -->
+    <div class="row mt-4">
+    <!-- Pulsante Gestione File -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-folder-open text-primary"></i> Gestione File
+                </h5>
+                <p class="card-text">Gestisci i file del sistema: foto profilo, documenti personali e file delle transazioni.</p>
+            </div>
+            <div class="card-footer bg-transparent">
+                <a href="{% url 'Cripto1:file_manager' %}" class="btn btn-primary">
+                    <i class="fas fa-cog"></i> Gestisci File
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pulsante Backup -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-database text-success"></i> Backup Sistema
+                </h5>
+                <p class="card-text">Crea, ripristina e gestisci i backup della blockchain e dei dati del sistema.</p>
+            </div>
+            <div class="card-footer bg-transparent">
+                <a href="{% url 'Cripto1:backup_management' %}" class="btn btn-success">
+                    <i class="fas fa-save"></i> Gestisci Backup
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+    {% block extra_js %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+    $(document).ready(function() {
+        $('#verifyBlockchainBtn').click(function() {
+            var btn = $(this);
+            var statusDiv = $('#verificationStatus');
+    
+            btn.prop('disabled', true);
+            statusDiv.html('<div class="alert alert-info">Verifica in corso...</div>');
+    
+            $.get("{% url 'Cripto1:verify_blockchain' %}")
+                .done(function(response) {
+                    if (response.is_valid) {
+                        statusDiv.html('<div class="alert alert-success">' + response.message + '</div>');
+                    } else {
+                        statusDiv.html('<div class="alert alert-danger">' + response.message + '</div>');
+                    }
+                })
+                .fail(function() {
+                    statusDiv.html('<div class="alert alert-danger">Errore durante la verifica della blockchain.</div>');
+                })
+                .always(function() {
+                    btn.prop('disabled', false);
+                });
+        });
+        
+        // Inizializzazione grafici
+        // Grafico Crescita Blockchain
+        const blockchainGrowthData = {{ blockchain_growth_data|safe }};
+        const growthCtx = document.getElementById('blockchainGrowthChart').getContext('2d');
+        new Chart(growthCtx, {
+            type: 'line',
+            data: {
+                labels: blockchainGrowthData.map(item => item.date),
+                datasets: [{
+                    label: 'Blocchi creati',
+                    data: blockchainGrowthData.map(item => item.blocks),
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1
+                }, {
+                    label: 'Transazioni',
+                    data: blockchainGrowthData.map(item => item.transactions),
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Numero'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Data'
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Grafico Distribuzione Transazioni
+        const txDistData = {{ transaction_distribution_data|safe }};
+        const txDistCtx = document.getElementById('transactionDistributionChart').getContext('2d');
+        new Chart(txDistCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Messaggi di Testo', 'File', 'Criptate', 'Non Criptate'],
+                datasets: [{
+                    data: [
+                        txDistData.text_count,
+                        txDistData.file_count,
+                        txDistData.encrypted_count,
+                        txDistData.unencrypted_count
+                    ],
+                    backgroundColor: [
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(75, 192, 192, 0.7)',
+                        'rgba(255, 206, 86, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(255, 206, 86, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Distribuzione Transazioni'
+                    }
+                }
+            }
+        });
+        
+        // Grafico Attività Utenti
+        const userActivityData = {{ user_activity_data|safe }};
+        const userActivityCtx = document.getElementById('userActivityChart').getContext('2d');
+        new Chart(userActivityCtx, {
+            type: 'bar',
+            data: {
+                labels: userActivityData.map(item => item.username),
+                datasets: [{
+                    label: 'Transazioni Inviate',
+                    data: userActivityData.map(item => item.sent),
+                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }, {
+                    label: 'Transazioni Ricevute',
+                    data: userActivityData.map(item => item.received),
+                    backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Numero di Transazioni'
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Grafico Difficoltà Mining
+        const difficultyData = {{ mining_difficulty_data|safe }};
+        const difficultyCtx = document.getElementById('miningDifficultyChart').getContext('2d');
+        new Chart(difficultyCtx, {
+            type: 'line',
+            data: {
+                labels: difficultyData.map(item => `Blocco #${item.index}`),
+                datasets: [{
+                    label: 'Difficoltà',
+                    data: difficultyData.map(item => item.difficulty),
+                    borderColor: 'rgb(255, 159, 64)',
+                    backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Livello di Difficoltà'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Blocco'
+                        }
+                    }
+                }
+            }
+        });
+    });
+    </script>
+    {% endblock %}
+</div>
+{% endblock %}

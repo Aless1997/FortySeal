@@ -1,0 +1,43 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Configura l'autenticazione a due fattori</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <p>Segui questi passaggi per configurare l'autenticazione a due fattori:</p>
+                        <ol>
+                            <li>Scarica l'app Google Authenticator sul tuo dispositivo mobile</li>
+                            <li>Scansiona il codice QR qui sotto con l'app</li>
+                            <li>Inserisci il codice a 6 cifre generato dall'app per verificare la configurazione</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="text-center mb-4">
+                        <img src="data:image/png;base64,{{ qr_code_img }}" alt="QR Code" class="img-fluid" style="max-width: 250px;">
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <p><strong>Chiave segreta:</strong> {{ secret_key }}</p>
+                        <p class="mb-0">Se non riesci a scansionare il codice QR, puoi inserire manualmente questa chiave nell'app.</p>
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="verification_code">Codice di verifica:</label>
+                            <input type="text" class="form-control" id="verification_code" name="verification_code" placeholder="Inserisci il codice a 6 cifre" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-3">Verifica e attiva</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

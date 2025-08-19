@@ -1,0 +1,392 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Modifica Utente - {{ user_profile.user.username }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .edit-user-card {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .form-section {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .form-section h5 {
+        color: #007bff;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 10px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-label {
+        font-weight: bold;
+        color: #495057;
+        margin-bottom: 8px;
+    }
+    
+    .form-control {
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+        padding: 12px 15px;
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .form-control:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+    
+    .btn-save {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        border-radius: 25px;
+        padding: 12px 30px;
+        font-weight: bold;
+        transition: transform 0.3s ease;
+    }
+    
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    }
+    
+    .btn-cancel {
+        background: #6c757d;
+        border: none;
+        border-radius: 25px;
+        padding: 12px 30px;
+        font-weight: bold;
+    }
+    
+    .profile-picture-preview {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #007bff;
+        margin-bottom: 15px;
+    }
+    
+    .current-info {
+        background: #e9ecef;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        font-size: 0.9rem;
+    }
+    
+    .current-info strong {
+        color: #495057;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-user-edit"></i> Modifica Utente
+                    <small class="text-muted">Aggiorna i dati dell'utente</small>
+                </h2>
+                <div>
+                    <a href="{% url 'Cripto1:user_detail' user_profile.user.id %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Torna al Dettaglio
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                <!-- Informazioni di base -->
+                <div class="card border-primary mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-user"></i> Informazioni di Base</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Username</label>
+                                    <input type="text" name="username" class="form-control" value="{{ user_profile.user.username }}" disabled>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Email <span class="text-danger">*</span></label>
+                                    <input type="email" name="email" class="form-control" required value="{{ form.email.value|default:user_profile.user.email }}">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Nome</label>
+                                    <input type="text" name="first_name" class="form-control" value="{{ form.first_name.value|default:user_profile.user.first_name }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Cognome</label>
+                                    <input type="text" name="last_name" class="form-control" value="{{ form.last_name.value|default:user_profile.user.last_name }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Password Django -->
+                <div class="card border-danger mb-4">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0"><i class="fas fa-lock"></i> Password Account (opzionale)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Nuova Password</label>
+                                    <input type="password" name="password" id="password" class="form-control" placeholder="Lascia vuoto per non cambiare">
+                                    <div class="password-strength mt-2" id="password-strength"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Conferma Nuova Password</label>
+                                    <input type="password" name="confirm_password" id="confirm_password" class="form-control" placeholder="Conferma password">
+                                    <div class="password-strength mt-2" id="password-match"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
+                <!-- Stato Account -->
+                <div class="card border-warning mb-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="fas fa-shield-alt"></i> Sicurezza Account</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Tentativi di login falliti</label>
+                                    <input type="text" class="form-control" value="{{ user_profile.login_attempts }}" disabled>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Stato blocco</label>
+                                    {% if user_profile.is_locked %}
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge bg-danger me-2">Bloccato fino a {{ user_profile.locked_until|date:"d/m/Y H:i" }}</span>
+                                            <div class="form-check form-switch ms-2">
+                                                <input class="form-check-input" type="checkbox" id="unlock_account" name="unlock_account" value="1">
+                                                <label class="form-check-label" for="unlock_account">Sblocca account</label>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <span class="badge bg-success">Non bloccato</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informazioni aziendali -->
+                <div class="card border-info mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-building"></i> Informazioni Aziendali</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Dipartimento</label>
+                                    <input type="text" name="department" class="form-control" value="{{ form.department.value|default:user_profile.department }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Posizione</label>
+                                    <input type="text" name="position" class="form-control" value="{{ form.position.value|default:user_profile.position }}">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Telefono</label>
+                                    <input type="tel" name="phone" class="form-control" value="{{ form.phone.value|default:user_profile.phone }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Contatto di Emergenza</label>
+                                    <input type="text" name="emergency_contact" class="form-control" value="{{ form.emergency_contact.value|default:user_profile.emergency_contact }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Foto profilo -->
+                <div class="card border-secondary mb-4">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0"><i class="fas fa-camera"></i> Foto Profilo</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {% if user_profile.profile_picture %}
+                                        <div class="text-center">
+                                            <img src="{{ user_profile.profile_picture.url }}" 
+                                                 alt="Foto profilo attuale" 
+                                                 class="profile-picture-preview">
+                                            <p class="text-muted">Foto profilo attuale</p>
+                                        </div>
+                                    {% endif %}
+                                    <label class="form-label">Nuova foto profilo</label>
+                                    <input type="file" name="profile_picture" class="form-control" accept="image/*">
+                                    <small class="form-text text-muted">
+                                        Formati supportati: JPG, PNG, GIF. Dimensione massima: 5MB
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Note -->
+                <div class="card border-light mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="fas fa-sticky-note"></i> Note</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Note aggiuntive</label>
+                            <textarea name="notes" class="form-control" rows="4">{{ form.notes.value|default:user_profile.notes }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pulsanti -->
+                <div class="d-flex justify-content-center gap-3 mb-5">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="fas fa-save"></i> Salva Modifiche
+                    </button>
+                    <a href="{% url 'Cripto1:user_detail' user_profile.user.id %}" class="btn btn-secondary btn-lg">
+                        <i class="fas fa-times"></i> Annulla
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Preview immagine
+    $('input[name="profile_picture"]').on('change', function() {
+        var file = this.files[0];
+        if (file) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                $('.profile-picture-preview').attr('src', e.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+    // Validazione dimensione file
+    $('input[name="profile_picture"]').on('change', function() {
+        var file = this.files[0];
+        if (file && file.size > 5 * 1024 * 1024) { // 5MB
+            alert('Il file è troppo grande. La dimensione massima è 5MB.');
+            this.value = '';
+        }
+    });
+    // Controllo forza password
+    $('#password').on('input', function() {
+        var password = $(this).val();
+        var strength = 0;
+        var feedback = '';
+        if (password.length >= 8) strength++;
+        if (password.match(/[a-z]/)) strength++;
+        if (password.match(/[A-Z]/)) strength++;
+        if (password.match(/[0-9]/)) strength++;
+        if (password.match(/[^a-zA-Z0-9]/)) strength++;
+        if (strength < 3) {
+            feedback = '<span class="text-danger">Password debole</span>';
+        } else if (strength < 4) {
+            feedback = '<span class="text-warning">Password media</span>';
+        } else {
+            feedback = '<span class="text-success">Password forte</span>';
+        }
+        $('#password-strength').html(feedback);
+    });
+    // Controllo corrispondenza password
+    $('#confirm_password').on('input', function() {
+        var password = $('#password').val();
+        var confirm = $(this).val();
+        if (confirm === '') {
+            $('#password-match').html('');
+        } else if (password === confirm) {
+            $('#password-match').html('<span class="text-success">Password corrispondono</span>');
+        } else {
+            $('#password-match').html('<span class="text-danger">Password non corrispondono</span>');
+        }
+    });
+
+
+    // Validazione form
+    $('form').on('submit', function(e) {
+        var password = $('#password').val();
+        var confirm = $('#confirm_password').val();
+        if (password || confirm) {
+            if (password !== confirm) {
+                e.preventDefault();
+                alert('Le password account non corrispondono!');
+                return false;
+            }
+            if (password.length > 0 && password.length < 8) {
+                e.preventDefault();
+                alert('La password account deve essere di almeno 8 caratteri!');
+                return false;
+            }
+        }
+
+    });
+});
+</script>
+{% endblock %} 
+</script>
+ 

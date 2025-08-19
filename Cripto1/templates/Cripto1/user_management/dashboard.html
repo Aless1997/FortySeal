@@ -1,0 +1,267 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Gestione Utenti - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-users"></i> Gestione Utenti
+                    <small class="text-muted">Dashboard Amministrativa</small>
+                </h2>
+                <div>
+                    <a href="{% url 'Cripto1:create_user' %}" class="btn btn-success">
+                        <i class="fas fa-user-plus"></i> Nuovo Utente
+                    </a>
+                    <a href="{% url 'Cripto1:role_list' %}" class="btn btn-primary">
+                        <i class="fas fa-user-tag"></i> Gestione Ruoli
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiche principali -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Utenti Totali</h5>
+                            <h3>{{ total_users }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-users fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Utenti Attivi</h5>
+                            <h3>{{ active_users }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-user-check fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Utenti Inattivi</h5>
+                            <h3>{{ inactive_users }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-user-clock fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Utenti Bloccati</h5>
+                            <h3>{{ locked_users }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-user-lock fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <!-- Azioni rapide -->
+        <div class="col-md-4">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt"></i> Azioni Rapide
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'Cripto1:create_user' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-user-plus"></i> Nuovo Utente
+                        </a>
+                        <a href="{% url 'Cripto1:user_list' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-list"></i> Lista Utenti
+                        </a>
+                        <a href="{% url 'Cripto1:role_list' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-user-tag"></i> Gestione Ruoli
+                        </a>
+                        <a href="{% url 'Cripto1:create_role' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-plus"></i> Nuovo Ruolo
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiche per ruolo -->
+        <div class="col-md-4">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie"></i> Utenti per Ruolo
+                        <span class="badge bg-light text-info">{{ role_stats|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if role_stats %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Ruolo</th>
+                                        <th>Utenti</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for role_name, count in role_stats.items %}
+                                        <tr>
+                                            <td>{{ role_name }}</td>
+                                            <td>
+                                                <span class="badge bg-info">{{ count }}</span>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-user-tag fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0">Nessun ruolo assegnato</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Utenti recenti -->
+        <div class="col-md-4">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock"></i> Utenti Recenti
+                        <span class="badge bg-light text-success">{{ recent_users|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_users %}
+                        <div class="list-group list-group-flush">
+                            {% for user_profile in recent_users %}
+                                <div class="list-group-item d-flex align-items-center p-2">
+                                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                        {{ user_profile.user.username|first|upper }}
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0">{{ user_profile.user.username }}</h6>
+                                        <small class="text-muted">{{ user_profile.user.email|default:"Nessuna email" }}</small>
+                                        <br>
+                                        <small class="text-muted">{{ user_profile.created_at|date:"d/m/Y H:i" }}</small>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-users fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0">Nessun utente recente</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attività recenti -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-secondary">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history"></i> Attività Recenti
+                        <span class="badge bg-light text-secondary">{{ recent_activities|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_activities %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Utente</th>
+                                        <th>Severità</th>
+                                        <th>Descrizione</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for activity in recent_activities %}
+                                        <tr>
+                                            <td>{{ activity.timestamp|date:"d/m/Y H:i" }}</td>
+                                            <td>
+                                                {% if activity.user %}
+                                                    <span class="badge bg-primary">{{ activity.user.username }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Sistema</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if activity.severity == 'HIGH' %}
+                                                    <span class="badge bg-danger">{{ activity.severity }}</span>
+                                                {% elif activity.severity == 'MEDIUM' %}
+                                                    <span class="badge bg-warning">{{ activity.severity }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-info">{{ activity.severity }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ activity.description }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-history fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0">Nessuna attività recente</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Aggiorna le statistiche ogni 30 secondi
+    setInterval(function() {
+        location.reload();
+    }, 30000);
+});
+</script>
+{% endblock %}

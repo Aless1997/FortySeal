@@ -1,0 +1,98 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Accesso Negato{% endblock %}
+
+{% block extra_css %}
+<style>
+    .error-container {
+        text-align: center;
+        padding: 60px 20px;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .error-icon {
+        font-size: 5rem;
+        color: #dc3545;
+        margin-bottom: 30px;
+    }
+    
+    .error-title {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #495057;
+        margin-bottom: 20px;
+    }
+    
+    .error-message {
+        font-size: 1.2rem;
+        color: #6c757d;
+        margin-bottom: 30px;
+        line-height: 1.6;
+    }
+    
+    .error-actions {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .btn-home {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        border: none;
+        border-radius: 25px;
+        padding: 12px 30px;
+        font-weight: bold;
+        transition: transform 0.3s ease;
+    }
+    
+    .btn-home:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+    }
+    
+    .btn-back {
+        background: #6c757d;
+        border: none;
+        border-radius: 25px;
+        padding: 12px 30px;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="error-container">
+    <div class="error-icon">
+        <i class="fas fa-ban"></i>
+    </div>
+    
+    <h1 class="error-title">Accesso Negato</h1>
+    
+    <p class="error-message">
+        Non hai i permessi necessari per accedere a questa sezione.<br>
+        Se ritieni che questo sia un errore, contatta l'amministratore del sistema.
+    </p>
+    
+    <div class="error-actions">
+        <a href="{% url 'Cripto1:dashboard' %}" class="btn btn-primary btn-home">
+            <i class="fas fa-home me-2"></i> Torna alla Dashboard
+        </a>
+        <button onclick="history.back()" class="btn btn-secondary btn-back">
+            <i class="fas fa-arrow-left me-2"></i> Torna Indietro
+        </button>
+    </div>
+    
+    {% if user.is_authenticated %}
+    <div class="mt-4">
+        <small class="text-muted">
+            Utente: {{ user.username }} | 
+            Staff: {% if user.is_staff %}Sì{% else %}No{% endif %} | 
+            Superuser: {% if user.is_superuser %}Sì{% else %}No{% endif %}
+        </small>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

@@ -1,0 +1,142 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">Create New Transaction</h3>
+                </div>
+                <div class="card-body">
+                    <form id="transactionForm" method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="transactionType" class="form-label">Transaction Type</label>
+                            <select class="form-select" id="transactionType" name="type" required>
+                                <option value="text">Text Message</option>
+                                <option value="file">File Upload</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="receiver_key" class="form-label">Receiver Public Key</label>
+                            <input type="text" class="form-control" id="receiver_key" name="receiver_key" placeholder="Paste receiver's public key or user_key" required>
+                            <small class="form-text text-muted">Paste the public key (user_key) of the receiver.</small>
+                        </div>
+
+                        <div id="textContent" class="mb-3">
+                            <label for="content" class="form-label">Message Content</label>
+                            <textarea class="form-control" id="content" name="content" rows="4"></textarea>
+                        </div>
+
+                        <div id="fileContent" class="mb-3" style="display: none;">
+                            <label for="file" class="form-label">Upload File</label>
+                            <input type="file" class="form-control" id="file" name="file">
+                            <small class="form-text text-muted">
+                                Supported formats: PDF, CSV, Excel, Word, Text
+                            </small>
+                        </div>
+
+                        <div id="maxDownloadsContent" class="mb-3" style="display: none;">
+                            <label for="maxDownloads" class="form-label">Max Downloads (optional)</label>
+                            <input type="number" class="form-control" id="maxDownloads" name="max_downloads" min="1" placeholder="Enter maximum downloads (e.g., 5)">
+                            <small class="form-text text-muted">Leave blank for unlimited downloads. Must be a positive number.</small>
+                        </div>
+
+                        <div id="shareableContent" class="mb-3" style="display: none;">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="isShareable" name="is_shareable" value="true">
+                                <label class="form-check-label" for="isShareable">Rendi questo file condivisibile</label>
+                                <small class="form-text text-muted">Se selezionato, il destinatario potrà aggiungere questo file ai suoi documenti personali.</small>
+                            </div>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="isEncrypted" name="is_encrypted" value="true">
+                            <label class="form-check-label" for="isEncrypted">Encrypt this transaction</label>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="privateKeyPassword" class="form-label">Password chiave privata (per firma)</label>
+                            <input type="password" class="form-control" id="privateKeyPassword" name="private_key_password" required>
+                            <small class="form-text text-muted">Necessaria per firmare la transazione con la tua chiave privata.</small>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Create Transaction</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const transactionType = document.getElementById('transactionType');
+    const textContent = document.getElementById('textContent');
+    const fileContent = document.getElementById('fileContent');
+    const contentField = document.getElementById('content');
+    const fileField = document.getElementById('file');
+    const maxDownloadsContent = document.getElementById('maxDownloadsContent');
+    const maxDownloadsField = document.getElementById('maxDownloads');
+    const shareableContent = document.getElementById('shareableContent');  // Aggiungi questa riga
+
+    transactionType.addEventListener('change', function() {
+        if (this.value === 'text') {
+            textContent.style.display = 'block';
+            fileContent.style.display = 'none';
+            maxDownloadsContent.style.display = 'none';
+            shareableContent.style.display = 'none';  // Aggiungi questa riga
+            contentField.required = true;
+            fileField.required = false;
+            maxDownloadsField.required = false;
+        } else {
+            textContent.style.display = 'none';
+            fileContent.style.display = 'block';
+            maxDownloadsContent.style.display = 'block';
+            shareableContent.style.display = 'block';  // Aggiungi questa riga
+            contentField.required = false;
+            fileField.required = true;
+        }
+    });
+
+    const form = document.getElementById('transactionForm');
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const privateKeyPassword = document.getElementById('privateKeyPassword').value;
+        formData.append('private_key_password', privateKeyPassword);
+
+        const maxDownloadsValue = maxDownloadsField.value;
+        if (maxDownloadsValue) {
+            formData.append('max_downloads', maxDownloadsValue);
+        }
+
+        fetch('{% url "Cripto1:create_transaction" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                window.location.href = '{% url "Cripto1:dashboard" %}';
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while creating the transaction.');
+        });
+    });
+});
+</script>
+{% endblock %}

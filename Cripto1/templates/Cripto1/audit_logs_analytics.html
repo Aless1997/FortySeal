@@ -1,0 +1,343 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block title %}Audit Logs Analytics - Dashboard Analitica{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-chart-line"></i> Audit Logs Analytics
+                    <small class="text-muted">Dashboard Analitica Completa</small>
+                </h2>
+                <div>
+                    <a href="{% url 'Cripto1:audit_logs' %}" class="btn btn-primary">
+                        <i class="fas fa-list"></i> Lista Log
+                    </a>
+                    <a href="{% url 'Cripto1:security_alerts' %}" class="btn btn-warning">
+                        <i class="fas fa-exclamation-triangle"></i> Security Alerts
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtro Periodo -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="GET" class="row align-items-end">
+                        <div class="col-md-3">
+                            <label for="days" class="form-label">Periodo di Analisi</label>
+                            <select name="days" id="days" class="form-select" onchange="this.form.submit()">
+                                <option value="7" {% if days == 7 %}selected{% endif %}>Ultimi 7 giorni</option>
+                                <option value="30" {% if days == 30 %}selected{% endif %}>Ultimi 30 giorni</option>
+                                <option value="90" {% if days == 90 %}selected{% endif %}>Ultimi 90 giorni</option>
+                                <option value="365" {% if days == 365 %}selected{% endif %}>Ultimo anno</option>
+                            </select>
+                        </div>
+                        <div class="col-md-9">
+                            <p class="mb-0 text-muted">
+                                <i class="fas fa-calendar"></i> 
+                                Analisi dal {{ start_date|date:"d/m/Y" }} al {{ end_date|date:"d/m/Y" }}
+                            </p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiche Principali -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Totale Azioni</h5>
+                            <h3>{{ total_actions }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-chart-bar fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Utenti Attivi</h5>
+                            <h3>{{ unique_users }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-users fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Tasso Successo</h5>
+                            <h3>{{ success_rate }}%</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-check-circle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Azioni/Giorno</h5>
+                            <h3>{{ actions_per_day }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-clock fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grafici -->
+    <div class="row mb-4">
+        <!-- Azioni per Giorno -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-area"></i> Azioni per Giorno
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="dailyActionsChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Distribuzione Severità -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie"></i> Distribuzione Severità
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="severityChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabelle Dettagliate -->
+    <div class="row">
+        <!-- Top Azioni -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list-ol"></i> Top 10 Azioni
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if top_actions %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Azione</th>
+                                        <th>Conteggio</th>
+                                        <th>%</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for action in top_actions %}
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-info">{{ action.action_type }}</span>
+                                            </td>
+                                            <td>{{ action.count }}</td>
+                                            <td>{{ action.percent|floatformat:1 }}%</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Nessun dato disponibile</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Utenti -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-friends"></i> Top 10 Utenti
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if top_users %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Utente</th>
+                                        <th>Azioni</th>
+                                        <th>%</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user in top_users %}
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-primary">{{ user.user__username }}</span>
+                                            </td>
+                                            <td>{{ user.count }}</td>
+                                            <td>{{ user.percent|floatformat:1 }}%</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Nessun dato disponibile</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IP Addresses -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-network-wired"></i> Top IP Addresses
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if top_ips %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>IP Address</th>
+                                        <th>Conteggio Azioni</th>
+                                        <th>%</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for ip in top_ips %}
+                                        <tr>
+                                            <td>
+                                                <code>{{ ip.ip_address }}</code>
+                                            </td>
+                                            <td>{{ ip.count }}</td>
+                                            <td>{{ ip.percent|floatformat:1 }}%</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Nessun dato disponibile</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Dati per i grafici
+    const dailyData = {{ daily_actions|safe }};
+    const severityData = {{ severity_distribution|safe }};
+
+    // Grafico azioni per giorno
+    const dailyCtx = document.getElementById('dailyActionsChart').getContext('2d');
+    new Chart(dailyCtx, {
+        type: 'line',
+        data: {
+            labels: dailyData.map(item => item.day),
+            datasets: [{
+                label: 'Azioni Totali',
+                data: dailyData.map(item => item.count),
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1
+            }, {
+                label: 'Successi',
+                data: dailyData.map(item => item.success_count),
+                borderColor: 'rgb(54, 162, 235)',
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                tension: 0.1
+            }, {
+                label: 'Errori',
+                data: dailyData.map(item => item.error_count),
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Grafico distribuzione severità
+    const severityCtx = document.getElementById('severityChart').getContext('2d');
+    new Chart(severityCtx, {
+        type: 'doughnut',
+        data: {
+            labels: severityData.map(item => item.severity),
+            datasets: [{
+                data: severityData.map(item => item.count),
+                backgroundColor: [
+                    '#dc3545', // Critical
+                    '#ffc107', // High
+                    '#17a2b8', // Medium
+                    '#6c757d'  // Low
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %} 

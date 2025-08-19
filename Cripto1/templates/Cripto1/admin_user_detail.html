@@ -1,0 +1,76 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block title %}Dettaglio Utente - Admin{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Dettaglio Utente: {{ user.username }}</h2>
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Dati Anagrafici</h5>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item"><strong>Username:</strong> {{ user.username }}</li>
+                <li class="list-group-item"><strong>Email:</strong> {{ user.email }}</li>
+                <li class="list-group-item"><strong>Data registrazione:</strong> {{ user.date_joined|date:"d/m/Y H:i" }}</li>
+                <li class="list-group-item"><strong>Chiave pubblica:</strong> <code class="bg-light p-2 d-block text-break">{{ user_profile.user_key }}</code></li>
+            </ul>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Statistiche</h5>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Transazioni inviate:</strong> {{ sent_count }}</li>
+                        <li class="list-group-item"><strong>Transazioni ricevute:</strong> {{ received_count }}</li>
+                        <li class="list-group-item"><strong>Totale transazioni:</strong> {{ total_transactions }}</li>
+                        <li class="list-group-item"><strong>Blocchi coinvolti:</strong> {{ blocks_count }}</li>
+                        <li class="list-group-item"><strong>Peso movimenti:</strong> {{ total_weight }}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Status Utente</h5>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">
+                            <strong>Ruolo:</strong> 
+                            {% if user.is_superuser %}
+                                <span class="badge bg-danger">Superuser</span>
+                            {% elif user.is_staff %}
+                                <span class="badge bg-warning">Staff</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Normale</span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                    {% if request.user.is_superuser %}
+                        <h5 class="card-title mt-4">Gestione Permessi</h5>
+                        <form method="post" action="{% url 'Cripto1:admin_user_detail' user.id %}">
+                            {% csrf_token %}
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="is_staff" name="is_staff" {% if is_staff %}checked{% endif %}>
+                                <label class="form-check-label" for="is_staff">
+                                    Utente Staff
+                                </label>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="is_superuser" name="is_superuser" {% if is_superuser %}checked{% endif %}>
+                                <label class="form-check-label" for="is_superuser">
+                                    Utente Superuser
+                                </label>
+                            </div>
+                            <button type="submit" name="update_permissions" class="btn btn-success">Aggiorna Permessi</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <a href="{% url 'Cripto1:admin_dashboard' %}" class="btn btn-secondary mt-4">Torna alla Dashboard</a>
+</div>
+{% endblock %} 

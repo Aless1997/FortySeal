@@ -1,0 +1,67 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block title %}QR Code 2FA - {{ user_profile.user.username }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">QR Code 2FA per {{ user_profile.user.username }}</h4>
+                    <a href="{% url 'Cripto1:user_detail' user_id=user_profile.user.id %}" class="btn btn-sm btn-light">
+                        <i class="fas fa-arrow-left"></i> Torna al dettaglio utente
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Attenzione!</strong> Questo QR code contiene informazioni sensibili. Assicurati di mostrarlo solo all'utente a cui appartiene.
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0"><i class="fas fa-qrcode"></i> QR Code per Google Authenticator</h5>
+                                </div>
+                                <div class="card-body text-center">
+                                    <img src="data:image/png;base64,{{ qr_image }}" alt="QR Code 2FA" class="img-fluid" style="max-width: 250px;">
+                                    
+                                    <div class="mt-3">
+                                        <p><strong>Chiave segreta:</strong> {{ secret_key }}</p>
+                                        <p class="text-muted">L'utente può inserire questa chiave manualmente se non può scansionare il QR code.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header bg-secondary text-white">
+                                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Istruzioni</h5>
+                                </div>
+                                <div class="card-body">
+                                    <ol>
+                                        <li>Mostra questo QR code all'utente.</li>
+                                        <li>L'utente deve scansionarlo con l'app Google Authenticator o un'app simile.</li>
+                                        <li>Al prossimo accesso, l'utente dovrà inserire il codice generato dall'app.</li>
+                                        <li>Se l'utente non può scansionare il QR code, può inserire manualmente la chiave segreta nell'app.</li>
+                                    </ol>
+                                    
+                                    <form method="post" class="mt-4">
+                                        {% csrf_token %}
+                                        <button type="submit" name="regenerate_qrcode" class="btn btn-danger" onclick="return confirm('Sei sicuro di voler rigenerare il QR code? L\'utente dovrà riconfigurare l\'app di autenticazione.')">
+                                            <i class="fas fa-sync"></i> Rigenera QR Code
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+# Django e dipendenze principali
+Django>=4.2,<5.3
+dj-database-url>=2.0.0
+django-encrypted-model-fields>=0.6.5
+cryptography>=41.0.0
+
+# Dipendenze per test
+coverage>=7.2.0
+pytest>=7.3.0
+pytest-django>=4.5.0
+bandit>=1.7.5
+
+# Dipendenze per deployment
+gunicorn>=21.0.0
+whitenoise>=6.5.0
+
+# Altre dipendenze del progetto
+Pillow>=10.0.0  # Per la gestione delle immagini
+django-encrypted-model-fields>=0.6.5  # Per i campi crittografati nel modello
+gunicorn
+dj_database_url
+psycopg2
+
+# Autenticazione a due fattori
+pyotp>=2.8.0
+qrcode>=7.4.2
+sentry-sdk[django]

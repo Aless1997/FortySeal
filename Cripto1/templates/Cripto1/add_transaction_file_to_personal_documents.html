@@ -1,0 +1,72 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block title %}Aggiungi File ai Documenti Personali - Blockchain App{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Aggiungi File ai Documenti Personali</h3>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                    <div class="messages mb-3">
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <h5>Informazioni sul File</h5>
+                        <p><strong>Nome File:</strong> {{ transaction.file.name|slice:"19:" }}</p>
+                        <p><strong>Mittente:</strong> {{ transaction.sender.username }}</p>
+                        <p><strong>Data Transazione:</strong> {{ transaction.timestamp_datetime|date:"d/m/Y H:i" }}</p>
+                        <p><strong>Crittografato:</strong> 
+                            {% if transaction.is_encrypted %}
+                            <span class="badge bg-success"><i class="fas fa-lock"></i> Sì</span>
+                            {% else %}
+                            <span class="badge bg-secondary"><i class="fas fa-unlock"></i> No</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    
+                    {% if transaction.is_encrypted %}
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="private_key_password" class="form-label">Password Chiave Privata</label>
+                            <input type="password" class="form-control" id="private_key_password" name="private_key_password" required>
+                            <small class="form-text text-muted">
+                                Necessaria per decifrare il file e aggiungerlo ai tuoi documenti personali.
+                            </small>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'Cripto1:transaction_details' transaction.id %}" class="btn btn-secondary">Annulla</a>
+                            <button type="submit" class="btn btn-primary">Aggiungi ai Miei Documenti</button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Questo file non è crittografato e verrà aggiunto direttamente ai tuoi documenti personali.
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'Cripto1:transaction_details' transaction.id %}" class="btn btn-secondary">Annulla</a>
+                            <button type="submit" class="btn btn-primary">Aggiungi ai Miei Documenti</button>
+                        </div>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

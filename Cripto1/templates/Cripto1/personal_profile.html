@@ -1,0 +1,357 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block title %}Profilo Personale - Blockchain App{% endblock %}
+
+{% block content %}
+<style>
+    .profile-pic {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 50%;
+        margin-right: 20px;
+        border: 2px solid #007bff;
+    }
+    .profile-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-direction: column;
+        text-align: center;
+    }
+    .profile-info {
+        flex-grow: 1;
+        width: 100%;
+        margin-top: 15px;
+    }
+    @media (min-width: 768px) {
+        .profile-header {
+            flex-direction: row;
+            text-align: left;
+        }
+        .profile-info {
+            margin-top: 0;
+        }
+    }
+    .card-text code {
+        word-break: break-all;
+        white-space: normal;
+    }
+    .action-cards {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    @media (min-width: 768px) {
+        .action-cards {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+    }
+    
+    /* Nuovi stili per le card moderne */
+    .modern-card {
+        border: none;
+        border-radius: 16px;
+        box-shadow: 0 10px 20px rgba(99, 102, 241, 0.1);
+        overflow: hidden;
+        position: relative;
+        z-index: 1;
+        transition: all 0.3s ease;
+    }
+    
+    .modern-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(79, 70, 229, 0.05) 100%);
+        z-index: -1;
+        transition: opacity 0.3s ease;
+        opacity: 0;
+    }
+    
+    .modern-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 15px 30px rgba(99, 102, 241, 0.2);
+    }
+    
+    .modern-card:hover::before {
+        opacity: 1;
+    }
+    
+    .card-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        color: var(--primary-color);
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .modern-card:hover .card-icon {
+        transform: scale(1.2);
+    }
+    
+    .floating-emoji {
+        position: absolute;
+        opacity: 0;
+        transition: all 0.5s ease;
+        font-size: 1.2rem;
+    }
+    
+    .modern-card:hover .floating-emoji {
+        animation: float-up 2s ease infinite;
+        opacity: 1;
+    }
+    
+    .modern-card:hover .emoji-1 {
+        animation-delay: 0s;
+    }
+    
+    .modern-card:hover .emoji-2 {
+        animation-delay: 0.3s;
+    }
+    
+    .modern-card:hover .emoji-3 {
+        animation-delay: 0.6s;
+    }
+    
+    @keyframes float-up {
+        0% {
+            transform: translate(0, 0) rotate(0deg);
+            opacity: 0;
+        }
+        20% {
+            opacity: 1;
+        }
+        80% {
+            opacity: 0.8;
+        }
+        100% {
+            transform: translate(var(--x, -20px), var(--y, -50px)) rotate(var(--r, 10deg));
+            opacity: 0;
+        }
+    }
+    
+    .modern-card-body {
+        padding: 2rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        z-index: 2;
+        position: relative;
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(5px);
+        height: 100%;
+    }
+    
+    .modern-card-title {
+        font-weight: 700;
+        margin-bottom: 1rem;
+        color: var(--text-primary);
+        font-size: 1.25rem;
+    }
+    
+    .modern-card-text {
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+    
+    .modern-btn {
+        border-radius: 12px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        z-index: 1;
+        margin-top: auto;
+    }
+    
+    .modern-btn::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.2);
+        z-index: -1;
+        transform: scaleX(0);
+        transform-origin: right;
+        transition: transform 0.5s ease;
+    }
+    
+    .modern-btn:hover::after {
+        transform: scaleX(1);
+        transform-origin: left;
+    }
+</style>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Profilo Personale</h2>
+        <div>
+            <!-- Removed the buttons from here -->
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="profile-header">
+                {% if user_profile.profile_picture %}
+                    <img src="{{ user_profile.profile_picture.url }}" alt="Profile Picture" class="profile-pic">
+                {% else %}
+                    {# Placeholder image or icon if no profile picture is set #}
+                    <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" fill="currentColor" class="bi bi-person-circle profile-pic" viewBox="0 0 16 16">
+                      <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0"/>
+                      <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1"/>
+                    </svg>
+                {% endif %}
+                <div class="profile-info">
+                    <h5 class="card-title">Utente: {{ user_profile.user.username }}</h5>
+                    <p class="card-text">
+                        <strong>Nome:</strong> {{ user_profile.user.first_name|default:"N/A" }}
+                    </p>
+                    <p class="card-text">
+                        <strong>Cognome:</strong> {{ user_profile.user.last_name|default:"N/A" }}
+                    </p>
+                     <p class="card-text">
+                        <strong>Email:</strong> {{ user_profile.user.email|default:"N/A" }}
+                    </p>
+                     <p class="card-text">
+                        <small class="text-muted">Registrato il: {{ user_profile.created_at|date:"d/m/Y H:i" }}</small>
+                    </p>
+                </div>
+            </div>
+
+            <p class="card-text">
+                <strong>Chiave Pubblica:</strong><br>
+                <code class="bg-light p-2 d-block text-break">{{ user_profile.user_key }}</code>
+            </p>
+            <p class="card-text">
+                <strong>Hash Chiave Privata:</strong><br>
+                {% if user_profile.private_key_hash %}
+                    <code class="bg-light p-2 d-block text-break">{{ user_profile.private_key_hash }}</code>
+                {% else %}
+                    <span class="text-danger">Nessuna chiave privata trovata.</span>
+                {% endif %}
+            </p>
+            <!--<p class="card-text">
+                <strong>Saldo:</strong> {{ user_profile.balance|floatformat:"2" }} CA$
+            </p>-->
+
+        </div>
+    </div>
+
+    <div class="action-cards">
+        <!-- Action Cards -->
+        <div class="row">
+            <div class="col-md-3 col-sm-6 mb-4">
+                <div class="card modern-card h-100">
+                    <div class="card-body text-center">
+                        <div class="card-icon mb-3">
+                            <i class="fas fa-user-edit"></i>
+                            <!-- Emoji fluttuanti -->
+                            <span class="floating-emoji emoji-1">✏️</span>
+                            <span class="floating-emoji emoji-2">👤</span>
+                            <span class="floating-emoji emoji-3">⚙️</span>
+                        </div>
+                        <h5 class="card-title">Modifica Profilo</h5>
+                        <p class="card-text">Aggiorna le tue informazioni personali e le impostazioni del profilo.</p>
+                        <a href="{% url 'Cripto1:edit_profile' %}" class="btn btn-outline-primary">MODIFICA PROFILO</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 col-sm-6 mb-4">
+                <div class="card modern-card h-100">
+                    <div class="card-body text-center">
+                        <div class="card-icon mb-3">
+                            <i class="fas fa-exchange-alt"></i>
+                            <!-- Emoji fluttuanti -->
+                            <span class="floating-emoji emoji-1">💸</span>
+                            <span class="floating-emoji emoji-2">📊</span>
+                            <span class="floating-emoji emoji-3">🔄</span>
+                        </div>
+                        <h5 class="card-title">Visualizza tutti i movimenti</h5>
+                        <p class="card-text">Esamina la cronologia completa delle tue transazioni e movimenti.</p>
+                        <a href="{% url 'Cripto1:all_transactions' %}" class="btn btn-primary">VISUALIZZA TUTTI I MOVIMENTI</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 col-sm-6 mb-4">
+                <div class="card modern-card h-100">
+                    <div class="card-body text-center">
+                        <div class="card-icon mb-3">
+                            <i class="fas fa-chart-bar"></i>
+                            <!-- Emoji fluttuanti -->
+                            <span class="floating-emoji emoji-1">📈</span>
+                            <span class="floating-emoji emoji-2">📊</span>
+                            <span class="floating-emoji emoji-3">💹</span>
+                        </div>
+                        <h5 class="card-title">Statistiche Personali</h5>
+                        <p class="card-text">Visualizza le tue statistiche dettagliate, grafici delle attività e analisi dei dati.</p>
+                        <a href="{% url 'Cripto1:personal_statistics' %}" class="btn btn-warning">VISUALIZZA STATISTICHE</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 col-sm-6 mb-4">
+                <div class="card modern-card h-100">
+                    <div class="card-body text-center">
+                        <div class="card-icon mb-3">
+                            <i class="fas fa-folder-open"></i>
+                            <!-- Emoji fluttuanti -->
+                            <span class="floating-emoji emoji-1">📁</span>
+                            <span class="floating-emoji emoji-2">📄</span>
+                            <span class="floating-emoji emoji-3">💾</span>
+                        </div>
+                        <h5 class="card-title">Documenti Personali</h5>
+                        <p class="card-text">Gestisci i tuoi documenti personali, carica nuovi file e organizza i tuoi contenuti.</p>
+                        <a href="{% url 'Cripto1:personal_documents' %}" class="btn btn-success">GESTISCI DOCUMENTI</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+    // Funzione per animare le emoji fluttuanti
+    document.addEventListener('DOMContentLoaded', function() {
+        const cards = document.querySelectorAll('.modern-card');
+        
+        cards.forEach(card => {
+            card.addEventListener('mousemove', function(e) {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const emojis = card.querySelectorAll('.floating-emoji');
+                emojis.forEach((emoji, index) => {
+                    // Calcola una posizione leggermente diversa per ogni emoji
+                    const offsetX = (x / rect.width - 0.5) * 20;
+                    const offsetY = (y / rect.height - 0.5) * 20;
+                    
+                    // Applica un offset diverso per ogni emoji
+                    emoji.style.setProperty('--x', `${-20 + offsetX + (index * 10)}px`);
+                    emoji.style.setProperty('--y', `${-40 - offsetY - (index * 5)}px`);
+                    emoji.style.setProperty('--r', `${(index * 10) - 10 + (offsetX / 2)}deg`);
+                });
+            });
+        });
+    });
+</script>
+{% endblock %}

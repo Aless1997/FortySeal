@@ -1,0 +1,67 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Utenti Registrati</h2>
+    <div class="mb-3">
+        <input type="text" id="userSearch" class="form-control" placeholder="Cerca utenti...">
+    </div>
+    <div class="row" id="usersList">
+        {% for user_profile in users %}
+        <div class="col-md-6 mb-4 user-card">
+            <div class="card">
+                <div class="card-body d-flex align-items-start">
+                    {% if user_profile.profile_picture %}
+                        <img src="{{ user_profile.profile_picture.url }}" alt="{{ user_profile.user.username }}'s profile picture" width="50" height="50" class="rounded-circle mr-3">
+                    {% endif %}
+                    <div>
+                        <h5 class="card-title mb-0 d-flex align-items-center">
+                             {{ user_profile.user.username }}
+                        </h5>
+                        <p class="card-text mt-2">
+                            <strong>Chiave Pubblica:</strong><br>
+                            <code class="bg-light p-2 d-block text-break">{{ user_profile.user_key }}</code>
+                        </p>
+                        <p class="card-text mb-0">
+                            <small class="text-muted">Registrato il: {{ user_profile.created_at|date:"d/m/Y H:i" }}</small>
+                        </p>
+                        <button class="btn btn-primary copy-key mt-3" data-key="{{ user_profile.user_key }}">
+                            Copia Chiave
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+$(document).ready(function() {
+    const copyButtons = document.querySelectorAll('.copy-key');
+    
+    copyButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const key = this.getAttribute('data-key');
+            navigator.clipboard.writeText(key).then(() => {
+                const originalText = this.textContent;
+                this.textContent = 'Chiave Copiata!';
+                setTimeout(() => {
+                    this.textContent = originalText;
+                }, 2000);
+            });
+        });
+    });
+
+    $('#userSearch').on('keyup', function() {
+        var value = $(this).val().toLowerCase().trim();
+        $('.user-card').filter(function() {
+            $(this).toggle($(this).text().toLowerCase().includes(value));
+        });
+    });
+});
+</script>
+{% endblock %} 

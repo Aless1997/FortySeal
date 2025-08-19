@@ -1,0 +1,257 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block content %}
+<div class="hero-section position-relative overflow-hidden">
+    <div class="container py-5">
+        <div class="row align-items-center min-vh-100">
+            <div class="col-lg-6 text-center text-lg-start">
+                <h1 class="display-3 fw-bold mb-4 text-gradient">
+                    Blockchain App
+                    <span class="d-block fs-2 text-primary mt-2">Il Futuro delle Transazioni Digitali</span>
+                </h1>
+                <p class="lead mb-4 text-muted">
+                    Gestisci le tue transazioni con una piattaforma moderna e sicura. 
+                    Smart contract, crittografia avanzata e molto altro in un'unica soluzione.
+                </p>
+                <div class="d-flex gap-3 justify-content-center justify-content-lg-start">
+                    <a href="{% url 'Cripto1:register' %}" class="btn btn-primary btn-lg px-4 rounded-pill">
+                        <i class="fas fa-rocket me-2"></i>Inizia Ora
+                    </a>
+                    <a href="{% url 'Cripto1:login' %}" class="btn btn-outline-primary btn-lg px-4 rounded-pill">
+                        <i class="fas fa-sign-in-alt me-2"></i>Accedi
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-6 d-none d-lg-block">
+                <div class="position-relative">
+                    <div class="tech-grid">
+                        <div class="tech-item" style="--delay: 0s;">
+                            <i class="fas fa-cube fa-3x text-primary"></i>
+                            <span>Blockchain</span>
+                        </div>
+                        <div class="tech-item" style="--delay: 0.2s;">
+                            <i class="fas fa-lock fa-3x text-success"></i>
+                            <span>Crittografia</span>
+                        </div>
+                        <div class="tech-item" style="--delay: 0.4s;">
+                            <i class="fas fa-file-contract fa-3x text-info"></i>
+                            <span>Smart Contract</span>
+                        </div>
+                        <div class="tech-item" style="--delay: 0.6s;">
+                            <i class="fas fa-shield-alt fa-3x text-warning"></i>
+                            <span>Sicurezza</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Animated Background -->
+    <div class="position-absolute top-0 start-0 w-100 h-100 z-n1">
+        <div class="grid-pattern"></div>
+    </div>
+</div>
+
+<!-- Sezione Casi d'Uso -->
+<div class="use-cases-section py-5">
+    <div class="container">
+        <h2 class="text-center mb-5 text-gradient">Casi Reali di Utilizzo</h2>
+        <div class="row g-4">
+            <!-- Ambito Aziendale -->
+            <div class="col-lg-3 col-md-6">
+                <div class="use-case-card h-100" style="--card-index: 0;">
+                    <div class="card-icon mb-4">
+                        <i class="fas fa-building fa-3x text-primary"></i>
+                    </div>
+                    <h3 class="h4 mb-3">Ambito Aziendale</h3>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Scambio sicuro di documenti sensibili</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Comunicazioni riservate tra dipartimenti</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Tracciamento di contratti e accordi</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Archiviazione sicura di documenti</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Settore Legale -->
+            <div class="col-lg-3 col-md-6">
+                <div class="use-case-card h-100" style="--card-index: 1;">
+                    <div class="card-icon mb-4">
+                        <i class="fas fa-balance-scale fa-3x text-info"></i>
+                    </div>
+                    <h3 class="h4 mb-3">Settore Legale</h3>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Gestione documenti legali</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Scambio sicuro di atti</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Verifica dell'integrità documentale</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Timestamping certificato</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Settore Sanitario -->
+            <div class="col-lg-3 col-md-6">
+                <div class="use-case-card h-100" style="--card-index: 2;">
+                    <div class="card-icon mb-4">
+                        <i class="fas fa-hospital-user fa-3x text-danger"></i>
+                    </div>
+                    <h3 class="h4 mb-3">Settore Sanitario</h3>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Scambio di documenti medici</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Gestione referti in sicurezza</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Comunicazioni medico-paziente</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Archiviazione dati sensibili</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Settore Finanziario -->
+            <div class="col-lg-3 col-md-6">
+                <div class="use-case-card h-100" style="--card-index: 3;">
+                    <div class="card-icon mb-4">
+                        <i class="fas fa-chart-line fa-3x text-warning"></i>
+                    </div>
+                    <h3 class="h4 mb-3">Settore Finanziario</h3>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Transazioni finanziarie sicure</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Documentazione bancaria</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Contratti assicurativi</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Gestione investimenti</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .hero-section {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: white;
+        min-height: 100vh;
+    }
+
+    .text-gradient {
+        background: linear-gradient(120deg, #60a5fa, #818cf8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .tech-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 2rem;
+        padding: 2rem;
+    }
+
+    .tech-item {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        padding: 2rem;
+        text-align: center;
+        backdrop-filter: blur(10px);
+        transform: translateY(20px);
+        opacity: 0;
+        animation: fadeInUp 0.5s ease forwards;
+        animation-delay: var(--delay);
+    }
+
+    .tech-item span {
+        display: block;
+        margin-top: 1rem;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .grid-pattern {
+        background-image: 
+            linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+        background-size: 50px 50px;
+        width: 100%;
+        height: 100%;
+        animation: patternMove 20s linear infinite;
+    }
+
+    @keyframes fadeInUp {
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes patternMove {
+        from {
+            transform: translateY(0);
+        }
+        to {
+            transform: translateY(-50px);
+        }
+    }
+
+    .btn {
+        transition: all 0.3s ease;
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    @media (max-width: 991.98px) {
+        .hero-section {
+            text-align: center;
+        }
+    }
+
+    /* Stili per la sezione casi d'uso */
+    .use-cases-section {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        color: white;
+    }
+
+    .use-case-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        padding: 2rem;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+        opacity: 0;
+        transform: translateY(20px);
+        animation: fadeInUp 0.5s ease forwards;
+        animation-delay: calc(var(--card-index) * 0.1s);
+    }
+
+    .use-case-card:hover {
+        transform: translateY(-5px);
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-icon {
+        transition: transform 0.3s ease;
+    }
+
+    .use-case-card:hover .card-icon {
+        transform: scale(1.1);
+    }
+
+    .use-case-card ul li {
+        opacity: 0.9;
+        transition: opacity 0.3s ease;
+    }
+
+    .use-case-card:hover ul li {
+        opacity: 1;
+    }
+
+    @media (max-width: 991.98px) {
+        .use-case-card {
+            margin-bottom: 2rem;
+        }
+    }
+</style>
+{% endblock %}

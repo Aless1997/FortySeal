@@ -1,0 +1,242 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Dettaglio Utente - {{ user_profile.user.username }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-user"></i> Dettaglio Utente
+                    <small class="text-muted">Informazioni complete sull'utente</small>
+                </h2>
+                <div>
+                    <a href="{% url 'Cripto1:user_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Torna alla Lista
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10">
+            <!-- Header utente -->
+            <div class="card border-primary mb-4">
+                <div class="card-header bg-primary text-white d-flex align-items-center">
+                    <div class="me-3">
+                        {% if user_profile.profile_picture %}
+                            <img src="{{ user_profile.profile_picture.url }}" alt="Avatar" class="rounded-circle" style="width:60px;height:60px;object-fit:cover;">
+                        {% else %}
+                            <span class="avatar bg-light text-primary fw-bold" style="width:60px;height:60px;display:inline-flex;align-items:center;justify-content:center;font-size:2rem;border-radius:50%;">{{ user_profile.user.username|first|upper }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h3 class="mb-0">{{ user_profile.user.username }}</h3>
+                        <div class="text-white-50">{{ user_profile.user.email|default:"Nessuna email" }}</div>
+                    </div>
+                    <div>
+                        {% if user_profile.is_locked %}
+                            <span class="badge bg-warning">Bloccato</span>
+                        {% elif user_profile.is_active %}
+                            <span class="badge bg-success">Attivo</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inattivo</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Nome:</strong> {{ user_profile.user.first_name|default:"-" }}</p>
+                            <p><strong>Cognome:</strong> {{ user_profile.user.last_name|default:"-" }}</p>
+                            <p><strong>Dipartimento:</strong> {{ user_profile.department|default:"-" }}</p>
+                            <p><strong>Posizione:</strong> {{ user_profile.position|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Telefono:</strong> {{ user_profile.phone|default:"-" }}</p>
+                            <p><strong>Contatto Emergenza:</strong> {{ user_profile.emergency_contact|default:"-" }}</p>
+                            <p><strong>Data registrazione:</strong> {{ user_profile.created_at|date:"d/m/Y H:i" }}</p>
+                            <p><strong>Ultimo login:</strong> {{ user_profile.last_login_date|date:"d/m/Y H:i"|default:"Mai" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Azioni -->
+            <div class="card border-secondary mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-cogs"></i> Azioni</h5>
+                </div>
+                <div class="card-body d-flex flex-wrap gap-2">
+                    <a href="{% url 'Cripto1:edit_user' user_profile.user.id %}" class="btn btn-outline-primary">
+                        <i class="fas fa-edit"></i> Modifica Utente
+                    </a>
+                    <form method="POST" action="{% url 'Cripto1:toggle_user_status' user_profile.user.id %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-warning" onclick="return confirm('Sei sicuro di voler cambiare lo stato di questo utente?')">
+                            <i class="fas fa-toggle-on"></i> {% if user_profile.is_active %}Disattiva{% else %}Attiva{% endif %} Utente
+                        </button>
+                    </form>
+                    <!-- Pulsante per gestione storage -->
+                    <a href="{% url 'Cripto1:manage_user_storage' user_profile.user.id %}" class="btn btn-outline-info">
+                        <i class="fas fa-hdd"></i> Gestisci Storage
+                    </a>
+                    {% if user_profile.two_factor_enabled %}
+                    <a href="{% url 'Cripto1:view_user_2fa_qrcode' user_id=user_profile.user.id %}" class="btn btn-outline-info">
+                        <i class="fas fa-qrcode"></i> Visualizza/Rigenera QR Code 2FA
+                    </a>
+                    {% else %}
+                    <a href="{% url 'Cripto1:view_user_2fa_qrcode' user_id=user_profile.user.id %}?enable=true" class="btn btn-outline-success">
+                        <i class="fas fa-qrcode"></i> Genera e abilita QR Code 2FA
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Ruoli assegnati -->
+            <div class="card border-success mb-4">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-user-tag"></i> Ruoli Assegnati</h5>
+                    <a href="{% url 'Cripto1:assign_role_form' user_profile.user.id %}" class="btn btn-light btn-sm">
+                        <i class="fas fa-plus"></i> Assegna Ruolo
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if user_roles %}
+                    <div class="row">
+                        {% for user_role in user_roles %}
+                        <div class="col-md-6 mb-3">
+                            <div class="border rounded p-3 h-100">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="fw-bold">{{ user_role.role.name }}</span>
+                                    {% if user_role.expires_at and user_role.expires_at < now %}
+                                        <span class="badge bg-danger">Scaduto</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Attivo</span>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Assegnato da:</strong> {{ user_role.assigned_by.username|default:"Sistema" }}<br>
+                                    <strong>Data assegnazione:</strong> {{ user_role.assigned_at|date:"d/m/Y H:i" }}<br>
+                                    {% if user_role.expires_at %}
+                                        <strong>Scadenza:</strong> {{ user_role.expires_at|date:"d/m/Y H:i" }}<br>
+                                    {% endif %}
+                                    {% if user_role.notes %}
+                                        <strong>Note:</strong> {{ user_role.notes }}<br>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <strong>Permessi:</strong>
+                                    {% for permission in user_role.role.permissions.all %}
+                                        <span class="badge bg-info text-dark">{{ permission.name }}</span>
+                                    {% empty %}
+                                        <span class="text-muted">Nessun permesso</span>
+                                    {% endfor %}
+                                </div>
+                                <form method="POST" action="{% url 'Cripto1:remove_role' user_profile.user.id user_role.role.id %}" class="mt-2">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Sei sicuro di voler rimuovere questo ruolo?')">
+                                        <i class="fas fa-times"></i> Rimuovi
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-user-tag fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Nessun ruolo assegnato</h5>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Note -->
+            <div class="card border-light mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-sticky-note"></i> Note</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Note aggiuntive</label>
+                        <div class="form-control bg-light">{{ user_profile.notes|default:'-' }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attività recenti -->
+            <div class="card border-info mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-history"></i> Attività Recenti</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_activities %}
+                        {% for activity in recent_activities %}
+                        <div class="border-bottom py-2 mb-2">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>{{ activity.action_type }}</strong>
+                                    <span class="badge bg-{{ activity.severity|lower }}">{{ activity.severity }}</span>
+                                </div>
+                                <div class="text-muted small">{{ activity.timestamp|date:"d/m/Y H:i" }}</div>
+                            </div>
+                            <div>{{ activity.description }}</div>
+                            {% if activity.ip_address %}
+                                <small class="text-muted">IP: {{ activity.ip_address }}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nessuna attività recente</h5>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+<!-- Modal Assegnazione Ruolo -->
+<div class="modal fade" id="assignRoleModal" tabindex="-1" aria-labelledby="assignRoleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="assignRoleModalLabel"><i class="fas fa-user-tag"></i> Assegna Ruolo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{% url 'Cripto1:assign_role' user_profile.user.id %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="role_id" class="form-label">Ruolo</label>
+                        <select class="form-select" id="role_id" name="role_id" required>
+                            <option value="">Seleziona un ruolo</option>
+                            {% for role in all_roles %}
+                                <option value="{{ role.id }}">{{ role.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="expires_at" class="form-label">Data di scadenza (opzionale)</label>
+                        <input type="date" class="form-control" id="expires_at" name="expires_at">
+                    </div>
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Note (opzionale)</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-success">Assegna</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

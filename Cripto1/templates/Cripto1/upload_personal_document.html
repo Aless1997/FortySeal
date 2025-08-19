@@ -1,0 +1,84 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block title %}Carica Documento - Blockchain App{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Carica Nuovo Documento</h3>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                    <div class="messages mb-3">
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Titolo</label>
+                            <input type="text" class="form-control" id="title" name="title" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Descrizione (opzionale)</label>
+                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="file" class="form-label">File</label>
+                            <input type="file" class="form-control" id="file" name="file" required>
+                            <small class="form-text text-muted">
+                                Formati supportati: PDF, CSV, Excel, Word, Text
+                            </small>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_encrypted" name="is_encrypted">
+                            <label class="form-check-label" for="is_encrypted">Cripta il documento</label>
+                        </div>
+                        
+                        <div id="passwordField" class="mb-3" style="display: none;">
+                            <label for="private_key_password" class="form-label">Password Chiave Privata</label>
+                            <input type="password" class="form-control" id="private_key_password" name="private_key_password">
+                            <small class="form-text text-muted">
+                                Necessaria per firmare la transazione e cifrare il documento.
+                            </small>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'Cripto1:personal_documents' %}" class="btn btn-secondary">Annulla</a>
+                            <button type="submit" class="btn btn-primary">Carica Documento</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const isEncryptedCheckbox = document.getElementById('is_encrypted');
+        const passwordField = document.getElementById('passwordField');
+        
+        isEncryptedCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                passwordField.style.display = 'block';
+                document.getElementById('private_key_password').required = true;
+            } else {
+                passwordField.style.display = 'none';
+                document.getElementById('private_key_password').required = false;
+            }
+        });
+    });
+</script>
+{% endblock %}

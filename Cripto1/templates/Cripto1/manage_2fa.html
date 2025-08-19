@@ -1,0 +1,48 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Gestione autenticazione a due fattori</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert {% if two_factor_enabled %}alert-success{% else %}alert-warning{% endif %}">
+                        <p>
+                            <strong>Stato:</strong> 
+                            {% if two_factor_enabled %}
+                                Attivo
+                            {% else %}
+                                Non attivo
+                            {% endif %}
+                        </p>
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        {% if two_factor_enabled %}
+                            <input type="hidden" name="action" value="disable">
+                            <button type="submit" class="btn btn-danger" onclick="return confirm('Sei sicuro di voler disabilitare l\'autenticazione a due fattori? Questo ridurrà la sicurezza del tuo account.')">
+                                Disabilita autenticazione a due fattori
+                            </button>
+                        {% else %}
+                            <input type="hidden" name="action" value="enable">
+                            <button type="submit" class="btn btn-success">
+                                Abilita autenticazione a due fattori
+                            </button>
+                        {% endif %}
+                    </form>
+                    
+                    <div class="mt-4">
+                        <h5>Informazioni sulla sicurezza</h5>
+                        <p>L'autenticazione a due fattori aggiunge un ulteriore livello di sicurezza al tuo account richiedendo un codice temporaneo oltre alla password.</p>
+                        <p>Quando è abilitata, dovrai inserire un codice generato dall'app Google Authenticator ogni volta che accedi.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

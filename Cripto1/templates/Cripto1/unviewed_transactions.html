@@ -1,0 +1,90 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block title %}Transazioni Non Visualizzate - Blockchain App{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Transazioni Non Visualizzate</h2>
+
+    {# Aggiungi il campo di input per la ricerca #}
+    <div class="mb-3">
+        <input type="text" id="transactionSearch" class="form-control" placeholder="Cerca tra le transazioni...">
+    </div>
+    <div class="table-responsive">
+        <table class="table" id="transactionsTable">
+            <thead>
+                <tr>
+                    <th>Tipo</th>
+                    <th>Direzione</th>
+                    <th>Controparte</th>
+                    <th>Timestamp</th>
+                    <th>Hash Transazione</th>
+                    <th>Note</th>
+                    <th>Dettagli</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tx in unviewed_transactions %}
+                <tr>
+                    <td>{{ tx.type }}</td>
+                    <td>{{ tx.direction }}</td>
+                    <td>
+                        {% if tx.sender.userprofile.user_key == request.user.userprofile.user_key %}
+                            {{ tx.receiver.username|truncatechars:10 }}
+                        {% else %}
+                            {{ tx.sender.username|truncatechars:10 }}
+                        {% endif %}
+                    </td>
+                    <td>{{ tx.timestamp_datetime|date:"d/m/Y H:i:s" }}</td>
+                    <td>{{ tx.transaction_hash|truncatechars:10 }}</td>
+                    <td>
+                        {{ tx.notes }}
+                    </td>
+                    <td><a href="{% url 'Cripto1:transaction_details' tx.id %}" class="btn btn-info btn-sm">Vedi</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {# Pagination controls #}
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+            {% if unviewed_transactions.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ unviewed_transactions.previous_page_number }}">Previous</a></li>
+            {% else %}
+                <li class="page-item disabled"><a class="page-link" href="#">Previous</a></li>
+            {% endif %}
+
+            {% for num in unviewed_transactions.paginator.page_range %}
+                {% if unviewed_transactions.number == num %}
+                    <li class="page-item active"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                {% else %}
+                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                {% endif %}
+            {% endfor %}
+
+            {% if unviewed_transactions.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ unviewed_transactions.next_page_number }}">Next</a></li>
+            {% else %}
+                <li class="page-item disabled"><a class="page-link" href="#">Next</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+$(document).ready(function() {
+    $('#transactionSearch').on('keyup', function() {
+        var value = $(this).val().toLowerCase();
+        $('#transactionsTable tbody tr').filter(function() {
+            $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+        });
+    });
+});
+</script>
+{% endblock %} 
