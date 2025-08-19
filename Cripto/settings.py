@@ -13,7 +13,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 import dj_database_url
-
 import django
 from django.core.management import call_command
 import sys
@@ -84,30 +83,32 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'Cripto.wsgi.application'
 
-# Database Configuration
-# SQLite (commentato per riferimento futuro)
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
 
 
-# PostgreSQL Configuration
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'cripto_blockchain',
-        'USER': 'cripto_user',
-        'PASSWORD': '123',
-        'HOST': 'localhost',
-        'PORT': '5432',
-        'OPTIONS': {
-            'sslmode': 'prefer',
-        },
+if os.getenv("DATABASE_URL"):
+    # 🔹 Produzione (Render) → prende tutto da DATABASE_URL
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=os.getenv("DATABASE_URL"),
+            conn_max_age=600,
+            ssl_require=True,
+        )
     }
-}
+else:
+    # 🔹 Locale (sviluppo) → usa i parametri fissi
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": "cripto_blockchain",
+            "USER": "cripto_user",
+            "PASSWORD": "123",
+            "HOST": "localhost",
+            "PORT": "5432",
+            "OPTIONS": {
+                "sslmode": "prefer",
+            },
+        }
+    }
 
 # Configurazione per ambiente di produzione (Heroku, etc.)
 import os
