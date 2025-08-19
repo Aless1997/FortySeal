@@ -172,7 +172,7 @@ import sentry_sdk
 
 
 # Email Configuration for Gmail
-'''
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
@@ -181,7 +181,7 @@ EMAIL_HOST_USER = 'ale.social97@gmail.com'  # Sostituisci con la tua email
 EMAIL_HOST_PASSWORD = 'qjch lohe smcy pwsk'  # Usa una App Password di Google
 DEFAULT_FROM_EMAIL = 'FortySeal <ale.social97@gmail.com>'
 SERVER_EMAIL = 'ale.social97@gmail.com'
-'''
+
 
 
 # Ottimizzazioni PostgreSQL per applicazioni blockchain
