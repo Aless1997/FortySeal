@@ -48,6 +48,7 @@ urlpatterns = [
 
     # User Management URLs
     path('user-management/', views.user_management_dashboard, name='user_management_dashboard'),
+    
     path('user-management/users/', views.user_list, name='user_list'),
     path('user-management/users/create/', views.create_user, name='create_user'),
     path('user-management/users/<int:user_id>/', views.user_detail, name='user_detail'),
@@ -82,6 +83,7 @@ urlpatterns = [
     path('documents/<int:document_id>/delete/', views.delete_personal_document, name='delete_personal_document'),
     path('documents/<int:document_id>/send/', views.send_document_as_transaction, name='send_document_as_transaction'),
     path('documents/<int:document_id>/create-transaction/', views.create_transaction_from_document, name='create_transaction_from_document'),  # Spostato qui
+    path('created-documents/<int:document_id>/share/', views.create_transaction_from_created_document, name='create_transaction_from_created_document'),
     path('transactions/<int:transaction_id>/add-to-personal-documents/', views.add_transaction_file_to_personal_documents, name='add_transaction_file_to_personal_documents'),
     # Django admin (deve essere l'ULTIMA e fuori dal blocco app)
     path('admin/', admin.site.urls),
@@ -99,9 +101,26 @@ urlpatterns = [
     path('user-management/user/<int:user_id>/2fa-qrcode/', user_management_views.view_user_2fa_qrcode, name='view_user_2fa_qrcode'),
     # File Manager URLs
     path('admdashboard/file-manager/', views.file_manager, name='file_manager'),
+    # Aggiungi questi URL
+    path('documents/create/', views.create_document, name='create_document'),
+    path('documents/created/', views.created_documents_list, name='created_documents_list'),
+    path('documents/edit/<int:document_id>/', views.edit_document, name='edit_document'),
+    # Aggiungi questa riga dopo le altre URL dei documenti
+    path('documents/delete/<int:document_id>/', views.delete_created_document, name='delete_created_document'),
     # Aggiungi queste righe nelle URL patterns esistenti, prima della chiusura della lista
     # Sostituisci la riga esistente con queste due righe complete
     path('admdashboard/sessions/', views.session_management, name='session_management'),
     path('admdashboard/my-sessions/', views.my_sessions, name='my_sessions'),
     path('admdashboard/terminate-session/', views.terminate_session, name='terminate_session'),
-]
+    # Sharing URLs
+    path('share/create/', views.create_share, name='create_share'),
+    path('share/my-shares/', views.my_shares, name='my_shares'),
+    path('share/<uuid:share_id>/', views.view_shared_document, name='view_shared_document'),
+    path('share/<uuid:share_id>/download/', views.download_shared_document, name='download_shared_document'),
+    path('share/<uuid:share_id>/edit/', views.edit_shared_document, name='edit_shared_document'),
+    path('share/<uuid:share_id>/revoke/', views.revoke_share, name='revoke_share'),
+    path('documents/created/<int:document_id>/add-collaborator/', views.add_collaborator, name='add_collaborator'),
+    # Notification URLs
+    path('notifications/', views.notifications, name='notifications'),
+    path('notifications/<int:notification_id>/mark-read/', views.mark_notification_as_read, name='mark_notification_as_read')
+    ]

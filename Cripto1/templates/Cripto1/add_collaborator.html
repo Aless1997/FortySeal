@@ -1,0 +1,108 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Aggiungi Collaboratore{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-gradient-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-user-plus me-2"></i>
+                        Aggiungi Collaboratore
+                    </h4>
+                </div>
+                <div class="card-body p-4">
+                    <!-- Info documento -->
+                    <div class="alert alert-info mb-4">
+                        <h6><i class="fas fa-file-alt me-2"></i>Documento: <strong>{{ document.title }}</strong></h6>
+                        <small class="text-muted">Stai per invitare un collaboratore a modificare questo documento</small>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <!-- Selezione collaboratore -->
+                        <div class="mb-4">
+                            <label for="collaborator_username" class="form-label fw-bold">
+                                <i class="fas fa-user me-2"></i>Seleziona Collaboratore
+                            </label>
+                            <select class="form-select" id="collaborator_username" name="collaborator_username" required>
+                                <option value="">-- Seleziona un utente --</option>
+                                {% for user in users %}
+                                    <option value="{{ user.username }}">
+                                        {{ user.get_full_name|default:user.username }}
+                                        {% if user.email %} ({{ user.email }}){% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Livello di permesso -->
+                        <div class="mb-4">
+                            <label for="permission_level" class="form-label fw-bold">
+                                <i class="fas fa-key me-2"></i>Livello di Permesso
+                            </label>
+                            <select class="form-select" id="permission_level" name="permission_level" required>
+                                <option value="write" selected>✏️ Scrittura (Lettura e Modifica)</option>
+                                <option value="read">👁️ Solo Lettura</option>
+                                <option value="full">🔧 Controllo Completo</option>
+                            </select>
+                            <div class="form-text">
+                                <strong>Consigliato:</strong> Seleziona "Scrittura" per la collaborazione normale
+                            </div>
+                        </div>
+
+                        <!-- Messaggio di collaborazione -->
+                        <div class="mb-4">
+                            <label for="collaboration_message" class="form-label fw-bold">
+                                <i class="fas fa-comment me-2"></i>Messaggio di Collaborazione
+                            </label>
+                            <textarea class="form-control" id="collaboration_message" name="collaboration_message" rows="3" placeholder="Scrivi un messaggio per il tuo collaboratore (opzionale)..."></textarea>
+                            <div class="form-text">Questo messaggio sarà incluso nell'email di invito</div>
+                        </div>
+
+                        <!-- Pulsanti -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'Cripto1:created_documents_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Annulla
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane me-2"></i>Invia Invito
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+}
+
+.card {
+    border-radius: 15px;
+}
+
+.form-select:focus,
+.form-control:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    border: none;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+    transform: translateY(-1px);
+}
+</style>
+{% endblock %}

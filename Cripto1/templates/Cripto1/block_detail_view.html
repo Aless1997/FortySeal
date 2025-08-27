@@ -1,0 +1,358 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Dettaglio Blocco #{{ block.index }} - FortySeal{% endblock %}
+
+{% block extra_css %}
+<style>
+    .blockchain-container {
+        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+        min-height: 100vh;
+        padding: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stars-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+    }
+
+    .star-layer {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background-image: 
+            radial-gradient(2px 2px at 20px 30px, #eee, transparent),
+            radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
+            radial-gradient(1px 1px at 90px 40px, #fff, transparent),
+            radial-gradient(1px 1px at 130px 80px, rgba(255,255,255,0.6), transparent),
+            radial-gradient(2px 2px at 160px 30px, #fff, transparent);
+        background-repeat: repeat;
+        background-size: 200px 100px;
+        animation: drift 20s infinite linear;
+    }
+
+    .star-layer:nth-child(2) {
+        animation-duration: 30s;
+        animation-direction: reverse;
+        opacity: 0.7;
+    }
+
+    .star-layer:nth-child(3) {
+        animation-duration: 40s;
+        opacity: 0.5;
+    }
+
+    @keyframes drift {
+        from { transform: translateX(-200px); }
+        to { transform: translateX(200px); }
+    }
+
+    .nebula {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(ellipse at center, rgba(138, 43, 226, 0.1) 0%, transparent 50%),
+                    radial-gradient(ellipse at 80% 20%, rgba(75, 0, 130, 0.1) 0%, transparent 50%),
+                    radial-gradient(ellipse at 20% 80%, rgba(25, 25, 112, 0.1) 0%, transparent 50%);
+        z-index: -1;
+        animation: nebulaDrift 60s infinite ease-in-out;
+    }
+
+    @keyframes nebulaDrift {
+        0%, 100% { transform: translateX(0) translateY(0) scale(1); }
+        25% { transform: translateX(20px) translateY(-10px) scale(1.05); }
+        50% { transform: translateX(-15px) translateY(15px) scale(0.95); }
+        75% { transform: translateX(10px) translateY(-20px) scale(1.02); }
+    }
+
+    .grid-plane {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 50%;
+        background-image: 
+            linear-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
+        background-size: 50px 50px;
+        transform: perspective(500px) rotateX(60deg);
+        transform-origin: bottom;
+        z-index: -1;
+        opacity: 0.3;
+    }
+
+    .block-detail-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1000;
+    }
+
+    .block-header {
+        background: rgba(0, 20, 40, 0.9);
+        border: 2px solid #00ffff;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px rgba(0, 255, 255, 0.3);
+    }
+
+    .block-title {
+        color: #00ffff;
+        font-size: 2.5rem;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 20px;
+        text-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+    }
+
+    .block-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+    }
+
+    .info-card {
+        background: rgba(0, 30, 60, 0.8);
+        border: 1px solid #00ffff;
+        border-radius: 10px;
+        padding: 20px;
+        backdrop-filter: blur(5px);
+    }
+
+    .info-label {
+        color: #00ffff;
+        font-weight: bold;
+        font-size: 0.9rem;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+    }
+
+    .info-value {
+        color: #ffffff;
+        font-family: 'Courier New', monospace;
+        word-break: break-all;
+        font-size: 0.95rem;
+    }
+
+    .transactions-section {
+        background: rgba(0, 20, 40, 0.9);
+        border: 2px solid #00ffff;
+        border-radius: 15px;
+        padding: 30px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px rgba(0, 255, 255, 0.3);
+    }
+
+    .section-title {
+        color: #00ffff;
+        font-size: 1.8rem;
+        font-weight: bold;
+        margin-bottom: 20px;
+        text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+    }
+
+    .transaction-item {
+        background: rgba(0, 30, 60, 0.8);
+        border: 1px solid rgba(0, 255, 255, 0.3);
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+    }
+
+    .transaction-item:hover {
+        border-color: #00ffff;
+        box-shadow: 0 4px 20px rgba(0, 255, 255, 0.4);
+        transform: translateY(-2px);
+    }
+
+    .transaction-hash {
+        color: #00ffff;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        word-break: break-all;
+        margin-bottom: 10px;
+    }
+
+    .transaction-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 10px;
+    }
+
+    .back-button {
+        background: linear-gradient(45deg, #00ffff, #0080ff);
+        color: #000;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 25px;
+        font-weight: bold;
+        text-decoration: none;
+        display: inline-block;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 255, 255, 0.3);
+    }
+
+    .back-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 25px rgba(0, 255, 255, 0.5);
+        color: #000;
+        text-decoration: none;
+    }
+
+    .no-transactions {
+        text-align: center;
+        color: #888;
+        font-style: italic;
+        padding: 40px;
+    }
+
+    @media (max-width: 768px) {
+        .block-info-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .transaction-details {
+            grid-template-columns: 1fr;
+        }
+        
+        .block-title {
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="blockchain-container">
+    <div class="stars-container">
+        <div class="star-layer"></div>
+        <div class="star-layer"></div>
+        <div class="star-layer"></div>
+    </div>
+    <div class="nebula"></div>
+    <div class="grid-plane"></div>
+
+    <div class="block-detail-container">
+        <a href="{% url 'Cripto1:block_details_list' %}" class="back-button">
+            ← Torna alla Lista Blocchi
+        </a>
+
+        <div class="block-header">
+            <h1 class="block-title">Blocco #{{ block.index }}</h1>
+            
+            <div class="block-info-grid">
+                <div class="info-card">
+                    <div class="info-label">Hash del Blocco</div>
+                    <div class="info-value">{{ block.hash }}</div>
+                </div>
+                
+                <div class="info-card">
+                    <div class="info-label">Hash Precedente</div>
+                    <div class="info-value">{{ block.previous_hash }}</div>
+                </div>
+                
+                <div class="info-card">
+                    <div class="info-label">Merkle Root</div>
+                    <div class="info-value">{{ block.merkle_root }}</div>
+                </div>
+                
+                <div class="info-card">
+                    <div class="info-label">Timestamp</div>
+                    <div class="info-value">
+                        {% if block_datetime %}
+                            {{ block_datetime|date:"d/m/Y H:i:s" }}
+                        {% else %}
+                            {{ block.timestamp }}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="info-card">
+                    <div class="info-label">Difficoltà</div>
+                    <div class="info-value">{{ block.difficulty }}</div>
+                </div>
+                
+                <div class="info-card">
+                    <div class="info-label">Nonce</div>
+                    <div class="info-value">{{ block.nonce }}</div>
+                </div>
+                
+                <div class="info-card">
+                    <div class="info-label">Numero Transazioni</div>
+                    <div class="info-value">{{ transactions_count }}</div>
+                </div>
+                
+                {% if creation_time %}
+                <div class="info-card">
+                    <div class="info-label">Tempo di Creazione</div>
+                    <div class="info-value">{{ creation_time }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="transactions-section">
+            <h2 class="section-title">
+                🔗 Transazioni nel Blocco ({{ transactions_count }})
+            </h2>
+            
+            {% if transactions %}
+                {% for transaction in transactions %}
+                <div class="transaction-item">
+                    <div class="transaction-hash">
+                        <strong>Hash:</strong> {{ transaction.hash }}
+                    </div>
+                    
+                    <div class="transaction-details">
+                        <div class="info-card">
+                            <div class="info-label">Mittente</div>
+                            <div class="info-value">{{ transaction.sender.username }}</div>
+                        </div>
+                        
+                        <div class="info-card">
+                            <div class="info-label">Destinatario</div>
+                            <div class="info-value">{{ transaction.recipient.username }}</div>
+                        </div>
+                        
+                        <div class="info-card">
+                            <div class="info-label">Importo</div>
+                            <div class="info-value">{{ transaction.amount }} FSC</div>
+                        </div>
+                        
+                        <div class="info-card">
+                            <div class="info-label">Timestamp</div>
+                            <div class="info-value">{{ transaction.timestamp|date:"d/m/Y H:i:s" }}</div>
+                        </div>
+                        
+                        {% if transaction.data %}
+                        <div class="info-card">
+                            <div class="info-label">Dati</div>
+                            <div class="info-value">{{ transaction.data|truncatechars:100 }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-transactions">
+                    <p>Nessuna transazione presente in questo blocco.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

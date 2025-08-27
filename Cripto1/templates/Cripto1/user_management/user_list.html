@@ -265,6 +265,12 @@
                                                 <div class="user-info">
                                                     <div class="user-name">{{ user_profile.user.username }}</div>
                                                     <div class="user-email">{{ user_profile.user.email|default:"Nessuna email" }}</div>
+                                                    <div class="text-muted small mt-1">
+                                                        <i class="fas fa-calendar-plus"></i> Registrato: {{ user_profile.user.date_joined|date:"d/m/Y H:i" }}
+                                                    </div>
+                                                    <div class="text-muted mt-1" style="font-size: 0.9rem;">
+                                                        <i class="fas fa-clock text-info"></i> Ultimo accesso: {{ user_profile.user.last_login|date:"d/m/Y H:i"|default:"Mai" }}
+                                                    </div>
                                                 </div>
                                             </div>
                                             

@@ -1,0 +1,394 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Modifica Documento - {{ document.title }}{% endblock %}
+
+{% block content %}
+<style>
+:root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    --warning-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --glass-bg: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --shadow-light: 0 8px 32px rgba(31, 38, 135, 0.37);
+    --shadow-heavy: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%) !important;
+    min-height: 100vh;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.modern-container {
+    min-height: 100vh;
+    padding: 40px 20px;
+    position: relative;
+}
+
+.modern-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 40px;
+    box-shadow: var(--shadow-heavy);
+    color: white;
+    max-width: 1200px;
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+}
+
+.modern-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.modern-title {
+    font-size: 2.2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.modern-title i {
+    background: var(--warning-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-size: 1.8rem;
+}
+
+.modern-btn {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border: 2px solid var(--glass-border);
+    color: white !important;
+    padding: 12px 24px;
+    font-weight: 600;
+    border-radius: 50px;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    text-decoration: none !important;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+    margin: 0 5px;
+    cursor: pointer;
+}
+
+.modern-btn:hover {
+    background: rgba(255,255,255,0.2);
+    border-color: rgba(255,255,255,0.4);
+    color: white !important;
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+    text-decoration: none !important;
+}
+
+.modern-btn.primary {
+    background: var(--success-gradient);
+    border-color: transparent;
+}
+
+.modern-btn.primary:hover {
+    background: linear-gradient(135deg, #0e8a7f 0%, #32d96d 100%);
+    box-shadow: 0 15px 35px rgba(17, 153, 142, 0.4);
+}
+
+.editor-layout {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 40px;
+    margin-bottom: 40px;
+}
+
+.editor-main {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.modern-form-group {
+    margin-bottom: 30px;
+}
+
+.modern-label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.1rem;
+}
+
+.modern-input, .modern-select, .modern-textarea {
+    width: 100%;
+    padding: 15px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 2px solid var(--glass-border);
+    border-radius: 16px;
+    color: white;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    font-family: inherit;
+}
+
+.modern-textarea {
+    min-height: 400px;
+    resize: vertical;
+    line-height: 1.6;
+}
+
+.modern-input:focus, .modern-select:focus, .modern-textarea:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+.modern-input::placeholder, .modern-textarea::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.info-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.info-card {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 25px;
+    position: relative;
+    overflow: hidden;
+}
+
+.info-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--success-gradient);
+}
+
+.info-card h5 {
+    margin: 0 0 20px 0;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: white;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.checkbox-group:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.modern-checkbox {
+    width: 20px;
+    height: 20px;
+    accent-color: #38ef7d;
+    margin-right: 12px;
+}
+
+.checkbox-label {
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.document-stats {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.stat-value {
+    font-weight: 600;
+    color: white;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 30px;
+    border-top: 1px solid var(--glass-border);
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+@media (max-width: 768px) {
+    .editor-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .modern-header {
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+    }
+    
+    .modern-title {
+        font-size: 1.8rem;
+    }
+    
+    .form-actions {
+        align-items: stretch;
+    }
+    
+    .modern-btn {
+        justify-content: center;
+    }
+}
+</style>
+
+<div class="modern-container">
+    <div class="modern-card">
+        <div class="modern-header">
+            <h1 class="modern-title">
+                <i class="fas fa-edit"></i>
+                Modifica: {{ document.title }}
+            </h1>
+            <div>
+                <a href="{% url 'Cripto1:created_documents_list' %}" class="modern-btn">
+                    <i class="fas fa-arrow-left"></i>
+                    Torna alla Lista
+                </a>
+            </div>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="editor-layout">
+                <div class="editor-main">
+                    <div class="modern-form-group">
+                        <label for="id_title" class="modern-label">
+                            <i class="fas fa-heading"></i> Titolo Documento
+                        </label>
+                        <input type="text" class="modern-input" id="id_title" name="title" value="{{ document.title }}" required>
+                    </div>
+                    
+                    <div class="modern-form-group">
+                        <label for="id_content" class="modern-label">
+                            <i class="fas fa-file-text"></i> Contenuto
+                        </label>
+                        <textarea class="modern-textarea" id="id_content" name="content" placeholder="Scrivi qui il contenuto del tuo documento...">{{ content }}</textarea>
+                    </div>
+                </div>
+                
+                <div class="info-sidebar">
+                    <div class="info-card">
+                        <h5><i class="fas fa-cog"></i> Impostazioni</h5>
+                        
+                        <div class="modern-form-group">
+                            <label for="id_document_type" class="modern-label">Tipo Documento</label>
+                            <select class="modern-select" id="id_document_type" name="document_type">
+                                <option value="letter" {% if document.document_type == 'letter' %}selected{% endif %}>✉️ Lettera</option>
+                                <option value="report" {% if document.document_type == 'report' %}selected{% endif %}>📊 Report</option>
+                                <option value="memo" {% if document.document_type == 'memo' %}selected{% endif %}>📝 Memo</option>
+                                <option value="other" {% if document.document_type == 'other' %}selected{% endif %}>📄 Altro</option>
+                            </select>
+                        </div>
+                        
+                        <div class="checkbox-group">
+                            <input class="modern-checkbox" type="checkbox" id="id_is_encrypted" name="is_encrypted" {% if document.is_encrypted %}checked{% endif %}>
+                            <label class="checkbox-label" for="id_is_encrypted">
+                                <i class="fas fa-lock"></i> Crittografa documento
+                            </label>
+                        </div>
+                        
+                        <div class="checkbox-group">
+                            <input class="modern-checkbox" type="checkbox" id="id_is_shareable" name="is_shareable" {% if document.is_shareable %}checked{% endif %}>
+                            <label class="checkbox-label" for="id_is_shareable">
+                                <i class="fas fa-share"></i> Condivisibile
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="info-card">
+                        <h5><i class="fas fa-info-circle"></i> Statistiche</h5>
+                        <div class="document-stats">
+                            <div class="stat-item">
+                                <span>Creato:</span>
+                                <span class="stat-value">{{ document.created_at|date:"d/m/Y H:i" }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span>Modificato:</span>
+                                <span class="stat-value">{{ document.updated_at|date:"d/m/Y H:i" }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span>Parole:</span>
+                                <span class="stat-value" id="word-count">{{ document.word_count }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <div class="modern-actions">
+                    <button type="submit" class="modern-btn modern-btn-primary">
+                        <i class="fas fa-save"></i> Salva Documento
+                    </button>
+                    <button type="button" id="autoSaveBtn" class="modern-btn modern-btn-secondary">
+                        <i class="fas fa-clock"></i> Salvataggio Automatico: <span id="autoSaveStatus">Attivo</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Conteggio parole semplice
+function updateWordCount() {
+    const content = document.getElementById('id_content').value;
+    const words = content.trim().split(/\s+/).filter(word => word.length > 0).length;
+    document.getElementById('word-count').textContent = content.trim() === '' ? 0 : words;
+}
+
+// Aggiorna conteggio parole mentre si scrive
+document.getElementById('id_content').addEventListener('input', updateWordCount);
+
+// Conteggio iniziale
+updateWordCount();
+</script>
+{% endblock %}

@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import login, authenticate, logout
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, FileResponse
-from .models import Block, Transaction, UserProfile, SmartContract, AuditLog, Permission, Role, UserRole, PersonalDocument, BlockchainState
+from .models import Block, Transaction, UserProfile, SmartContract, AuditLog, Permission, Role, UserRole, PersonalDocument, BlockchainState, SharedDocument, ShareNotification, CreatedDocument
 from django.db import transaction, models
 import hashlib
 import json
@@ -47,6 +47,12 @@ from django.contrib.auth.decorators import user_passes_test
 from django.db.models import Count
 from django.template.loader import render_to_string
 import traceback
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib.enums import TA_CENTER
 
 cipher_suite = Fernet(settings.FERNET_KEY)
 
@@ -915,9 +921,13 @@ def download_file(request, transaction_id):
                     return render(request, 'Cripto1/download_encrypted_file.html', {'transaction': tx})
                 
                 print(f"DEBUG: Encrypted symmetric key (from DB): {tx.encrypted_symmetric_key[:10]}...") # First 10 bytes
+                
+                # Converti memoryview in bytes prima della decifratura RSA
+                encrypted_symmetric_key_bytes = bytes(tx.encrypted_symmetric_key) if isinstance(tx.encrypted_symmetric_key, memoryview) else tx.encrypted_symmetric_key
+                
                 # Use the RSA private key to decrypt the symmetric key
                 symmetric_key = decrypted_private_key.decrypt(
-                    tx.encrypted_symmetric_key,
+                    encrypted_symmetric_key_bytes,  # Usa la versione convertita in bytes
                     padding.OAEP(
                         mgf=padding.MGF1(algorithm=hashes.SHA256()),
                         algorithm=hashes.SHA256(),
@@ -1030,9 +1040,12 @@ def view_transaction_file(request, transaction_id):
                     messages.error(request, 'Password della chiave privata errata.')
                     return render(request, 'Cripto1/view_transaction_file.html', {'transaction': tx})
                 
+                # Converti memoryview in bytes prima della decifratura RSA
+                encrypted_symmetric_key_bytes = bytes(tx.encrypted_symmetric_key) if isinstance(tx.encrypted_symmetric_key, memoryview) else tx.encrypted_symmetric_key
+                
                 # Use the RSA private key to decrypt the symmetric key
                 symmetric_key = decrypted_private_key.decrypt(
-                    tx.encrypted_symmetric_key,
+                    encrypted_symmetric_key_bytes,  # Usa la versione convertita in bytes
                     padding.OAEP(
                         mgf=padding.MGF1(algorithm=hashes.SHA256()),
                         algorithm=hashes.SHA256(),
@@ -1239,14 +1252,15 @@ def verify_blockchain(request):
                 'message': f'Blockchain non valida: Hash del blocco precedente {current_block.index-1} non corrisponde al previous_hash del blocco {current_block.index}.'
             })
 
-        # Recalculate the hash of the previous block to verify its integrity
+        # Recalculate the hash using the EXACT same structure as mining
         previous_block_data = {
             'index': previous_block.index,
-            'timestamp': previous_block.timestamp, # Use the float value directly
-            'proof': previous_block.proof,
+            'timestamp': previous_block.timestamp,
+            'proof': str(previous_block.proof),
             'previous_hash': previous_block.previous_hash,
-            'transactions': list(previous_block.transactions.values('type', 'sender_public_key', 'receiver', 'timestamp', 'transaction_hash')), # RIMOSSO 'amount' e 'notes'
-            'difficulty': getattr(previous_block, 'difficulty', 4) # Include difficulty if exists
+            'nonce': str(previous_block.nonce),
+            'merkle_root': previous_block.merkle_root or '',
+            'difficulty': int(previous_block.difficulty) if previous_block.difficulty else 4,  # Converti a int!
         }
         recalculated_hash = calculate_hash(previous_block_data)
 
@@ -2630,8 +2644,11 @@ def download_personal_document(request, document_id):
                     messages.error(request, 'Password della chiave privata errata.')
                     return render(request, 'Cripto1/download_personal_document.html', {'document': document})
                 
+                # Converti memoryview in bytes prima della decifratura
+                encrypted_symmetric_key_bytes = bytes(document.encrypted_symmetric_key) if isinstance(document.encrypted_symmetric_key, memoryview) else document.encrypted_symmetric_key
+                
                 symmetric_key = decrypted_private_key.decrypt(
-                    document.encrypted_symmetric_key,
+                    encrypted_symmetric_key_bytes,
                     padding.OAEP(
                         mgf=padding.MGF1(algorithm=hashes.SHA256()),
                         algorithm=hashes.SHA256(),
@@ -2834,8 +2851,11 @@ def send_document_as_transaction(request, document_id):
                         messages.error(request, 'Password della chiave privata errata.')
                         return redirect('Cripto1:send_document_as_transaction', document_id=document_id)
                     
+                    # Converti memoryview in bytes prima della decifratura
+                    encrypted_symmetric_key_bytes = bytes(document.encrypted_symmetric_key) if isinstance(document.encrypted_symmetric_key, memoryview) else document.encrypted_symmetric_key
+                    
                     symmetric_key = decrypted_private_key.decrypt(
-                        document.encrypted_symmetric_key,
+                        encrypted_symmetric_key_bytes,
                         padding.OAEP(
                             mgf=padding.MGF1(algorithm=hashes.SHA256()),
                             algorithm=hashes.SHA256(),
@@ -3012,8 +3032,11 @@ def add_transaction_file_to_personal_documents(request, transaction_id):
                     messages.error(request, 'Password della chiave privata errata.')
                     return render(request, 'Cripto1/add_transaction_file_to_personal_documents.html', {'transaction': tx})
                 
+                # Converti memoryview in bytes prima della decifratura RSA
+                encrypted_symmetric_key_bytes = bytes(tx.encrypted_symmetric_key) if isinstance(tx.encrypted_symmetric_key, memoryview) else tx.encrypted_symmetric_key
+                
                 symmetric_key = decrypted_private_key.decrypt(
-                    tx.encrypted_symmetric_key,
+                    encrypted_symmetric_key_bytes,
                     padding.OAEP(
                         mgf=padding.MGF1(algorithm=hashes.SHA256()),
                         algorithm=hashes.SHA256(),
@@ -4319,20 +4342,110 @@ def personal_statistics(request):
     
     monthly_stats.reverse()  # Ordine cronologico
     
-    # Statistiche sui file
-    total_file_size = 0
-    file_transactions_queryset = Transaction.objects.filter(
+    # Aggiorna e calcola le statistiche dello storage
+    user_profile.update_storage_usage()
+    
+    # Calcoli per le statistiche dello storage
+    total_storage_mb = round(user_profile.storage_used_bytes / (1024 * 1024), 2)
+    storage_limit_mb = round(user_profile.storage_quota_bytes / (1024 * 1024), 2)
+    storage_percentage = round(user_profile.get_storage_percentage(), 1)
+    remaining_storage_mb = round((user_profile.storage_quota_bytes - user_profile.storage_used_bytes) / (1024 * 1024), 2)
+    
+    # Calcoli dettagliati per categoria
+    personal_docs_storage = 0
+    transaction_files_storage = 0
+    images_storage = 0
+    pdf_storage = 0
+    other_files_storage = 0
+    
+    # Calcola storage documenti personali
+    for doc in user_profile.user.personal_documents.all():
+        if doc.file and hasattr(doc.file, 'size'):
+            size_mb = doc.file.size / (1024 * 1024)
+            personal_docs_storage += size_mb
+            
+            # Categorizza per tipo
+            if doc.file.name.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp')):
+                images_storage += size_mb
+            elif doc.file.name.lower().endswith('.pdf'):
+                pdf_storage += size_mb
+            else:
+                other_files_storage += size_mb
+    
+    # Calcola storage file transazioni
+    for tx in Transaction.objects.filter(
         models.Q(sender=request.user) | models.Q(receiver=request.user),
-        type='file',
-        file__isnull=False
-    )
-    
-    for tx in file_transactions_queryset:
+        type='file', file__isnull=False
+    ):
         if tx.file and hasattr(tx.file, 'size'):
-            total_file_size += tx.file.size
+            size_mb = tx.file.size / (1024 * 1024)
+            transaction_files_storage += size_mb
+            
+            # Categorizza per tipo
+            if tx.file.name.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp')):
+                images_storage += size_mb
+            elif tx.file.name.lower().endswith('.pdf'):
+                pdf_storage += size_mb
+            else:
+                other_files_storage += size_mb
     
-    # Converti in MB
-    total_file_size_mb = round(total_file_size / (1024 * 1024), 2)
+    # File più grandi (top 5)
+    all_files = []
+    
+    # Aggiungi documenti personali
+    for doc in user_profile.user.personal_documents.all():
+        if doc.file and hasattr(doc.file, 'size'):
+            all_files.append({
+                'name': doc.title or doc.file.name,
+                'size_mb': round(doc.file.size / (1024 * 1024), 2),
+                'upload_date': doc.uploaded_at
+            })
+    
+    # Aggiungi file transazioni
+    for tx in Transaction.objects.filter(
+        models.Q(sender=request.user) | models.Q(receiver=request.user),
+        type='file', file__isnull=False
+    ):
+        if tx.file and hasattr(tx.file, 'size'):
+            # Converti timestamp in datetime timezone-aware
+            upload_datetime = timezone.datetime.fromtimestamp(tx.timestamp, tz=timezone.get_current_timezone())
+            all_files.append({
+                'name': tx.file.name,
+                'size_mb': round(tx.file.size / (1024 * 1024), 2),
+                'upload_date': upload_datetime  # Ora è timezone-aware
+            })
+    
+    # Ordina per dimensione e prendi i primi 5
+    largest_files = sorted(all_files, key=lambda x: x['size_mb'], reverse=True)[:5]
+    
+    # File più recenti (ultimi 5)
+    recent_files = sorted(all_files, key=lambda x: x['upload_date'], reverse=True)[:5]
+    
+    # Timeline settimanale (ultimi 7 giorni)
+    weekly_sent = [0] * 7
+    weekly_received = [0] * 7
+    
+    for i in range(7):
+        day_start = timezone.now() - timedelta(days=i+1)
+        day_end = timezone.now() - timedelta(days=i)
+        
+        sent_count = Transaction.objects.filter(
+            sender=request.user,
+            timestamp__gte=day_start.timestamp(),
+            timestamp__lt=day_end.timestamp()
+        ).count()
+        
+        received_count = Transaction.objects.filter(
+            receiver=request.user,
+            timestamp__gte=day_start.timestamp(),
+            timestamp__lt=day_end.timestamp()
+        ).count()
+        
+        weekly_sent[6-i] = sent_count  # Inverti l'ordine per avere lunedì-domenica
+        weekly_received[6-i] = received_count
+    
+    # Sostituisci il vecchio calcolo di total_file_size_mb
+    total_file_size_mb = total_storage_mb
     
     # Top 5 utenti con cui hai più transazioni
     from django.db.models import Count
@@ -4362,6 +4475,1047 @@ def personal_statistics(request):
         'total_file_size_mb': total_file_size_mb,
         'sent_to': sent_to,
         'received_from': received_from,
+        # Statistiche storage
+        'total_storage_mb': total_storage_mb,
+        'storage_limit_mb': storage_limit_mb,
+        'storage_percentage': storage_percentage,
+        'remaining_storage_mb': remaining_storage_mb,
+        # Dettagli per categoria
+        'personal_docs_storage_mb': round(personal_docs_storage, 2),
+        'transaction_files_storage_mb': round(transaction_files_storage, 2),
+        'images_storage_mb': round(images_storage, 2),
+        'pdf_storage_mb': round(pdf_storage, 2),
+        'other_files_storage_mb': round(other_files_storage, 2),
+        # File più grandi e recenti
+        'largest_files': largest_files,
+        'recent_files': recent_files,
+        # Timeline settimanale
+        'weekly_sent': weekly_sent,
+        'weekly_received': weekly_received,
     }
     
     return render(request, 'Cripto1/personal_statistics.html', context)
+
+# Funzioni di utilità per le condivisioni
+def can_share_document(user, document_type, document_id):
+    """Verifica se l'utente può condividere il documento specificato"""
+    try:
+        if document_type == 'transaction':
+            tx = Transaction.objects.get(id=document_id)
+            return tx.sender == user or tx.receiver == user
+        elif document_type == 'personal_document':
+            doc = PersonalDocument.objects.get(id=document_id, user=user)
+            return True
+        elif document_type == 'created_document':
+            from .models import CreatedDocument
+            doc = CreatedDocument.objects.get(id=document_id, user=user)
+            return True
+        return False
+    except (Transaction.DoesNotExist, PersonalDocument.DoesNotExist):
+        return False
+    except Exception:
+        return False
+
+def send_share_notification_email(shared_doc, action_type):
+    """Invia email di notifica per le condivisioni"""
+    try:
+        from django.core.mail import send_mail
+        from django.template.loader import render_to_string
+        
+        if action_type == 'created':
+            if shared_doc.share_type == 'created_document':
+                subject = f'Invito alla collaborazione da {shared_doc.owner.username}'
+            else:
+                subject = f'Nuovo documento condiviso da {shared_doc.owner.username}'
+            template = 'emails/share_notification.html'
+            recipient_email = shared_doc.shared_with.email
+            recipient = shared_doc.shared_with
+        elif action_type == 'accessed':
+            subject = f'Il tuo documento è stato visualizzato'
+            template = 'emails/share_accessed.html'
+            recipient_email = shared_doc.owner.email
+            recipient = shared_doc.owner
+        elif action_type == 'downloaded':
+            subject = f'Il tuo documento è stato scaricato'
+            template = 'emails/share_downloaded.html'
+            recipient_email = shared_doc.owner.email
+            recipient = shared_doc.owner
+        elif action_type == 'modified':
+            subject = f'Il tuo documento condiviso è stato modificato'
+            template = 'emails/share_modified.html'
+            recipient_email = shared_doc.owner.email
+            recipient = shared_doc.owner
+        else:
+            return  # Tipo di azione non riconosciuto
+        
+        context = {
+            'shared_document': shared_doc,
+            'recipient': recipient,
+            'is_collaboration': shared_doc.share_type == 'created_document',
+        }
+        
+        html_message = render_to_string(template, context)
+        
+        send_mail(
+            subject=subject,
+            message='',
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[recipient_email],
+            html_message=html_message,
+            fail_silently=True
+        )
+        
+    except Exception as e:
+        print(f"Errore nell'invio email di condivisione: {e}")
+
+@login_required
+def create_share(request):
+    """Crea una nuova condivisione"""
+    if request.method == 'POST':
+        document_type = request.POST.get('document_type')
+        document_id = request.POST.get('document_id')
+        shared_with_username = request.POST.get('shared_with')
+        permission_level = request.POST.get('permission_level', 'read')
+        expires_in_days = request.POST.get('expires_in_days')
+        max_downloads = request.POST.get('max_downloads')
+        share_message = request.POST.get('share_message', '')
+        notify_on_access = request.POST.get('notify_on_access') == 'on'
+        notify_on_download = request.POST.get('notify_on_download') == 'on'
+        
+        try:
+            # Verifica che l'utente possa condividere il documento
+            if not can_share_document(request.user, document_type, document_id):
+                return JsonResponse({'success': False, 'message': 'Non hai i permessi per condividere questo documento'})
+            
+            # Trova l'utente destinatario
+            try:
+                shared_with_user = User.objects.get(username=shared_with_username)
+            except User.DoesNotExist:
+                return JsonResponse({'success': False, 'message': 'Utente destinatario non trovato'})
+            
+            # Calcola la data di scadenza
+            expires_at = None
+            if expires_in_days:
+                expires_at = timezone.now() + timedelta(days=int(expires_in_days))
+            
+            # Crea la condivisione
+            from .models import SharedDocument
+            import uuid
+            shared_doc = SharedDocument.objects.create(
+                share_id=uuid.uuid4(),
+                owner=request.user,
+                shared_with=shared_with_user,
+                share_type=document_type,
+                object_id=document_id,
+                permission_level=permission_level,
+                expires_at=expires_at,
+                max_downloads=int(max_downloads) if max_downloads else None,
+                share_message=share_message,
+                notify_on_access=notify_on_access,
+                notify_on_download=notify_on_download
+            )
+            
+            # Determina il messaggio in base al tipo di condivisione
+            if document_type == 'created_document':
+                notification_message = f'{request.user.username} ti ha invitato a collaborare su un documento: {share_message}'
+            else:
+                notification_message = f'{request.user.username} ha condiviso un {document_type} con te: {share_message}'
+            
+            # Crea notifica per il destinatario
+            from .models import ShareNotification
+            ShareNotification.objects.create(
+                user=shared_with_user,
+                shared_document=shared_doc,
+                notification_type='share_created',
+                message=notification_message
+            )
+            
+            # Invia email di notifica
+            send_share_notification_email(shared_doc, 'created')
+            
+            return JsonResponse({
+                'success': True, 
+                'message': 'Documento condiviso con successo',
+                'share_id': str(shared_doc.share_id)
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': f'Errore nella condivisione: {str(e)}'})
+    
+    return render(request, 'Cripto1/create_share.html')
+
+@login_required
+def my_shares(request):
+    """Visualizza le condivisioni create dall'utente"""
+    from .models import SharedDocument
+    # CORREZIONE: Aggiungi is_active=True per filtrare le condivisioni revocate
+    shares_created = SharedDocument.objects.filter(owner=request.user, is_active=True).order_by('-created_at')
+    shares_received = SharedDocument.objects.filter(shared_with=request.user, is_active=True).order_by('-created_at')
+    
+    # Filtra le condivisioni scadute
+    active_shares_received = [share for share in shares_received if not share.is_expired()]
+    
+    # Separa le collaborazioni dai semplici share
+    collaborations_created = [share for share in shares_created if share.share_type == 'created_document']
+    collaborations_received = [share for share in active_shares_received if share.share_type == 'created_document']
+    
+    other_shares_created = [share for share in shares_created if share.share_type != 'created_document']
+    other_shares_received = [share for share in active_shares_received if share.share_type != 'created_document']
+    
+    context = {
+        'shares_created': shares_created,
+        'shares_received': active_shares_received,
+        'collaborations_created': collaborations_created,
+        'collaborations_received': collaborations_received,
+        'other_shares_created': other_shares_created,
+        'other_shares_received': other_shares_received,
+    }
+    return render(request, 'Cripto1/my_shares.html', context)
+
+@login_required
+def view_shared_document(request, share_id):
+    """Visualizza un documento condiviso"""
+    from .models import SharedDocument, ShareNotification
+    try:
+        shared_doc = SharedDocument.objects.get(share_id=share_id, shared_with=request.user, is_active=True)
+    except SharedDocument.DoesNotExist:
+        messages.error(request, 'Documento condiviso non trovato o non hai i permessi per visualizzarlo')
+        return redirect('Cripto1:my_shares')
+    
+    # Verifica se la condivisione è scaduta
+    if shared_doc.is_expired():
+        messages.error(request, 'La condivisione è scaduta')
+        return redirect('Cripto1:my_shares')
+    
+    # Ottieni il documento originale
+    if shared_doc.share_type == 'transaction':
+        document = get_object_or_404(Transaction, id=shared_doc.object_id)
+        template = 'Cripto1/shared_transaction.html'
+    elif shared_doc.share_type == 'personal_document':
+        document = get_object_or_404(PersonalDocument, id=shared_doc.object_id)
+        template = 'Cripto1/shared_personal_document.html'
+    elif shared_doc.share_type == 'created_document':
+        from .models import CreatedDocument
+        document = get_object_or_404(CreatedDocument, id=shared_doc.object_id)
+        template = 'Cripto1/shared_created_document.html'
+        
+        # Per i documenti creati, decrittografa il contenuto se necessario
+        if document.is_encrypted and document.encrypted_content:
+            try:
+                document.decrypted_content = decrypt_document_content(document)
+            except Exception as e:
+                document.decrypted_content = "[Contenuto crittografato - impossibile decrittografare]"
+        else:
+            document.decrypted_content = document.content
+    
+    # Invia notifica al proprietario se richiesto
+    if shared_doc.notify_on_access:
+        ShareNotification.objects.create(
+            user=shared_doc.owner,
+            shared_document=shared_doc,
+            notification_type='share_accessed',
+            message=f'{request.user.username} ha acceduto al documento condiviso'
+        )
+        send_share_notification_email(shared_doc, 'accessed')
+    
+    context = {
+        'shared_document': shared_doc,
+        'document': document,
+        'can_download': shared_doc.can_download(),
+        'can_write': shared_doc.can_write(),
+        'is_collaboration': shared_doc.share_type == 'created_document',
+    }
+    return render(request, template, context)
+
+@login_required
+def download_shared_document(request, share_id):
+    """Scarica un documento condiviso"""
+    from .models import SharedDocument, ShareNotification
+    try:
+        shared_doc = SharedDocument.objects.get(share_id=share_id, shared_with=request.user, is_active=True)
+    except SharedDocument.DoesNotExist:
+        messages.error(request, 'Documento condiviso non trovato')
+        return redirect('Cripto1:my_shares')
+    
+    if not shared_doc.record_download():
+        messages.error(request, 'Limite di download raggiunto o permessi insufficienti')
+        return redirect('Cripto1:view_shared_document', share_id=share_id)
+    
+    # Invia notifica al proprietario se richiesto
+    if shared_doc.notify_on_download:
+        ShareNotification.objects.create(
+            user=shared_doc.owner,
+            shared_document=shared_doc,
+            notification_type='share_downloaded',
+            message=f'{request.user.username} ha scaricato il documento condiviso'
+        )
+        send_share_notification_email(shared_doc, 'downloaded')
+    
+    # Reindirizza al download originale basato sul tipo
+    if shared_doc.share_type == 'transaction':
+        return redirect('Cripto1:download_file', transaction_id=shared_doc.object_id)
+    elif shared_doc.share_type == 'personal_document':
+        return redirect('Cripto1:download_personal_document', document_id=shared_doc.object_id)
+    # Aggiungi altri tipi se necessario
+
+@login_required
+def revoke_share(request, share_id):
+    """Revoca una condivisione"""
+    from .models import SharedDocument, ShareNotification
+    from django.http import JsonResponse
+    
+    try:
+        shared_doc = SharedDocument.objects.get(share_id=share_id, owner=request.user)
+        
+        # Determina il tipo di messaggio in base al tipo di condivisione
+        if shared_doc.share_type == 'created_document':
+            message_text = f'{request.user.username} ha rimosso il tuo accesso di collaborazione al documento'
+            success_message = 'Collaborazione revocata con successo'
+        else:
+            message_text = f'{request.user.username} ha revocato l\'accesso al documento condiviso'
+            success_message = 'Condivisione revocata con successo'
+        
+        shared_doc.is_active = False
+        shared_doc.save()
+        
+        # Crea notifica per il destinatario
+        ShareNotification.objects.create(
+            user=shared_doc.shared_with,
+            shared_document=shared_doc,
+            notification_type='share_revoked',
+            message=message_text
+        )
+        
+        # Se è una richiesta AJAX, restituisci JSON
+        if request.headers.get('Content-Type') == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'message': success_message})
+        
+        messages.success(request, success_message)
+        return redirect('Cripto1:my_shares')
+        
+    except SharedDocument.DoesNotExist:
+        error_message = 'Condivisione non trovata'
+        
+        # Se è una richiesta AJAX, restituisci JSON
+        if request.headers.get('Content-Type') == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'message': error_message})
+        
+        messages.error(request, error_message)
+        return redirect('Cripto1:my_shares')
+
+@login_required
+def notifications(request):
+    """Visualizza le notifiche dell'utente"""
+    from .models import ShareNotification
+    notifications = ShareNotification.objects.filter(user=request.user).order_by('-created_at')
+    
+    # Segna come lette le notifiche visualizzate
+    unread_notifications = notifications.filter(is_read=False)
+    unread_notifications.update(is_read=True)
+    
+    paginator = Paginator(notifications, 20)
+    page = request.GET.get('page')
+    try:
+        notifications = paginator.page(page)
+    except PageNotAnInteger:
+        notifications = paginator.page(1)
+    except EmptyPage:
+        notifications = paginator.page(paginator.num_pages)
+    
+    context = {
+        'notifications': notifications,
+    }
+    return render(request, 'Cripto1/notifications.html', context)
+
+@login_required
+def get_unread_notifications_count(request):
+    """API per ottenere il numero di notifiche non lette"""
+    from .models import ShareNotification
+    count = ShareNotification.objects.filter(user=request.user, is_read=False).count()
+    return JsonResponse({'count': count})
+
+@login_required
+def remove_collaborator(request, document_id, collaborator_id):
+    """Rimuovi un collaboratore da un documento"""
+    from .models import CreatedDocument, SharedDocument, ShareNotification
+    
+    document = get_object_or_404(CreatedDocument, id=document_id, user=request.user)
+    
+    try:
+        shared_doc = SharedDocument.objects.get(
+            owner=request.user,
+            shared_with_id=collaborator_id,
+            share_type='created_document',
+            object_id=document.id,
+            is_active=True
+        )
+        
+        shared_doc.is_active = False
+        shared_doc.save()
+        
+        # Crea notifica per il collaboratore rimosso
+        ShareNotification.objects.create(
+            user=shared_doc.shared_with,
+            shared_document=shared_doc,
+            notification_type='share_revoked',
+            message=f'{request.user.username} ha rimosso il tuo accesso di collaborazione al documento "{document.title}"'
+        )
+        
+        messages.success(request, f'Collaboratore {shared_doc.shared_with.username} rimosso con successo.')
+        
+    except SharedDocument.DoesNotExist:
+        messages.error(request, 'Collaborazione non trovata.')
+    
+    return redirect('Cripto1:edit_document', document_id=document.id)
+    
+@external_forbidden
+@login_required
+def create_document(request):
+    """Vista per creare un nuovo documento"""
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        document_type = request.POST.get('document_type', 'text')
+        content = request.POST.get('content', '')
+        
+        # Crea il documento
+        from .models import CreatedDocument
+        document = CreatedDocument.objects.create(
+            user=request.user,
+            title=title,
+            document_type=document_type,
+            content=content,
+            word_count=len(content.split())
+        )
+        
+        # Crittografa il contenuto se necessario
+        if content:
+            encrypt_document_content(document, content)
+        
+        messages.success(request, f'Documento "{title}" creato con successo!')
+        return redirect('Cripto1:edit_document', document_id=document.id)
+    
+    return render(request, 'Cripto1/create_document.html')
+
+@external_forbidden
+@login_required
+def edit_document(request, document_id):
+    """Vista per modificare un documento esistente"""
+    from .models import CreatedDocument, SharedDocument
+    document = get_object_or_404(CreatedDocument, id=document_id, user=request.user)
+    
+    if request.method == 'POST':
+        if 'auto_save' in request.POST:
+            # Auto-salvataggio AJAX
+            content = request.POST.get('content', '')
+            title = request.POST.get('title', document.title)
+            document_type = request.POST.get('document_type', document.document_type)
+            is_encrypted = 'is_encrypted' in request.POST
+            is_shareable = 'is_shareable' in request.POST
+            
+            document.title = title
+            document.content = content
+            document.document_type = document_type
+            document.is_encrypted = is_encrypted
+            document.is_shareable = is_shareable
+            document.word_count = len(content.split()) if content else 0
+            document.save()
+            
+            # Ri-crittografa il contenuto se necessario
+            if is_encrypted:
+                encrypt_document_content(document, content)
+            
+            return JsonResponse({
+                'success': True, 
+                'status': 'saved', 
+                'time': timezone.now().strftime('%H:%M')
+            })
+        else:
+            # Salvataggio normale
+            content = request.POST.get('content', '')
+            title = request.POST.get('title', document.title)
+            document_type = request.POST.get('document_type', document.document_type)
+            is_encrypted = 'is_encrypted' in request.POST
+            is_shareable = 'is_shareable' in request.POST
+            
+            document.title = title
+            document.content = content
+            document.document_type = document_type
+            document.is_encrypted = is_encrypted
+            document.is_shareable = is_shareable
+            document.word_count = len(content.split()) if content else 0
+            document.save()
+            
+            # Ri-crittografa il contenuto se necessario
+            if is_encrypted:
+                encrypt_document_content(document, content)
+            
+            messages.success(request, 'Documento salvato con successo!')
+            return redirect('Cripto1:created_documents_list')
+    
+    # Decrittografa il contenuto se necessario
+    if document.is_encrypted and document.encrypted_content:
+        content = decrypt_document_content(document)
+    else:
+        content = document.content
+    
+    # Ottieni i collaboratori del documento
+    collaborators = SharedDocument.objects.filter(
+        owner=request.user,
+        share_type='created_document',
+        object_id=document.id,
+        is_active=True
+    ).select_related('shared_with')
+    
+    context = {
+        'document': document,
+        'content': content,
+        'collaborators': collaborators,
+    }
+    return render(request, 'Cripto1/edit_document.html', context)
+
+@external_forbidden
+@login_required
+def created_documents_list(request):
+    """Lista dei documenti creati dall'utente"""
+    from .models import CreatedDocument, SharedDocument
+    documents = CreatedDocument.objects.filter(user=request.user)
+    
+    # Aggiungi informazioni sui collaboratori per ogni documento
+    for document in documents:
+        document.collaborators = SharedDocument.objects.filter(
+            owner=request.user,
+            share_type='created_document',
+            object_id=document.id,
+            is_active=True
+        ).select_related('shared_with')
+    
+    context = {
+        'documents': documents,
+    }
+    return render(request, 'Cripto1/created_documents_list.html', context)
+
+def encrypt_document_content(document, content):
+    """Crittografa il contenuto del documento"""
+    try:
+        user_profile = document.user.userprofile
+        if user_profile.public_key:
+            # Genera chiave simmetrica
+            symmetric_key = Fernet.generate_key()
+            f = Fernet(symmetric_key)
+            
+            # Crittografa il contenuto
+            encrypted_content = f.encrypt(content.encode('utf-8'))
+            
+            # Crittografa la chiave simmetrica con la chiave pubblica
+            public_key = serialization.load_pem_public_key(user_profile.public_key.encode())
+            encrypted_symmetric_key = public_key.encrypt(
+                symmetric_key,
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
+            )
+            
+            # Salva i dati crittografati
+            document.encrypted_content = encrypted_content
+            document.encrypted_symmetric_key = encrypted_symmetric_key
+            document.is_encrypted = True
+            document.save()
+            
+    except Exception as e:
+        print(f"Errore crittografia documento: {e}")
+
+def decrypt_document_content(document):
+    """Decrittografa il contenuto del documento"""
+    try:
+        user_profile = document.user.userprofile
+        # Correzione: usare private_key invece di encrypted_private_key
+        if user_profile.private_key and document.encrypted_symmetric_key:
+            # Qui dovresti richiedere la password, per ora uso contenuto non crittografato
+            return document.content
+    except Exception as e:
+        print(f"Errore decrittografia documento: {e}")
+    
+    return document.content
+
+@external_forbidden
+@login_required
+def delete_created_document(request, document_id):
+    """Elimina un documento creato dall'utente"""
+    from .models import CreatedDocument
+    document = get_object_or_404(CreatedDocument, id=document_id, user=request.user)
+    
+    if request.method == 'POST':
+        document_title = document.title
+        document.delete()
+        messages.success(request, f'Documento "{document_title}" eliminato con successo.')
+    
+    return redirect('Cripto1:created_documents_list')
+
+@external_forbidden
+@login_required
+@user_manager_forbidden
+def create_transaction_from_created_document(request, document_id):
+    # Recupera il documento creato
+    from .models import CreatedDocument
+    document = get_object_or_404(CreatedDocument, id=document_id, user=request.user)
+    user_profile = UserProfile.objects.get(user=request.user)
+    
+    # Verifica se l'utente ha il ruolo "external"
+    if user_profile.has_role('external'):
+        messages.error(request, 'Gli utenti con ruolo "external" non possono inviare transazioni.')
+        return redirect('Cripto1:created_documents_list')
+    
+    if request.method == 'POST':
+        try:
+            receiver_key = request.POST.get('receiver_key')
+            is_encrypted = request.POST.get('is_encrypted', 'false').lower() in ['true', 'on', '1']
+            is_shareable = True  # I documenti creati condivisi sono sempre condivisibili
+            private_key_password = request.POST.get('private_key_password')
+            max_downloads_str = request.POST.get('max_downloads')
+            max_downloads = int(max_downloads_str) if max_downloads_str and max_downloads_str.isdigit() else None
+            
+            receiver_profile = UserProfile.objects.filter(user_key=receiver_key).first()
+            if not receiver_profile:
+                messages.error(request, 'Destinatario non trovato.')
+                return render(request, 'Cripto1/share_created_document.html', {
+                    'document': document,
+                    'users': UserProfile.objects.exclude(user=request.user)
+                })
+            receiver = receiver_profile.user
+
+            # Ottieni il contenuto del documento
+            if document.is_encrypted:
+                try:
+                    # Decifra il contenuto
+                    decrypted_private_key = user_profile.decrypt_private_key(password=private_key_password.encode())
+                    if not decrypted_private_key:
+                        messages.error(request, 'Password della chiave privata errata.')
+                        return render(request, 'Cripto1/share_created_document.html', {
+                            'document': document,
+                            'users': UserProfile.objects.exclude(user=request.user)
+                        })
+                    
+                    # Converti memoryview in bytes per encrypted_symmetric_key
+                    encrypted_key_bytes = bytes(document.encrypted_symmetric_key)
+                    symmetric_key = decrypted_private_key.decrypt(
+                        encrypted_key_bytes,
+                        padding.OAEP(
+                            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                            algorithm=hashes.SHA256(),
+                            label=None
+                        )
+                    )
+                    
+                    f = Fernet(symmetric_key)
+                    # Converti memoryview in bytes per encrypted_content
+                    encrypted_content_bytes = bytes(document.encrypted_content)
+                    content = f.decrypt(encrypted_content_bytes).decode('utf-8')
+                except Exception as e:
+                    messages.error(request, f'Errore durante la decifratura del documento: {str(e)}')
+                    return render(request, 'Cripto1/share_created_document.html', {
+                        'document': document,
+                        'users': UserProfile.objects.exclude(user=request.user)
+                    })
+            else:
+                content = document.content
+
+            # Converti HTML in PDF usando reportlab
+            from io import BytesIO
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import inch
+            from reportlab.lib.enums import TA_CENTER
+            import re
+            
+            # Crea un buffer per il PDF
+            pdf_buffer = BytesIO()
+            doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
+            styles = getSampleStyleSheet()
+            story = []
+            
+            # Stile personalizzato per il titolo
+            title_style = ParagraphStyle(
+                'CustomTitle',
+                parent=styles['Heading1'],
+                fontSize=18,
+                spaceAfter=30,
+                alignment=TA_CENTER
+            )
+            
+            # Aggiungi il titolo
+            story.append(Paragraph(document.title, title_style))
+            story.append(Spacer(1, 12))
+            
+            # Aggiungi le informazioni del documento
+            info_text = f"""
+            <b>Tipo:</b> {document.get_document_type_display()}<br/>
+            <b>Creato il:</b> {document.created_at.strftime('%d/%m/%Y %H:%M')}<br/>
+            <b>Parole:</b> {document.word_count}
+            """
+            story.append(Paragraph(info_text, styles['Normal']))
+            story.append(Spacer(1, 20))
+            
+            # Pulisci il contenuto HTML per renderlo compatibile con reportlab
+            clean_content = re.sub(r'<[^>]+>', '', content)  # Rimuovi tag HTML
+            clean_content = clean_content.replace('&nbsp;', ' ')  # Sostituisci entità HTML
+            
+            # Aggiungi il contenuto
+            for paragraph in clean_content.split('\n'):
+                if paragraph.strip():
+                    story.append(Paragraph(paragraph, styles['Normal']))
+                    story.append(Spacer(1, 6))
+            
+            # Genera il PDF
+            doc.build(story)
+            pdf_content = pdf_buffer.getvalue()
+            pdf_buffer.close()
+
+            # Salva la chiave pubblica del mittente
+            sender_public_key = user_profile.public_key
+
+            # Crea i dati della transazione
+            transaction_data = {
+                'type': 'file',
+                'sender': request.user.id,
+                'receiver': receiver.id,
+                'sender_public_key': sender_public_key,
+                'content': f'Documento condiviso: {document.title}',
+                'timestamp': time.time(),
+                'is_encrypted': is_encrypted,
+                'is_shareable': is_shareable
+            }
+            
+            # Gestione del file PDF (invece di HTML)
+            encrypted_symmetric_key_for_db = None
+
+            if is_encrypted:
+                try:
+                    # Genera una chiave simmetrica per la cifratura del file
+                    symmetric_key = Fernet.generate_key()
+                    f = Fernet(symmetric_key)
+                    encrypted_file_content = f.encrypt(pdf_content)
+
+                    # Cifra la chiave simmetrica con la chiave pubblica RSA del destinatario
+                    receiver_public_key = serialization.load_pem_public_key(
+                        receiver_profile.public_key.encode(),
+                        backend=default_backend()
+                    )
+                    encrypted_symmetric_key_for_db = receiver_public_key.encrypt(
+                        symmetric_key,
+                        padding.OAEP(
+                            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                            algorithm=hashes.SHA256(),
+                            label=None
+                        )
+                    )
+                    
+                    # Cifra la chiave simmetrica per il mittente
+                    sender_public_key_obj = serialization.load_pem_public_key(
+                        user_profile.public_key.encode(),
+                        backend=default_backend()
+                    )
+                    sender_encrypted_symmetric_key = sender_public_key_obj.encrypt(
+                        symmetric_key,
+                        padding.OAEP(
+                            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                            algorithm=hashes.SHA256(),
+                            label=None
+                        )
+                    )
+                    
+                    filename = f"{uuid.uuid4().hex}.encrypted"
+                    file_to_save = ContentFile(encrypted_file_content)
+                    transaction_data['original_filename'] = f'{document.title}.pdf'
+                    transaction_data['encrypted_symmetric_key'] = encrypted_symmetric_key_for_db.hex()
+                    transaction_data['sender_encrypted_symmetric_key'] = sender_encrypted_symmetric_key.hex()
+                    transaction_data['receiver_public_key_at_encryption'] = receiver_profile.public_key
+
+                except Exception as e:
+                    messages.error(request, f'Errore durante la cifratura del file: {str(e)}')
+                    return render(request, 'Cripto1/share_created_document.html', {
+                        'document': document,
+                        'users': UserProfile.objects.exclude(user=request.user)
+                    })
+            else:
+                filename = f"{time.time()}_{document.title}.pdf"
+                file_to_save = ContentFile(pdf_content)
+
+            file_path = default_storage.save(f'transaction_files/{filename}', file_to_save)
+            transaction_data['file'] = file_path
+
+            # Calcola l'hash della transazione
+            transaction_string_for_signing = json.dumps(transaction_data, sort_keys=True).encode()
+            transaction_hash = hashlib.sha256(transaction_string_for_signing).hexdigest()
+            
+            # Firma la transazione
+            private_key = user_profile.decrypt_private_key(password=private_key_password.encode())
+            if not private_key:
+                messages.error(request, 'Errore durante il recupero della chiave privata.')
+                return render(request, 'Cripto1/share_created_document.html', {
+                    'document': document,
+                    'users': UserProfile.objects.exclude(user=request.user)
+                })
+            
+            data_to_sign = transaction_hash.encode()
+            signature = private_key.sign(
+                data_to_sign,
+                PSS(
+                    mgf=MGF1(hashes.SHA256()),
+                    salt_length=PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+            
+            # Crea la transazione
+            new_tx = Transaction.objects.create(
+                type='file',
+                sender=request.user,
+                receiver=receiver,
+                sender_public_key=sender_public_key,
+                content=transaction_data['content'],
+                file=transaction_data.get('file'),
+                timestamp=transaction_data['timestamp'],
+                transaction_hash=transaction_hash,
+                signature=signature.hex(),
+                is_encrypted=is_encrypted,
+                is_shareable=transaction_data.get('is_shareable', False),
+                original_filename=transaction_data.get('original_filename', ''),
+                encrypted_symmetric_key=bytes.fromhex(transaction_data['encrypted_symmetric_key']) if 'encrypted_symmetric_key' in transaction_data and transaction_data['encrypted_symmetric_key'] else None,
+                sender_encrypted_symmetric_key=bytes.fromhex(transaction_data['sender_encrypted_symmetric_key']) if 'sender_encrypted_symmetric_key' in transaction_data and transaction_data['sender_encrypted_symmetric_key'] else None,
+                receiver_public_key_at_encryption=transaction_data.get('receiver_public_key_at_encryption', ''),
+                max_downloads=max_downloads
+            )
+
+            # Aggiungi alle transazioni in sospeso
+            pending_transactions_ids = request.session.get('pending_transactions_ids', [])
+            pending_transactions_ids.append(new_tx.id)
+            request.session['pending_transactions_ids'] = pending_transactions_ids
+
+            messages.success(request, f'Documento "{document.title}" condiviso con successo!')
+            return redirect('Cripto1:created_documents_list')
+            
+        except Exception as e:
+            messages.error(request, f'Errore durante la condivisione: {str(e)}')
+            return render(request, 'Cripto1/share_created_document.html', {
+                'document': document,
+                'users': UserProfile.objects.exclude(user=request.user)
+            })
+    
+    # GET request - mostra il form di condivisione
+    return render(request, 'Cripto1/share_created_document.html', {
+        'document': document,
+        'users': UserProfile.objects.exclude(user=request.user)
+    })
+
+@login_required
+def mark_notification_as_read(request, notification_id):
+    """Segna una notifica specifica come letta"""
+    from .models import ShareNotification
+    try:
+        notification = ShareNotification.objects.get(
+            id=notification_id, 
+            user=request.user
+        )
+        notification.is_read = True
+        notification.save()
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'message': 'Notifica segnata come letta'})
+        else:
+            messages.success(request, 'Notifica segnata come letta')
+            return redirect('Cripto1:notifications')
+            
+    except ShareNotification.DoesNotExist:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Notifica non trovata'})
+        else:
+            messages.error(request, 'Notifica non trovata')
+            return redirect('Cripto1:notifications')
+
+@login_required
+def add_collaborator(request, document_id):
+    """Aggiungi un collaboratore a un documento creato"""
+    from .models import CreatedDocument, SharedDocument, ShareNotification
+    from django.contrib.auth.models import User
+    from .email_utils import send_share_notification_email
+    import uuid
+    
+    # Verifica che il documento esista e appartenga all'utente
+    document = get_object_or_404(CreatedDocument, id=document_id, user=request.user)
+    
+    if request.method == 'POST':
+        collaborator_username = request.POST.get('collaborator_username')
+        permission_level = request.POST.get('permission_level', 'write')
+        collaboration_message = request.POST.get('collaboration_message', '')
+        
+        try:
+            # Trova l'utente collaboratore
+            collaborator = User.objects.get(username=collaborator_username)
+            
+            # Verifica che non sia lo stesso proprietario
+            if collaborator == request.user:
+                messages.error(request, "Non puoi aggiungere te stesso come collaboratore.")
+                return render(request, 'Cripto1/add_collaborator.html', {
+                    'document': document,
+                    'users': User.objects.exclude(id=request.user.id)
+                })
+            
+            # Verifica che non sia già un collaboratore
+            existing_share = SharedDocument.objects.filter(
+                owner=request.user,
+                shared_with=collaborator,
+                share_type='created_document',
+                object_id=document.id,
+                is_active=True
+            ).first()
+            
+            if existing_share:
+                messages.warning(request, f"{collaborator.username} è già un collaboratore di questo documento.")
+                return render(request, 'Cripto1/add_collaborator.html', {
+                    'document': document,
+                    'users': User.objects.exclude(id=request.user.id)
+                })
+            
+            # Crea la condivisione per collaborazione
+            shared_document = SharedDocument.objects.create(
+                share_id=uuid.uuid4(),
+                owner=request.user,
+                shared_with=collaborator,
+                share_type='created_document',
+                object_id=document.id,
+                permission_level=permission_level,
+                share_message=collaboration_message,
+                notify_on_access=True,
+                notify_on_download=False  # Per collaborazione non serve
+            )
+            
+            # Crea notifica
+            ShareNotification.objects.create(
+                user=collaborator,
+                shared_document=shared_document,
+                notification_type='share_created',
+                message=f"{request.user.username} ti ha invitato a collaborare sul documento '{document.title}'"
+            )
+            
+            # Invia email di notifica
+            send_share_notification_email(shared_document, 'created')
+            
+            messages.success(request, f"Collaboratore {collaborator.username} aggiunto con successo!")
+            return redirect('Cripto1:created_documents_list')
+            
+        except User.DoesNotExist:
+            messages.error(request, "Utente non trovato.")
+        except Exception as e:
+            messages.error(request, f"Errore nell'aggiunta del collaboratore: {str(e)}")
+    
+    # GET request - mostra il form
+    users = User.objects.exclude(id=request.user.id).order_by('username')
+    
+    return render(request, 'Cripto1/add_collaborator.html', {
+        'document': document,
+        'users': users
+    })
+
+@login_required
+def edit_shared_document(request, share_id):
+    """Modifica un documento condiviso con permessi di scrittura (co-working)"""
+    from .models import SharedDocument, CreatedDocument, ShareNotification
+    
+    try:
+        shared_doc = SharedDocument.objects.get(
+            share_id=share_id, 
+            shared_with=request.user, 
+            is_active=True
+        )
+    except SharedDocument.DoesNotExist:
+        messages.error(request, 'Documento condiviso non trovato')
+        return redirect('Cripto1:my_shares')
+    
+    # Verifica permessi di scrittura
+    if not shared_doc.can_write():
+        messages.error(request, 'Non hai i permessi per modificare questo documento')
+        return redirect('Cripto1:view_shared_document', share_id=share_id)
+    
+    # Solo documenti creati supportano la modifica collaborativa
+    if shared_doc.share_type != 'created_document':
+        messages.error(request, 'Questo tipo di documento non supporta la modifica collaborativa')
+        return redirect('Cripto1:view_shared_document', share_id=share_id)
+    
+    document = get_object_or_404(CreatedDocument, id=shared_doc.object_id)
+    
+    if request.method == 'POST':
+        if 'auto_save' in request.POST:
+            # Auto-salvataggio AJAX
+            content = request.POST.get('content', '')
+            title = request.POST.get('title', document.title)
+            
+            document.title = title
+            document.content = content
+            document.word_count = len(content.split())
+            document.last_modified = timezone.now()
+            document.save()
+            
+            # Notifica al proprietario della modifica
+            ShareNotification.objects.create(
+                user=shared_doc.owner,
+                shared_document=shared_doc,
+                notification_type='share_modified',
+                message=f'{request.user.username} ha modificato il documento condiviso: {document.title}'
+            )
+            
+            # Invia email di notifica al proprietario
+            send_share_notification_email(shared_doc, 'modified')
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Documento salvato automaticamente',
+                'time': timezone.now().strftime('%H:%M:%S')
+            })
+        else:
+            # Salvataggio normale
+            document.title = request.POST.get('title', document.title)
+            document.content = request.POST.get('content', document.content)
+            document.document_type = request.POST.get('document_type', document.document_type)
+            document.word_count = len(document.content.split())
+            document.last_modified = timezone.now()
+            document.save()
+            
+            # Notifica al proprietario
+            ShareNotification.objects.create(
+                user=shared_doc.owner,
+                shared_document=shared_doc,
+                notification_type='share_modified',
+                message=f'{request.user.username} ha salvato le modifiche al documento: {document.title}'
+            )
+            
+            # Invia email di notifica
+            send_share_notification_email(shared_doc, 'modified')
+            
+            # Mostra pagina di successo invece del JSON
+            messages.success(request, 'Documento salvato con successo!')
+            context = {
+                'success_message': 'Documento salvato con successo!',
+                'document_title': document.title,
+                'show_home_button': True
+            }
+            return render(request, 'Cripto1/success_page.html', context)
+    
+    # Decrittografa il contenuto se necessario
+    content = document.content
+    if document.is_encrypted and document.encrypted_content:
+        try:
+            content = decrypt_document_content(document)
+        except Exception as e:
+            content = "[Contenuto crittografato - impossibile decrittografare]"
+    
+    context = {
+        'document': document,
+        'shared_document': shared_doc,
+        'content': content,
+        'is_shared_edit': True,
+        'share_id': share_id,
+        'collaborator_name': shared_doc.owner.get_full_name() or shared_doc.owner.username
+    }
+    return render(request, 'Cripto1/edit_shared_document.html', context)

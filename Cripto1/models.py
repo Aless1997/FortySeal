@@ -5,6 +5,7 @@ import time
 import json
 import pyotp
 import base64
+import uuid  # Aggiungi questa riga
 from encrypted_model_fields.fields import EncryptedTextField
 from django.core.validators import FileExtensionValidator
 from django.utils import timezone
@@ -39,7 +40,7 @@ class Transaction(models.Model):
         ('file', 'File Upload'),
     ]
 
-    block = models.ForeignKey(Block, on_delete=models.CASCADE, related_name='transactions', null=True, blank=True)
+    block = models.ForeignKey('Block', on_delete=models.CASCADE, null=True, blank=True, related_name='transactions')
     type = models.CharField(max_length=50, choices=TRANSACTION_TYPES)
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_transactions')
     receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_transactions')
@@ -530,7 +531,7 @@ class SmartContract(models.Model):
     name = models.CharField(max_length=255, unique=True)
     code = models.TextField()
     deployer = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
-    block = models.ForeignKey(Block, on_delete=models.CASCADE, null=True, blank=True) # Allow null for pending contracts
+    block = models.ForeignKey('Block', on_delete=models.CASCADE, null=True, blank=True, related_name='smart_contracts')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -777,6 +778,32 @@ class UserRole(models.Model):
         """Verifica se il ruolo è valido (attivo e non scaduto)"""
         return self.is_active and not self.is_expired()
 
+class CreatedDocument(models.Model):
+    DOCUMENT_TYPES = [
+        ('text', 'Documento di Testo'),
+        ('note', 'Nota Rapida'),
+        ('letter', 'Lettera'),
+        ('report', 'Report'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_documents')
+    title = models.CharField(max_length=255)
+    document_type = models.CharField(max_length=50, choices=DOCUMENT_TYPES, default='text')
+    content = models.TextField()  # Contenuto HTML dell'editor
+    encrypted_content = models.BinaryField(null=True, blank=True)  # Contenuto crittografato
+    encrypted_symmetric_key = models.BinaryField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_encrypted = models.BooleanField(default=True)
+    is_shareable = models.BooleanField(default=False)
+    word_count = models.IntegerField(default=0)
+    
+    def __str__(self):
+        return f"{self.title} - {self.user.username}"
+    
+    class Meta:
+        ordering = ['-updated_at']
+
 class PersonalDocument(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='personal_documents')
     title = models.CharField(max_length=255)
@@ -791,3 +818,125 @@ class PersonalDocument(models.Model):
     
     def __str__(self):
         return f"{self.title} - {self.user.username}"
+
+class SharedDocument(models.Model):
+    """Modello per gestire la condivisione di documenti tra utenti"""
+    SHARE_TYPE_CHOICES = [
+        ('transaction', 'Transazione'),
+        ('personal_document', 'Documento Personale'),
+        ('created_document', 'Documento Creato'),
+    ]
+    
+    PERMISSION_CHOICES = [
+        ('read', 'Solo Lettura'),
+        ('write', 'Lettura e Scrittura'),
+        ('download', 'Lettura e Download'),
+        ('full', 'Controllo Completo'),
+    ]
+    
+    share_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shared_documents')
+    shared_with = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_shares')
+    share_type = models.CharField(max_length=20, choices=SHARE_TYPE_CHOICES)
+    object_id = models.PositiveIntegerField()  # ID dell'oggetto condiviso
+    permission_level = models.CharField(max_length=10, choices=PERMISSION_CHOICES, default='read')
+    
+    # Controlli temporali
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    
+    # Controlli di accesso
+    max_downloads = models.PositiveIntegerField(null=True, blank=True)
+    download_count = models.PositiveIntegerField(default=0)
+    access_count = models.PositiveIntegerField(default=0)
+    
+    # Notifiche
+    notify_on_access = models.BooleanField(default=True)
+    notify_on_download = models.BooleanField(default=True)
+    
+    # Metadati
+    share_message = models.TextField(blank=True, null=True, help_text="Messaggio per il collaboratore")
+    shared_at = models.DateTimeField(auto_now_add=True)
+    last_accessed = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        unique_together = ['owner', 'shared_with', 'share_type', 'object_id']
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.owner.username} -> {self.shared_with.username} ({self.share_type})"
+    
+    def is_expired(self):
+        """Verifica se la condivisione è scaduta"""
+        if self.expires_at:
+            return timezone.now() > self.expires_at
+        return False
+    
+    def can_download(self):
+        """Verifica se è possibile scaricare"""
+        if not self.is_active or self.is_expired():
+            return False
+        if self.max_downloads and self.download_count >= self.max_downloads:
+            return False
+        return self.permission_level in ['download', 'full']
+    
+    def can_write(self):
+        """Verifica se è possibile modificare"""
+        if not self.is_active or self.is_expired():
+            return False
+        return self.permission_level in ['write', 'full']
+    
+    def record_access(self):
+        """Registra un accesso"""
+        self.access_count += 1
+        self.last_accessed = timezone.now()
+        self.save()
+    
+    def record_download(self):
+        """Registra un download"""
+        if self.can_download():
+            self.download_count += 1
+            self.record_access()
+            return True
+        return False
+    
+    def get_document(self):
+        """Restituisce l'oggetto documento condiviso basandosi sul tipo"""
+        if self.share_type == 'created_document':
+            try:
+                return CreatedDocument.objects.get(id=self.object_id)
+            except CreatedDocument.DoesNotExist:
+                return None
+        elif self.share_type == 'personal_document':
+            try:
+                return PersonalDocument.objects.get(id=self.object_id)
+            except PersonalDocument.DoesNotExist:
+                return None
+        elif self.share_type == 'transaction':
+            try:
+                return Transaction.objects.get(id=self.object_id)
+            except Transaction.DoesNotExist:
+                return None
+        return None
+
+class ShareNotification(models.Model):
+    """Notifiche per le condivisioni"""
+    NOTIFICATION_TYPES = [
+        ('share_created', 'Condivisione Creata'),
+        ('share_accessed', 'Condivisione Acceduta'),
+        ('share_downloaded', 'Condivisione Scaricata'),
+        ('share_modified', 'Documento Modificato'),  # Nuovo tipo
+        ('share_expired', 'Condivisione Scaduta'),
+        ('share_revoked', 'Condivisione Revocata'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='share_notifications')
+    shared_document = models.ForeignKey(SharedDocument, on_delete=models.CASCADE)
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+    
+    class Meta:
+        ordering = ['-created_at']

@@ -1,0 +1,58 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block title %}Condividi Documento - Blockchain App{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">Condividi Documento: {{ document.title }}</h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Il documento verrà convertito in PDF e inviato come transazione.
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="receiver_key" class="form-label">Destinatario</label>
+                            <select class="form-select" id="receiver_key" name="receiver_key" required>
+                                <option value="">Seleziona destinatario...</option>
+                                {% for user_profile in users %}
+                                <option value="{{ user_profile.user_key }}">{{ user_profile.user.username }} ({{ user_profile.user.email }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="is_encrypted" name="is_encrypted" value="true">
+                                <label class="form-check-label" for="is_encrypted">Crittografa la transazione</label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="max_downloads" class="form-label">Numero massimo di download (opzionale)</label>
+                            <input type="number" class="form-control" id="max_downloads" name="max_downloads" min="1">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="private_key_password" class="form-label">Password Chiave Privata</label>
+                            <input type="password" class="form-control" id="private_key_password" name="private_key_password" required>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'Cripto1:created_documents_list' %}" class="btn btn-secondary">Annulla</a>
+                            <button type="submit" class="btn btn-primary">Condividi Documento</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

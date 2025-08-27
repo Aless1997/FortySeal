@@ -1,0 +1,591 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}I Miei Documenti Condivisi{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Stili per le card documento moderne - ispirate al design created_documents_list.html */
+    .document-card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 10px 20px rgba(99, 102, 241, 0.1);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+        height: 100%;
+        min-height: 280px;
+        background: white;
+    }
+    
+    .document-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px rgba(99, 102, 241, 0.2);
+    }
+    
+    .document-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(79, 70, 229, 0.05) 100%);
+        z-index: 0;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .document-card:hover::before {
+        opacity: 1;
+    }
+    
+    .doc-avatar {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        font-weight: 600;
+        margin-right: 1rem;
+        color: white;
+        transition: transform 0.3s ease;
+    }
+    
+    .document-card:hover .doc-avatar {
+        transform: scale(1.1);
+    }
+    
+    .doc-avatar.collaboration {
+        background-color: #10b981;
+    }
+    
+    .doc-avatar.transaction {
+        background-color: #f59e0b;
+    }
+    
+    .doc-avatar.default {
+        background-color: #6366f1;
+    }
+    
+    .doc-info {
+        position: relative;
+        z-index: 1;
+        flex: 1;
+    }
+    
+    .doc-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary, #1f2937);
+        word-break: break-word;
+    }
+    
+    .doc-meta {
+        color: var(--text-secondary, #6b7280);
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+        word-break: break-word;
+    }
+    
+    .doc-badges {
+        margin-top: 0.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .doc-badges .badge {
+        font-size: 0.85rem;
+        padding: 0.4em 0.6em;
+    }
+    
+    .doc-actions {
+        margin-top: 1.5rem;
+        display: flex;
+        gap: 0.8rem;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .doc-actions .btn {
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        transition: all 0.2s ease;
+        font-size: 1rem;
+    }
+    
+    .doc-actions .btn:hover {
+        transform: translateY(-2px);
+    }
+    
+    /* Stili per i filtri */
+    .filter-card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        margin-bottom: 2rem;
+        overflow: hidden;
+    }
+    
+    .filter-header {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        font-weight: 600;
+    }
+    
+    .filter-body {
+        padding: 1.5rem;
+    }
+    
+    /* Stili per i tab */
+    .nav-tabs .nav-link {
+        border-radius: 12px 12px 0 0;
+        border: none;
+        background: transparent;
+        color: #6b7280;
+        font-weight: 600;
+        padding: 1rem 1.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .nav-tabs .nav-link.active {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+        border: none;
+    }
+    
+    .nav-tabs .nav-link:hover:not(.active) {
+        background: rgba(99, 102, 241, 0.1);
+        color: #6366f1;
+    }
+    
+    .tab-content {
+        background: white;
+        border-radius: 0 0 16px 16px;
+        padding: 2rem;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    }
+    
+    /* Stili per stati vuoti */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #6b7280;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-share-alt"></i> I Miei Documenti Condivisi
+                    <small class="text-muted">Gestione Completa</small>
+                </h2>
+                <div>
+                    <a href="{% url 'Cripto1:dashboard' %}" class="btn btn-primary">
+                        <i class="fas fa-arrow-left"></i> Torna alla Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="row mb-4">
+        <div class="col-12">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'danger' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tab Navigation -->
+    <div class="row">
+        <div class="col-12">
+            <ul class="nav nav-tabs" id="sharesTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="received-tab" data-bs-toggle="tab" data-bs-target="#received" type="button" role="tab">
+                        <i class="fas fa-inbox"></i> Documenti Ricevuti
+                        <span class="badge bg-light text-primary ms-2">{{ shares_received|length }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="sent-tab" data-bs-toggle="tab" data-bs-target="#sent" type="button" role="tab">
+                        <i class="fas fa-paper-plane"></i> Richieste Inviate
+                        <span class="badge bg-light text-primary ms-2">{{ shares_created|length }}</span>
+                    </button>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="sharesTabContent">
+                <!-- Tab Documenti Ricevuti -->
+                <div class="tab-pane fade show active" id="received" role="tabpanel">
+                    {% if shares_received %}
+                        <!-- Collaborazioni Ricevute -->
+                        {% if collaborations_received %}
+                        <div class="mb-4">
+                            <h4 class="mb-3">
+                                <i class="fas fa-users text-success"></i> Collaborazioni Ricevute ({{ collaborations_received|length }})
+                            </h4>
+                            <div class="row">
+                                {% for share in collaborations_received %}
+                                <div class="col-md-6 col-lg-4 col-xl-4 mb-4">
+                                    <div class="card document-card">
+                                        <div class="card-body p-4">
+                                            <div class="d-flex align-items-center mb-3">
+                                                <div class="doc-avatar collaboration">
+                                                    <i class="fas fa-users"></i>
+                                                </div>
+                                                <div class="doc-info">
+                                                    <div class="doc-title">{{ share.get_document.title|truncatechars:30 }}</div>
+                                                    <div class="doc-meta">
+                                                        <i class="fas fa-user me-1"></i> {{ share.owner.username }}<br>
+                                                        <i class="fas fa-clock me-1"></i> {{ share.created_at|date:"d/m/Y H:i" }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="doc-badges">
+                                                <span class="badge bg-success">Collaborazione</span>
+                                                {% if share.permission_level == 'read' %}
+                                                    <span class="badge bg-info">Solo Lettura</span>
+                                                {% elif share.permission_level == 'write' %}
+                                                    <span class="badge bg-warning">Lettura/Scrittura</span>
+                                                {% elif share.permission_level == 'download' %}
+                                                    <span class="badge bg-primary">Lettura/Download</span>
+                                                {% elif share.permission_level == 'full' %}
+                                                    <span class="badge bg-danger">Controllo Completo</span>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            {% if share.share_message %}
+                                            <div class="mt-2">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-comment"></i> "{{ share.share_message }}"
+                                                </small>
+                                            </div>
+                                            {% endif %}
+                                            
+                                            <div class="doc-actions">
+                                                <a href="{% url 'Cripto1:view_shared_document' share.share_id %}" class="btn btn-sm btn-primary">
+                                                    <i class="fas fa-eye"></i> Visualizza
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Altri Documenti Ricevuti -->
+                        {% if other_shares_received %}
+                        <div class="mb-4">
+                            <h4 class="mb-3">
+                                <i class="fas fa-file-alt text-warning"></i> Altri Documenti Ricevuti ({{ other_shares_received|length }})
+                            </h4>
+                            <div class="row">
+                                {% for share in other_shares_received %}
+                                <div class="col-md-6 col-lg-4 col-xl-4 mb-4">
+                                    <div class="card document-card">
+                                        <div class="card-body p-4">
+                                            <div class="d-flex align-items-center mb-3">
+                                                <div class="doc-avatar transaction">
+                                                    <i class="fas fa-exchange-alt"></i>
+                                                </div>
+                                                <div class="doc-info">
+                                                    <div class="doc-title">{{ share.get_document.title|default:"Documento"|truncatechars:30 }}</div>
+                                                    <div class="doc-meta">
+                                                        <i class="fas fa-user me-1"></i> {{ share.owner.username }}<br>
+                                                        <i class="fas fa-clock me-1"></i> {{ share.created_at|date:"d/m/Y H:i" }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="doc-badges">
+                                                <span class="badge bg-warning">Transazione</span>
+                                                {% if share.permission_level == 'read' %}
+                                                    <span class="badge bg-info">Solo Lettura</span>
+                                                {% elif share.permission_level == 'write' %}
+                                                    <span class="badge bg-warning">Lettura/Scrittura</span>
+                                                {% elif share.permission_level == 'download' %}
+                                                    <span class="badge bg-primary">Lettura/Download</span>
+                                                {% elif share.permission_level == 'full' %}
+                                                    <span class="badge bg-danger">Controllo Completo</span>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            {% if share.share_message %}
+                                            <div class="mt-2">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-comment"></i> "{{ share.share_message }}"
+                                                </small>
+                                            </div>
+                                            {% endif %}
+                                            
+                                            <div class="doc-actions">
+                                                <a href="{% url 'Cripto1:view_shared_document' share.share_id %}" class="btn btn-sm btn-primary">
+                                                    <i class="fas fa-eye"></i> Visualizza
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <h5>Nessun documento ricevuto</h5>
+                            <p>Non hai ancora ricevuto documenti condivisi da altri utenti.</p>
+                            <a href="{% url 'Cripto1:dashboard' %}" class="btn btn-primary">
+                                <i class="fas fa-arrow-left"></i> Torna alla Dashboard
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Tab Richieste Inviate -->
+                <div class="tab-pane fade" id="sent" role="tabpanel">
+                    {% if shares_created %}
+                        <!-- Collaborazioni Inviate -->
+                        {% if collaborations_created %}
+                        <div class="mb-4">
+                            <h4 class="mb-3">
+                                <i class="fas fa-users text-success"></i> Collaborazioni Inviate ({{ collaborations_created|length }})
+                            </h4>
+                            <div class="row">
+                                {% for share in collaborations_created %}
+                                <div class="col-md-6 col-lg-4 col-xl-4 mb-4">
+                                    <div class="card document-card">
+                                        <div class="card-body p-4">
+                                            <div class="d-flex align-items-center mb-3">
+                                                <div class="doc-avatar collaboration">
+                                                    <i class="fas fa-users"></i>
+                                                </div>
+                                                <div class="doc-info">
+                                                    <div class="doc-title">{{ share.get_document.title|truncatechars:30 }}</div>
+                                                    <div class="doc-meta">
+                                                        <i class="fas fa-user me-1"></i> Condiviso con: {{ share.shared_with.username }}<br>
+                                                        <i class="fas fa-clock me-1"></i> Inviato il: {{ share.created_at|date:"d/m/Y H:i" }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="doc-badges">
+                                                <span class="badge bg-success">Collaborazione</span>
+                                                {% if share.permission_level == 'read' %}
+                                                    <span class="badge bg-info">Solo Lettura</span>
+                                                {% elif share.permission_level == 'write' %}
+                                                    <span class="badge bg-warning">Lettura/Scrittura</span>
+                                                {% elif share.permission_level == 'download' %}
+                                                    <span class="badge bg-primary">Lettura/Download</span>
+                                                {% elif share.permission_level == 'full' %}
+                                                    <span class="badge bg-danger">Controllo Completo</span>
+                                                {% endif %}
+                                                {% if share.expires_at %}
+                                                    <span class="badge bg-secondary">
+                                                        <i class="fas fa-clock"></i> Scade il: {{ share.expires_at|date:"d/m/Y H:i" }}
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            {% if share.share_message %}
+                                            <div class="mt-2">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-comment"></i> "{{ share.share_message }}"
+                                                </small>
+                                            </div>
+                                            {% endif %}
+                                            
+                                            <div class="doc-actions">
+                                                <a href="{% url 'Cripto1:edit_document' share.get_document.id %}" class="btn btn-sm btn-primary">
+                                                    <i class="fas fa-edit"></i> Modifica Originale
+                                                </a>
+                                                <button class="btn btn-sm btn-danger" onclick="revokeShare('{{ share.share_id }}', '{% url 'Cripto1:revoke_share' share.share_id %}')"> 
+                                                    <i class="fas fa-times"></i> Revoca
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Altri Documenti Inviati -->
+                        {% if other_shares_created %}
+                        <div class="mb-4">
+                            <h4 class="mb-3">
+                                <i class="fas fa-file-alt text-warning"></i> Altri Documenti Inviati ({{ other_shares_created|length }})
+                            </h4>
+                            <div class="row">
+                                {% for share in other_shares_created %}
+                                <div class="col-md-6 col-lg-4 col-xl-4 mb-4">
+                                    <div class="card document-card">
+                                        <div class="card-body p-4">
+                                            <div class="d-flex align-items-center mb-3">
+                                                <div class="doc-avatar transaction">
+                                                    <i class="fas fa-exchange-alt"></i>
+                                                </div>
+                                                <div class="doc-info">
+                                                    <div class="doc-title">{{ share.get_document.title|default:"Documento"|truncatechars:30 }}</div>
+                                                    <div class="doc-meta">
+                                                        <i class="fas fa-user me-1"></i> Condiviso con: {{ share.shared_with.username }}<br>
+                                                        <i class="fas fa-clock me-1"></i> Inviato il: {{ share.created_at|date:"d/m/Y H:i" }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="doc-badges">
+                                                <span class="badge bg-warning">Transazione</span>
+                                                {% if share.permission_level == 'read' %}
+                                                    <span class="badge bg-info">Solo Lettura</span>
+                                                {% elif share.permission_level == 'write' %}
+                                                    <span class="badge bg-warning">Lettura/Scrittura</span>
+                                                {% elif share.permission_level == 'download' %}
+                                                    <span class="badge bg-primary">Lettura/Download</span>
+                                                {% elif share.permission_level == 'full' %}
+                                                    <span class="badge bg-danger">Controllo Completo</span>
+                                                {% endif %}
+                                                {% if share.expires_at %}
+                                                    <span class="badge bg-secondary">
+                                                        <i class="fas fa-clock"></i> Scade il: {{ share.expires_at|date:"d/m/Y H:i" }}
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            {% if share.share_message %}
+                                            <div class="mt-2">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-comment"></i> "{{ share.share_message }}"
+                                                </small>
+                                            </div>
+                                            {% endif %}
+                                            
+                                            <div class="doc-actions">
+                                                <button class="btn btn-sm btn-danger" onclick="revokeShare('{{ share.share_id }}', '{% url 'Cripto1:revoke_share' share.share_id %}')">                                                    <i class="fas fa-times"></i> Revoca
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-paper-plane"></i>
+                            <h5>Nessuna richiesta inviata</h5>
+                            <p>Non hai ancora inviato richieste di condivisione ad altri utenti.</p>
+                            <a href="{% url 'Cripto1:created_documents_list' %}" class="btn btn-primary">
+                                <i class="fas fa-file-alt"></i> Vai ai Documenti Creati
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Funzione per ottenere il valore di un cookie
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            // Does this cookie string begin with the name we want?
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Funzione per revocare una condivisione
+function revokeShare(shareId, revokeUrl) {
+    console.log('Revoke URL:', revokeUrl); // Debug: mostra l'URL generato
+    if (confirm('Sei sicuro di voler revocare questa condivisione?')) {
+        fetch(revokeUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+        })
+        .then(response => {
+            console.log('Response status:', response.status); // Debug
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Errore: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Errore completo:', error);
+            alert('Si è verificato un errore durante la revoca: ' + error.message);
+        });
+    }
+}
+
+// Inizializzazione tooltip Bootstrap
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Animazioni hover per le card
+    const cards = document.querySelectorAll('.document-card');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+});
+</script>
+{% endblock %}

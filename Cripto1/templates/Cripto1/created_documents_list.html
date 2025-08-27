@@ -1,0 +1,589 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}I Miei Documenti{% endblock %}
+
+{% block content %}
+<style>
+    /* Stili per le card documento moderne - ispirate al design user_list.html */
+    .document-card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 10px 20px rgba(99, 102, 241, 0.1);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+        height: 100%;
+        min-height: 280px;
+        background: white;
+    }
+    
+    .document-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px rgba(99, 102, 241, 0.2);
+    }
+    
+    .document-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(79, 70, 229, 0.05) 100%);
+        z-index: 0;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .document-card:hover::before {
+        opacity: 1;
+    }
+    
+    .doc-avatar {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        font-weight: 600;
+        margin-right: 1rem;
+        color: white;
+        transition: transform 0.3s ease;
+    }
+    
+    .document-card:hover .doc-avatar {
+        transform: scale(1.1);
+    }
+    
+    .doc-avatar.letter {
+        background-color: #6366f1;
+    }
+    
+    .doc-avatar.report {
+        background-color: #f59e0b;
+    }
+    
+    .doc-avatar.memo {
+        background-color: #10b981;
+    }
+    
+    .doc-avatar.default {
+        background-color: #8b5cf6;
+    }
+    
+    .doc-info {
+        position: relative;
+        z-index: 1;
+        flex: 1;
+    }
+    
+    .doc-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary, #1f2937);
+        word-break: break-word;
+    }
+    
+    .doc-meta {
+        color: var(--text-secondary, #6b7280);
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+        word-break: break-word;
+    }
+    
+    .doc-badges {
+        margin-top: 0.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .doc-badges .badge {
+        font-size: 0.85rem;
+        padding: 0.4em 0.6em;
+    }
+    
+    .doc-actions {
+        margin-top: 1.5rem;
+        display: flex;
+        gap: 0.8rem;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .doc-actions .btn {
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        transition: all 0.2s ease;
+        font-size: 1rem;
+    }
+    
+    .doc-actions .btn:hover {
+        transform: translateY(-2px);
+    }
+    
+    /* Stili per i filtri */
+    .filter-card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        margin-bottom: 2rem;
+        overflow: hidden;
+    }
+    
+    .filter-header {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        font-weight: 600;
+    }
+    
+    .filter-body {
+        padding: 1.5rem;
+    }
+    
+    .search-btn {
+        border-radius: 10px;
+        font-weight: 600;
+        padding: 0.6rem 1.2rem;
+        transition: all 0.3s ease;
+    }
+    
+    .search-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Stili per la paginazione */
+    .modern-pagination .page-link {
+        border-radius: 8px;
+        margin: 0 3px;
+        border: none;
+        color: #6366f1;
+        transition: all 0.2s ease;
+    }
+    
+    .modern-pagination .page-item.active .page-link {
+        background-color: #6366f1;
+        color: white;
+    }
+    
+    .modern-pagination .page-link:hover {
+        background-color: rgba(99, 102, 241, 0.1);
+        transform: translateY(-2px);
+    }
+    
+    /* Fix per il tremolii del modal */
+    body.modal-open .document-card:hover {
+        transform: none !important;
+        box-shadow: 0 10px 20px rgba(99, 102, 241, 0.1) !important;
+    }
+    
+    body.modal-open .doc-actions .btn:hover {
+        transform: none !important;
+    }
+    
+    body.modal-open .search-btn:hover {
+        transform: none !important;
+        box-shadow: none !important;
+    }
+    
+    /* Stabilizza il modal */
+    .modal.fade .modal-dialog {
+        transition: transform 0.3s ease-out;
+    }
+    
+    .modal.show .modal-dialog {
+        transform: none !important;
+    }
+    
+    /* SOLUZIONE DEFINITIVA PER IL TREMOLII DEL MODAL */
+    
+    /* Disabilita tutte le transizioni quando il modal è aperto */
+    body.modal-open * {
+        transition: none !important;
+        animation: none !important;
+        transform: none !important;
+    }
+    
+    /* Ripristina solo le transizioni essenziali del modal */
+    body.modal-open .modal.fade .modal-dialog {
+        transition: transform 0.3s ease-out !important;
+    }
+    
+    /* Stabilizza il backdrop del modal */
+    body.modal-open .modal-backdrop {
+        transition: opacity 0.15s linear !important;
+    }
+    
+    /* Forza la stabilità del modal content */
+    .modal-content {
+        transform: none !important;
+        transition: none !important;
+    }
+    
+    /* Disabilita hover effects sui pulsanti nel modal */
+    .modal .btn:hover {
+        transform: none !important;
+        box-shadow: none !important;
+    }
+    
+    /* Previene conflitti con z-index */
+    .modal {
+        z-index: 1055 !important;
+    }
+    
+    .modal-backdrop {
+        z-index: 1050 !important;
+    }
+</style>
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-file-alt"></i> I Miei Documenti
+                    <small class="text-muted">Gestione Completa</small>
+                </h2>
+                <div>
+                    <a href="{% url 'Cripto1:create_document' %}" class="btn btn-success">
+                        <i class="fas fa-plus"></i> Nuovo Documento
+                    </a>
+                    <a href="{% url 'Cripto1:personal_documents' %}" class="btn btn-primary">
+                        <i class="fas fa-arrow-left"></i> Indietro
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra di ricerca modernizzata -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card filter-card">
+                <div class="filter-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-search"></i> Ricerca Documenti
+                    </h5>
+                </div>
+                <div class="filter-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <input type="text" class="form-control" id="searchInput" placeholder="Cerca documenti per nome..." value="">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <div class="d-grid gap-2 w-100">
+                                <button type="button" class="btn btn-outline-secondary search-btn" onclick="clearSearch()">
+                                    <i class="fas fa-undo"></i> Reset
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="row mb-4">
+        <div class="col-12">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'danger' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Lista Documenti con Card Moderne -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card filter-card">
+                <div class="filter-header bg-primary">
+                    <h5 class="mb-0">
+                        <i class="fas fa-folder-open"></i> Documenti
+                        <span class="badge bg-light text-primary" id="documentsCount">{{ documents|length }}</span>
+                        <span id="filteredInfo" style="display: none;"> (filtrati da <span id="originalCount">{{ documents|length }}</span>)</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if documents %}
+                        <div class="row" id="documentsGrid">
+                            {% for document in documents %}
+                                <div class="col-md-6 col-lg-4 col-xl-4 mb-4 document-item" data-title="{{ document.title|lower }}">
+                                    <div class="card document-card">
+                                        <div class="card-body p-4">
+                                            <div class="d-flex align-items-center mb-3">
+                                                <div class="doc-avatar {% if document.document_type == 'letter' %}letter{% elif document.document_type == 'report' %}report{% elif document.document_type == 'memo' %}memo{% else %}default{% endif %}">
+                                                    {% if document.document_type == 'letter' %}
+                                                        <i class="fas fa-envelope"></i>
+                                                    {% elif document.document_type == 'report' %}
+                                                        <i class="fas fa-chart-line"></i>
+                                                    {% elif document.document_type == 'memo' %}
+                                                        <i class="fas fa-sticky-note"></i>
+                                                    {% else %}
+                                                        <i class="fas fa-file-alt"></i>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="doc-info">
+                                                    <div class="doc-title">{{ document.title }}</div>
+                                                    <div class="doc-meta">
+                                                        <i class="fas fa-clock me-1"></i> {{ document.updated_at|date:"d/m/Y" }}<br>
+                                                        <i class="fas fa-align-left me-1"></i> {{ document.word_count }} parole
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="doc-badges">
+                                                {% if document.is_encrypted %}
+                                                    <span class="badge bg-warning">Crittografato</span>
+                                                {% endif %}
+                                                {% if document.is_shareable %}
+                                                    <span class="badge bg-info">Condivisibile</span>
+                                                {% endif %}
+                                                <span class="badge bg-secondary">{{ document.document_type|capfirst }}</span>
+                                            </div>
+                                            
+                                            <div class="doc-actions">
+                                                <a href="{% url 'Cripto1:edit_document' document.id %}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                {% if document.is_shareable %}
+                                                <!-- Pulsante per transazioni (NON TOCCARE) -->
+                                                <a href="{% url 'Cripto1:create_transaction_from_created_document' document.id %}" class="btn btn-sm btn-outline-success">
+                                                    <i class="fas fa-share"></i>
+                                                </a>
+                                                <!-- Nuovo pulsante per collaboratori -->
+                                                <a href="{% url 'Cripto1:add_collaborator' document.id %}" class="btn btn-sm btn-outline-info" title="Aggiungi Collaboratore">
+                                                    <i class="fas fa-user-plus"></i>
+                                                </a>
+                                                {% endif %}
+                                                <button type="button" class="btn btn-sm btn-outline-info" onclick="exportDocument({{ document.id }})" title="Scarica documento">
+                                                    <i class="fas fa-download"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ document.id }}" title="Elimina documento">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Modal di conferma eliminazione -->
+                                <div class="modal fade" id="deleteModal{{ document.id }}" tabindex="-1">
+                                    <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content border-0 shadow">
+                                            <div class="modal-header border-0">
+                                                <h5 class="modal-title">
+                                                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                                                    Conferma Eliminazione
+                                                </h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p class="mb-0">Sei sicuro di voler eliminare il documento <strong>"{{ document.title }}"</strong>?</p>
+                                                <small class="text-muted">Questa azione non può essere annullata.</small>
+                                            </div>
+                                            <div class="modal-footer border-0">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                                    <i class="fas fa-times me-1"></i> Annulla
+                                                </button>
+                                                <form action="{% url 'Cripto1:delete_created_document' document.id %}" method="post" style="display: inline;">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-danger">
+                                                        <i class="fas fa-trash me-1"></i> Elimina
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- Paginazione Modernizzata -->
+                        <div class="row mt-4" id="paginationContainer">
+                            <div class="col-12">
+                                <nav aria-label="Navigazione pagine">
+                                    <ul class="pagination justify-content-center modern-pagination" id="pagination">
+                                        <!-- Paginazione generata dinamicamente -->
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
+                        
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nessun documento trovato</h5>
+                            <p>Non hai ancora creato nessun documento. <a href="{% url 'Cripto1:create_document' %}">Crea il tuo primo documento</a>.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Variabili globali per la paginazione
+let currentPage = 1;
+const itemsPerPage = 9;
+let allDocuments = [];
+let filteredDocuments = [];
+
+// Inizializzazione
+document.addEventListener('DOMContentLoaded', function() {
+    // Raccogli tutti i documenti
+    const documentItems = document.querySelectorAll('.document-item');
+    allDocuments = Array.from(documentItems);
+    filteredDocuments = [...allDocuments];
+    
+    // Setup ricerca
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', handleSearch);
+    }
+    
+    // Setup paginazione iniziale
+    updatePagination();
+    showPage(1);
+});
+
+// Funzione di ricerca
+function handleSearch() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+    
+    if (searchTerm === '') {
+        filteredDocuments = [...allDocuments];
+        document.getElementById('filteredInfo').style.display = 'none';
+    } else {
+        filteredDocuments = allDocuments.filter(item => {
+            const title = item.getAttribute('data-title');
+            return title.includes(searchTerm);
+        });
+        document.getElementById('filteredInfo').style.display = 'inline';
+    }
+    
+    // Aggiorna contatori
+    updateDocumentCount();
+    
+    // Reset alla prima pagina
+    currentPage = 1;
+    updatePagination();
+    showPage(1);
+}
+
+// Pulisci ricerca
+function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    handleSearch();
+}
+
+// Aggiorna il conteggio dei documenti
+function updateDocumentCount() {
+    const documentsCount = document.getElementById('documentsCount');
+    const originalCount = document.getElementById('originalCount');
+    
+    documentsCount.textContent = filteredDocuments.length;
+    if (originalCount) {
+        originalCount.textContent = allDocuments.length;
+    }
+}
+
+// Mostra una pagina specifica
+function showPage(page) {
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    
+    // Nascondi tutti i documenti
+    allDocuments.forEach(item => {
+        item.style.display = 'none';
+    });
+    
+    // Mostra solo i documenti della pagina corrente
+    const pageDocuments = filteredDocuments.slice(startIndex, endIndex);
+    pageDocuments.forEach(item => {
+        item.style.display = 'block';
+    });
+    
+    // Mostra/nascondi paginazione
+    const paginationContainer = document.getElementById('paginationContainer');
+    if (filteredDocuments.length <= itemsPerPage) {
+        paginationContainer.style.display = 'none';
+    } else {
+        paginationContainer.style.display = 'block';
+    }
+}
+
+// Aggiorna la paginazione
+function updatePagination() {
+    const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage);
+    const pagination = document.getElementById('pagination');
+    
+    // Pulisci paginazione esistente
+    pagination.innerHTML = '';
+    
+    // Pulsante precedente
+    const prevLi = document.createElement('li');
+    prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+    prevLi.innerHTML = `<a class="page-link" href="#" onclick="goToPage(${currentPage - 1}); return false;"><i class="fas fa-chevron-left"></i></a>`;
+    pagination.appendChild(prevLi);
+    
+    // Pulsanti pagina
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+            const pageLi = document.createElement('li');
+            pageLi.className = `page-item ${i === currentPage ? 'active' : ''}`;
+            pageLi.innerHTML = `<a class="page-link" href="#" onclick="goToPage(${i}); return false;">${i}</a>`;
+            pagination.appendChild(pageLi);
+        } else if (i === currentPage - 3 || i === currentPage + 3) {
+            const dotsLi = document.createElement('li');
+            dotsLi.className = 'page-item disabled';
+            dotsLi.innerHTML = '<a class="page-link" href="#">...</a>';
+            pagination.appendChild(dotsLi);
+        }
+    }
+    
+    // Pulsante successivo
+    const nextLi = document.createElement('li');
+    nextLi.className = `page-item ${currentPage === totalPages || totalPages === 0 ? 'disabled' : ''}`;
+    nextLi.innerHTML = `<a class="page-link" href="#" onclick="goToPage(${currentPage + 1}); return false;"><i class="fas fa-chevron-right"></i></a>`;
+    pagination.appendChild(nextLi);
+}
+
+// Vai a una pagina specifica
+function goToPage(page) {
+    const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage);
+    if (page >= 1 && page <= totalPages) {
+        currentPage = page;
+        showPage(page);
+        updatePagination();
+    }
+}
+
+// Funzione export documento
+function exportDocument(documentId) {
+    const button = event.target.closest('.btn');
+    const originalContent = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    button.disabled = true;
+    
+    setTimeout(() => {
+        window.location.href = `/documents/export/${documentId}/`;
+        button.innerHTML = originalContent;
+        button.disabled = false;
+    }, 500);
+}
+</script>
+{% endblock %}

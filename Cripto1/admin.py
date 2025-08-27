@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib import messages  # Aggiungi questa importazione
 from django.http import HttpResponse
 import csv
-from Cripto1.models import BlockchainState, Transaction, UserProfile, Block, SmartContract, AuditLog, Role, Permission, UserRole
+from Cripto1.models import BlockchainState, CreatedDocument, Transaction, UserProfile, Block, SmartContract, AuditLog, Role, Permission, UserRole
 
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
@@ -290,5 +290,6 @@ class SmartContractAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions_on_bottom = True
     fields = [field.name for field in SmartContract._meta.fields]
 
+admin.site.register(CreatedDocument)
 
 

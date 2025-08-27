@@ -198,3 +198,61 @@ def send_block_confirmation_emails(block, transactions):
 def send_transaction_notification(transaction, user, request, direction='sent'):
     """DEPRECATA: Usa send_immediate_transaction_notification invece"""
     return send_immediate_transaction_notification(transaction, user, request, direction)
+
+
+def send_share_notification_email(shared_document, action_type, modifier=None):
+    """Invia email di notifica per azioni di condivisione"""
+    try:
+        # Ottieni il documento originale
+        if shared_document.share_type == 'created_document':
+            from .models import CreatedDocument
+            document = CreatedDocument.objects.get(id=shared_document.object_id)
+        else:
+            return False  # Altri tipi non supportati per co-working
+        
+        base_url = settings.BASE_URL if hasattr(settings, 'BASE_URL') else 'http://localhost:8000'
+        
+        if action_type == 'created':
+            subject = f'🤝 Invito alla Collaborazione: {document.title}'
+            template = 'emails/share_created.html'
+            recipient = shared_document.shared_with.email
+        elif action_type == 'modified':
+            subject = f'✏️ Documento Modificato: {document.title}'
+            template = 'emails/share_modified.html'
+            recipient = shared_document.owner.email
+        elif action_type == 'accessed':
+            subject = f'👁️ Documento condiviso acceduto da {shared_document.shared_with.username}'
+            template = 'emails/share_accessed.html'
+            recipient = shared_document.owner.email
+        elif action_type == 'downloaded':
+            subject = f'⬇️ Documento condiviso scaricato da {shared_document.shared_with.username}'
+            template = 'emails/share_downloaded.html'
+            recipient = shared_document.owner.email
+        else:
+            return False
+        
+        context = {
+            'shared_document': shared_document,
+            'document': document,
+            'base_url': base_url,
+            'modifier': modifier,
+            'action_type': action_type,
+        }
+        
+        html_message = render_to_string(template, context)
+        plain_message = strip_tags(html_message)
+        
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[recipient],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        
+        logger.info(f"Email di notifica condivisione inviata a {recipient}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Errore nell'invio email notifica condivisione: {str(e)}")

@@ -218,3 +218,68 @@ def user_manager_forbidden(view_func):
             messages.error(request, 'Profilo utente non trovato.')
             return redirect('Cripto1:login')
     return _wrapped_view
+
+
+def sharing_permission_required(permission_level):
+    """Decorator per verificare i permessi di condivisione"""
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            share_id = kwargs.get('share_id')
+            if not share_id:
+                raise PermissionDenied("ID condivisione mancante")
+            
+            try:
+                shared_doc = SharedDocument.objects.get(
+                    share_id=share_id,
+                    shared_with=request.user,
+                    is_active=True
+                )
+                
+                if shared_doc.is_expired():
+                    raise PermissionDenied("Condivisione scaduta")
+                
+                # Verifica il livello di permesso richiesto
+                if permission_level == 'read' and shared_doc.permission_level in ['read', 'write', 'download', 'full']:
+                    pass
+                elif permission_level == 'write' and shared_doc.can_write():
+                    pass
+                elif permission_level == 'download' and shared_doc.can_download():
+                    pass
+                else:
+                    raise PermissionDenied("Permessi insufficienti")
+                
+                # Registra l'accesso
+                shared_doc.record_access()
+                
+                # Aggiungi il documento condiviso al request
+                request.shared_document = shared_doc
+                
+            except SharedDocument.DoesNotExist:
+                raise PermissionDenied("Condivisione non trovata o non autorizzata")
+            
+            return view_func(request, *args, **kwargs)
+        return _wrapped_view
+    return decorator
+
+def can_share_document(user, document_type, document_id):
+    """Verifica se un utente può condividere un documento"""
+    if document_type == 'transaction':
+        try:
+            transaction = Transaction.objects.get(id=document_id)
+            return transaction.sender == user or transaction.receiver == user
+        except Transaction.DoesNotExist:
+            return False
+    elif document_type == 'personal_document':
+        try:
+            doc = PersonalDocument.objects.get(id=document_id, user=user)
+            return True
+        except PersonalDocument.DoesNotExist:
+            return False
+    elif document_type == 'created_document':
+        try:
+            doc = CreatedDocument.objects.get(id=document_id, user=user)
+            return True
+        except CreatedDocument.DoesNotExist:
+            return False
+    return False

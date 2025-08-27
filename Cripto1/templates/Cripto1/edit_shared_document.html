@@ -1,0 +1,274 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Modifica Collaborativa - {{ document.title }}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<style>
+    .document-editor {
+        min-height: 500px;
+    }
+    .save-status {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1000;
+    }
+    .collaboration-info {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    .collaboration-badge {
+        background: rgba(255,255,255,0.2);
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-size: 0.9em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Informazioni Collaborazione -->
+    <div class="collaboration-info">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-1">
+                    <i class="fas fa-users"></i> Modifica Collaborativa
+                </h4>
+                <p class="mb-0">Stai modificando il documento di <strong>{{ collaborator_name }}</strong></p>
+            </div>
+            <div class="collaboration-badge">
+                <i class="fas fa-edit"></i> Co-working Attivo
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>{{ document.title }}</h2>
+        <div>
+            <a href="{% url 'Cripto1:view_shared_document' share_id=share_id %}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-eye"></i> Solo Visualizzazione
+            </a>
+            <a href="{% url 'Cripto1:my_shares' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> I Miei Documenti Condivisi
+            </a>
+        </div>
+    </div>
+
+    <!-- Status di salvataggio -->
+    <div id="save-status" class="save-status"></div>
+
+    <form id="document-form" method="post">
+        {% csrf_token %}
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div class="mb-3">
+                    <label for="id_title" class="form-label">Titolo</label>
+                    <input type="text" class="form-control" id="id_title" name="title" value="{{ document.title }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="id_content" class="form-label">Contenuto</label>
+                    <textarea id="id_content" name="content" class="form-control document-editor">{{ content }}</textarea>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-info-circle"></i> Informazioni Documento</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="id_document_type" class="form-label">Tipo</label>
+                            <select class="form-select" id="id_document_type" name="document_type">
+                                <option value="letter" {% if document.document_type == 'letter' %}selected{% endif %}>Lettera</option>
+                                <option value="report" {% if document.document_type == 'report' %}selected{% endif %}>Report</option>
+                                <option value="memo" {% if document.document_type == 'memo' %}selected{% endif %}>Memo</option>
+                                <option value="contract" {% if document.document_type == 'contract' %}selected{% endif %}>Contratto</option>
+                                <option value="proposal" {% if document.document_type == 'proposal' %}selected{% endif %}>Proposta</option>
+                                <option value="other" {% if document.document_type == 'other' %}selected{% endif %}>Altro</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <small class="text-muted">
+                                <strong>Proprietario:</strong> {{ collaborator_name }}<br>
+                                <strong>Creato:</strong> {{ document.created_at|date:"d/m/Y H:i" }}<br>
+                                <strong>Ultima modifica:</strong> {{ document.last_modified|date:"d/m/Y H:i" }}<br>
+                                <strong>Parole:</strong> <span id="word-count">{{ document.word_count }}</span>
+                            </small>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-shield-alt"></i>
+                            <small>Le tue modifiche sarananno salvate e il proprietario riceverà una notifica.</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6><i class="fas fa-users"></i> Permessi Condivisione</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span>Livello:</span>
+                            <span class="badge bg-success">{{ shared_document.get_permission_level_display }}</span>
+                        </div>
+                        {% if shared_document.expires_at %}
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Scade:</span>
+                            <span class="badge bg-warning">{{ shared_document.expires_at|date:"d/m/Y H:i" }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Salva Modifiche
+            </button>
+            <input type="hidden" name="save" value="true">
+            <button type="button" id="auto-save-btn" class="btn btn-outline-secondary">
+                <i class="fas fa-clock"></i> Salvataggio Automatico: <span id="auto-save-status">Attivo</span>
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Inizializzazione TinyMCE
+tinymce.init({
+    selector: '#id_content',
+    height: 500,
+    menubar: true,
+    plugins: [
+        'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+        'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+        'insertdatetime', 'media', 'table', 'help', 'wordcount'
+    ],
+    toolbar: 'undo redo | blocks | bold italic underline strikethrough | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help',
+    content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
+    setup: function(editor) {
+        editor.on('input', function() {
+            updateWordCount();
+        });
+    }
+});
+
+// Conteggio parole
+function updateWordCount() {
+    const content = tinymce.get('id_content').getContent({format: 'text'});
+    const words = content.trim().split(/\s+/).filter(word => word.length > 0).length;
+    document.getElementById('word-count').textContent = words;
+}
+
+// Auto-salvataggio
+let autoSaveInterval;
+let autoSaveEnabled = true;
+
+function autoSave() {
+    if (!autoSaveEnabled) return;
+    
+    // Aggiorna il contenuto del textarea con quello di TinyMCE
+    tinymce.get('id_content').save();
+    
+    const formData = new FormData(document.getElementById('document-form'));
+    formData.append('auto_save', 'true');
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSaveStatus('Salvato automaticamente alle ' + data.time, 'success');
+        }
+    })
+    .catch(error => {
+        console.error('Errore auto-salvataggio:', error);
+        showSaveStatus('Errore nel salvataggio automatico', 'error');
+    });
+}
+
+function showSaveStatus(message, type) {
+    const statusDiv = document.getElementById('save-status');
+    statusDiv.innerHTML = `<div class="alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show" role="alert">
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>`;
+    
+    setTimeout(() => {
+        statusDiv.innerHTML = '';
+    }, 3000);
+}
+
+// Avvia auto-salvataggio ogni 30 secondi
+autoSaveInterval = setInterval(autoSave, 30000);
+
+// Toggle auto-salvataggio
+document.getElementById('auto-save-btn').addEventListener('click', function() {
+    autoSaveEnabled = !autoSaveEnabled;
+    const statusSpan = document.getElementById('auto-save-status');
+    
+    if (autoSaveEnabled) {
+        statusSpan.textContent = 'Attivo';
+        statusSpan.className = 'text-success';
+        autoSaveInterval = setInterval(autoSave, 30000);
+    } else {
+        statusSpan.textContent = 'Disattivo';
+        statusSpan.className = 'text-danger';
+        clearInterval(autoSaveInterval);
+    }
+});
+
+// Salvataggio manuale
+document.getElementById('document-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Aggiorna il contenuto del textarea con quello di TinyMCE
+    tinymce.get('id_content').save();
+    
+    const formData = new FormData(this);
+    formData.append('save', 'true');
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSaveStatus('Documento salvato con successo!', 'success');
+            if (data.redirect) {
+                setTimeout(() => {
+                    window.location.href = data.redirect;
+                }, 1500);
+            }
+        } else {
+            showSaveStatus('Errore nel salvataggio', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Errore:', error);
+        showSaveStatus('Errore nel salvataggio', 'error');
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Documento Modificato - Co-working</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 20px; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 10px 10px; }
+        .button { display: inline-block; background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+        .info-box { background: white; padding: 15px; border-left: 4px solid #28a745; margin: 15px 0; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>✏️ Documento Modificato</h2>
+            <p>Il tuo documento condiviso è stato aggiornato!</p>
+        </div>
+        
+        <div class="content">
+            <p>Ciao <strong>{{ shared_document.owner.get_full_name|default:shared_document.owner.username }}</strong>,</p>
+            
+            <p><strong>{{ modifier.get_full_name|default:modifier.username }}</strong> ha apportato modifiche al documento che hai condiviso per la collaborazione.</p>
+            
+            <div class="info-box">
+                <h4>📄 Documento Modificato</h4>
+                <p><strong>Titolo:</strong> {{ document.title }}</p>
+                <p><strong>Modificato da:</strong> {{ modifier.get_full_name|default:modifier.username }}</p>
+                <p><strong>Data modifica:</strong> {{ document.last_modified|date:"d/m/Y alle H:i" }}</p>
+                <p><strong>Parole attuali:</strong> {{ document.word_count }}</p>
+            </div>
+            
+            <p>Le modifiche sono state salvate automaticamente. Puoi visualizzare il documento aggiornato cliccando sul pulsante qui sotto.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{ base_url }}/documents/created/{{ document.id }}/edit/" class="button">
+                    👀 Visualizza Documento
+                </a>
+            </div>
+            
+            <p><small><strong>Suggerimento:</strong> Mantieni una comunicazione aperta con i tuoi collaboratori per coordinare al meglio le modifiche.</small></p>
+        </div>
+        
+        <div class="footer">
+            <p>Questa email è stata generata automaticamente dal sistema di co-working.<br>
+            Puoi disattivare queste notifiche dalle impostazioni di condivisione.</p>
+        </div>
+    </div>
+</body>
+</html>
