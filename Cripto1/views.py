@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import login, authenticate, logout
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, FileResponse
-from .models import Block, Transaction, UserProfile, SmartContract, AuditLog, Permission, Role, UserRole, PersonalDocument, BlockchainState, SharedDocument, ShareNotification, CreatedDocument
+from .models import Block, Transaction, UserProfile, SmartContract, AuditLog, Permission, Role, UserRole, PersonalDocument, BlockchainState, SharedDocument, ShareNotification, CreatedDocument, Organization
 from django.db import transaction, models
 import hashlib
 import json
@@ -53,11 +53,95 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib.enums import TA_CENTER
+import zipfile
 
 cipher_suite = Fernet(settings.FERNET_KEY)
 
 def homepage(request):
     return render(request, 'Cripto1/index.html')
+
+def register_organization(request):
+    """Registrazione di una nuova organizzazione con amministratore"""
+    if request.method == 'POST':
+        from .forms import OrganizationRegistrationForm
+        form = OrganizationRegistrationForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    # 1. Crea l'organizzazione
+                    organization = Organization.objects.create(
+                        name=form.cleaned_data['organization_name'],
+                        slug=form.cleaned_data['organization_slug'],
+                        description=form.cleaned_data.get('organization_description', ''),
+                        domain=form.cleaned_data.get('organization_domain', ''),
+                        registration_code=f"ORG_{uuid.uuid4().hex[:8].upper()}",
+                        max_users=50,  # Default per nuove organizzazioni
+                        max_storage_gb=10,  # Default per nuove organizzazioni
+                        is_active=True,  # Attiva automaticamente alla registrazione
+                        features_enabled={
+                            'blockchain': True,
+                            '2fa': True,
+                            'audit_logs': True,
+                            'file_sharing': True,
+                            'smart_contracts': False,
+                        }
+                    )
+                    
+                    # 2. Crea l'utente amministratore
+                    admin_user = User.objects.create_user(
+                        username=form.cleaned_data['admin_username'],
+                        email=form.cleaned_data['admin_email'],
+                        password=form.cleaned_data['admin_password'],
+                        first_name=form.cleaned_data['admin_first_name'],
+                        last_name=form.cleaned_data['admin_last_name']
+                    )
+                    
+                    # 3. Crea il profilo amministratore
+                    admin_profile = UserProfile.objects.create(
+                        user=admin_user,
+                        organization=organization,
+                        position='Amministratore',
+                        is_active=True  # Attiva automaticamente alla registrazione
+                    )
+                    
+                    # 4. Genera chiavi crittografiche
+                    admin_profile.generate_key_pair(password=form.cleaned_data['admin_password'].encode())
+                    admin_profile.generate_2fa_secret()
+
+                    try:
+                        org_admin_role = Role.objects.get(name='Organization Admin')
+                        admin_profile.assign_role(org_admin_role)
+                    except Role.DoesNotExist:
+                        # Se il ruolo non esiste, logga l'errore ma non bloccare la registrazione
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Ruolo 'Organization Admin' non trovato durante la registrazione dell'organizzazione {organization.name}")
+
+                    except Role.DoesNotExist:
+                        # Se il ruolo non esiste, logga l'errore ma non bloccare la registrazione
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Ruolo 'Organization Admin' non trovato durante la registrazione dell'organizzazione {organization.name}")
+                    
+                    messages.success(
+                        request, 
+                        f'Organizzazione "{organization.name}" registrata con successo! '
+                        f'La registrazione è in attesa di approvazione da parte degli amministratori.'
+                    )
+                    return redirect('Cripto1:organization_registration_success')
+                    
+            except Exception as e:
+                messages.error(request, f'Errore durante la registrazione: {str(e)}')
+                return render(request, 'Cripto1/register_organization.html', {'form': form})
+    else:
+        from .forms import OrganizationRegistrationForm
+        form = OrganizationRegistrationForm()
+    
+    return render(request, 'Cripto1/register_organization.html', {'form': form})
+
+def organization_registration_success(request):
+    """Pagina di successo registrazione organizzazione"""
+    return render(request, 'Cripto1/organization_registration_success.html')
 
 def register(request):
     if request.method == 'POST':
@@ -65,6 +149,7 @@ def register(request):
         password = request.POST.get('password')
         email = request.POST.get('email')
         private_key_password = request.POST.get('private_key_password')
+        organization_code = request.POST.get('organization_code')
         
         # Verifica la robustezza della password
         if len(password) < 8:
@@ -79,9 +164,20 @@ def register(request):
         if User.objects.filter(username=username).exists():
             messages.error(request, 'Username già esistente')
             return render(request, 'Cripto1/register.html')
+        
+        # Trova l'organizzazione dal codice
+        try:
+            organization = Organization.objects.get(registration_code=organization_code, is_active=True)
+        except Organization.DoesNotExist:
+            messages.error(request, 'Codice organizzazione non valido')
+            return render(request, 'Cripto1/register.html')
             
         user = User.objects.create_user(username=username, email=email, password=password)
-        user_profile = UserProfile.objects.create(user=user)
+        
+        user_profile = UserProfile.objects.create(
+            user=user,
+            organization=organization
+        )
         user_profile.generate_key_pair(password=private_key_password.encode())  # Usa la password scelta
         
         # Genera un segreto 2FA per l'utente
@@ -191,14 +287,20 @@ def login_view(request):
 
 @login_required
 def all_transactions_view(request):
-    # Se l'utente è un superuser, mostra tutte le transazioni
+    user_org = request.user.userprofile.organization
+    
+    # Se l'utente è un superuser, mostra tutte le transazioni della sua organizzazione
     if request.user.is_superuser:
-        transactions_list = Transaction.objects.all().order_by('-timestamp')
-    else:
-        # Altrimenti mostra solo le transazioni dell'utente corrente
         transactions_list = Transaction.objects.filter(
-            models.Q(sender=request.user) | 
-            models.Q(receiver=request.user)
+            sender__userprofile__organization=user_org,
+            receiver__userprofile__organization=user_org
+        ).order_by('-timestamp')
+    else:
+        # Altrimenti mostra solo le transazioni dell'utente corrente nella sua organizzazione
+        transactions_list = Transaction.objects.filter(
+            models.Q(sender__userprofile__organization=user_org) & 
+            models.Q(receiver__userprofile__organization=user_org) &
+            (models.Q(sender=request.user) | models.Q(receiver=request.user))
         ).order_by('-timestamp')
 
     for tx in transactions_list:
@@ -230,9 +332,11 @@ def all_transactions_view(request):
 
 @login_required
 def unviewed_transactions_list(request):
+    user_org = request.user.userprofile.organization
     transactions_list = Transaction.objects.filter(
         receiver=request.user,
-        is_viewed=False
+        is_viewed=False,
+        sender__userprofile__organization=user_org
     ).order_by('-timestamp')
 
     for tx in transactions_list:
@@ -266,39 +370,49 @@ def dashboard(request):
     if blockchain_state and blockchain_state.max_supply > 0:
         percentage_mined = (blockchain_state.current_supply / blockchain_state.max_supply) * 100
 
-    # Recupera i blocchi più recenti
-    latest_blocks = list(Block.objects.all().order_by('-index')[:10])
+    # Recupera i blocchi più recenti filtrati per organizzazione
+    user_org = request.user.userprofile.organization
+    latest_blocks = list(Block.objects.filter(organization=user_org).order_by('-index')[:10])
     for block in latest_blocks:
         block.timestamp_datetime = datetime.fromtimestamp(block.timestamp, tz=timezone.get_current_timezone())
 
-    # Recupera le transazioni recenti
+    # Recupera le transazioni recenti filtrate correttamente per organizzazione
     user_transactions = []
     transactions_queryset = Transaction.objects.filter(
-        models.Q(sender=request.user) | 
-        models.Q(receiver=request.user)
+        models.Q(sender__userprofile__organization=user_org) & 
+        models.Q(receiver__userprofile__organization=user_org) &
+        (models.Q(sender=request.user) | models.Q(receiver=request.user))
     ).order_by('-timestamp')[:10]
     for tx in transactions_queryset:
         tx.timestamp_datetime = datetime.fromtimestamp(tx.timestamp, tz=timezone.get_current_timezone())
         user_transactions.append(tx)
 
-    # Conta le transazioni in sospeso
-    pending_count = Transaction.objects.filter(block__isnull=True).count()
+    # Conta le transazioni in sospeso filtrate per organizzazione
+    pending_count = Transaction.objects.filter(
+        block__isnull=True,
+        sender__userprofile__organization=user_org
+    ).count()
     
-    # Conta le transazioni ricevute e non ancora visualizzate
+    # Conta le transazioni ricevute e non ancora visualizzate filtrate per organizzazione
     unviewed_received_transactions_count = Transaction.objects.filter(
         receiver=request.user,
-        is_viewed=False
+        is_viewed=False,
+        sender__userprofile__organization=user_org
     ).count()
     
     # Dati per i grafici
-    # Conteggio transazioni per tipo
+    # Conteggio transazioni per tipo filtrate per organizzazione
     text_transactions_count = Transaction.objects.filter(
-        models.Q(sender=request.user) | models.Q(receiver=request.user),
+        models.Q(sender__userprofile__organization=user_org) & 
+        models.Q(receiver__userprofile__organization=user_org) &
+        (models.Q(sender=request.user) | models.Q(receiver=request.user)),
         type='text'
     ).count()
     
     file_transactions_count = Transaction.objects.filter(
-        models.Q(sender=request.user) | models.Q(receiver=request.user),
+        models.Q(sender__userprofile__organization=user_org) & 
+        models.Q(receiver__userprofile__organization=user_org) &
+        (models.Q(sender=request.user) | models.Q(receiver=request.user)),
         type='file'
     ).count()
     
@@ -314,8 +428,8 @@ def dashboard(request):
     # Aggiungi queste righe prima di definire il context
     blockchain_info = None
     if blockchain_state:
-        last_block = Block.objects.order_by('-index').first()
-        first_block = Block.objects.order_by('index').first()  # Ottieni il primo blocco
+        last_block = Block.objects.filter(organization=user_org).order_by('-index').first()
+        first_block = Block.objects.filter(organization=user_org).order_by('index').first()  # Ottieni il primo blocco
         
         # Converti i timestamp in datetime
         if last_block:
@@ -339,11 +453,13 @@ def dashboard(request):
                 current_block = previous_block
         
         blockchain_info = {
-            'blocks': Block.objects.count(),
-            'transactions': Transaction.objects.count(),
+            'blocks': Block.objects.filter(organization=user_org).count(),
+            'transactions': Transaction.objects.filter(
+                sender__userprofile__organization=user_org,
+                receiver__userprofile__organization=user_org
+            ).count(),
             'last_block_time': last_block.timestamp_datetime if last_block else None,
             'first_block_time': first_block.timestamp_datetime if first_block else None,
-            'difficulty': blockchain_state.difficulty,
             'is_valid': is_valid,
             'validity_message': message
         }
@@ -374,7 +490,7 @@ def calculate_hash(block_data):
     block_string = json.dumps(block_data, sort_keys=True).encode()
     return hashlib.sha256(block_string).hexdigest()
 
-def proof_of_work(last_proof, difficulty=4):
+def proof_of_work(last_proof, difficulty=3):
     """Simple proof of work algorithm with more secure nonce generation"""
     # Generate a random starting point for the nonce
     nonce = random.randint(1000000, 9999999)  # Start with a random 7-digit number
@@ -384,7 +500,7 @@ def proof_of_work(last_proof, difficulty=4):
         guess = f"{last_proof}{nonce}{time.time()}".encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
         
-        # Check if the hash meets the difficulty requirement
+        # Check if the hash meets the difficulty requirement (hardcoded to 3)
         if guess_hash[:difficulty] == '0' * difficulty:
             return nonce
         
@@ -413,7 +529,11 @@ def create_transaction(request):
             max_downloads_str = request.POST.get('max_downloads')
             max_downloads = int(max_downloads_str) if max_downloads_str and max_downloads_str.isdigit() else None
             
-            receiver_profile = UserProfile.objects.filter(user_key=receiver_key).first()
+            user_org = request.user.userprofile.organization
+            receiver_profile = UserProfile.objects.filter(
+                user_key=receiver_key,
+                organization=user_org
+            ).first()
             if not receiver_profile:
                 return JsonResponse({'success': False, 'message': 'Receiver not found.'})
             receiver = receiver_profile.user
@@ -633,23 +753,26 @@ def create_transaction(request):
 @csrf_exempt
 def mine_block(request):
     if request.method == 'POST':
-        # Recupera tutte le transazioni non ancora incluse in un blocco
-        pending_transactions = Transaction.objects.filter(block__isnull=True)
+        user_org = request.user.userprofile.organization
+        # Recupera tutte le transazioni non ancora incluse in un blocco per l'organizzazione
+        pending_transactions = Transaction.objects.filter(
+            block__isnull=True,
+            sender__userprofile__organization=user_org
+        )
         if not pending_transactions.exists():
             return JsonResponse({'success': False, 'message': 'Nessuna transazione in sospeso da minare.'})
 
-        # Recupera l'ultimo blocco
-        last_block = Block.objects.order_by('-index').first()
+        # Recupera l'ultimo blocco dell'organizzazione
+        last_block = Block.objects.filter(organization=user_org).order_by('-index').first()
         index = 1 if not last_block else last_block.index + 1
         previous_hash = '0' * 64 if not last_block else last_block.hash
         timestamp = time.time()
-        difficulty = 3  # Numero di zeri richiesti all'inizio dell'hash
 
         # Calcola la radice di Merkle (qui semplificata come hash concatenato delle transazioni)
         tx_hashes = [tx.transaction_hash for tx in pending_transactions]
         merkle_root = hashlib.sha256(''.join(tx_hashes).encode()).hexdigest() if tx_hashes else ''
 
-        # Proof of Work: trova un nonce tale che l'hash inizi con N zeri
+        # Proof of Work: trova un nonce tale che l'hash inizi con 3 zeri (hardcoded)
         nonce = 0
         while True:
             block_data = {
@@ -659,10 +782,9 @@ def mine_block(request):
                 'previous_hash': previous_hash,
                 'nonce': str(nonce),
                 'merkle_root': merkle_root,
-                'difficulty': difficulty,
             }
-            block_hash = hashlib.sha256(json.dumps(block_data, sort_keys=True).encode()).hexdigest()
-            if block_hash.startswith('0' * difficulty):
+            block_hash = calculate_hash(block_data)
+            if block_hash.startswith('000'):  # 3 zeri hardcoded
                 break
             nonce += 1
 
@@ -675,7 +797,7 @@ def mine_block(request):
             hash=block_hash,
             nonce=str(nonce),
             merkle_root=merkle_root,
-            difficulty=difficulty,
+            organization=user_org,
         )
 
         # Associa le transazioni al nuovo blocco
@@ -796,7 +918,13 @@ def landing_page_view(request):
 @login_required
 @external_forbidden
 def users_feed(request):
-    users = UserProfile.objects.all().select_related('user')
+    # I superuser vedono tutti gli utenti, gli altri solo della loro organizzazione
+    if request.user.is_superuser:
+        users = UserProfile.objects.all().select_related('user', 'organization')
+    else:
+        user_org = request.user.userprofile.organization
+        users = UserProfile.objects.filter(organization=user_org).select_related('user')
+    
     context = {
         'users': users,
     }
@@ -817,10 +945,12 @@ def personal_profile(request):
         user_profile.generate_key_pair()
         user_profile.refresh_from_db()
     
-    # Recupera solo le transazioni recenti per la pagina del profilo
+    # Recupera solo le transazioni recenti per la pagina del profilo filtrate per organizzazione
+    user_org = request.user.userprofile.organization
     recent_transactions = Transaction.objects.filter(
-        models.Q(sender=request.user) | 
-        models.Q(receiver=request.user)
+        models.Q(sender__userprofile__organization=user_org) & 
+        models.Q(receiver__userprofile__organization=user_org) &
+        (models.Q(sender=request.user) | models.Q(receiver=request.user))
     ).order_by('-timestamp')[:5] # Limit to 5 recent transactions
     
     processed_recent_transactions = []
@@ -837,6 +967,7 @@ def personal_profile(request):
     context = {
         'user_profile': user_profile,
         'recent_transactions': processed_recent_transactions,
+        'organization_registration_code': user_org.registration_code if user_org else None,
     }
     return render(request, 'Cripto1/personal_profile.html', context)
 
@@ -1129,14 +1260,70 @@ def edit_profile(request):
 
 @staff_member_required
 def admin_dashboard(request):
-    # Get total users
-    total_users = User.objects.count()
-
-    # Get total transactions
-    total_transactions = Transaction.objects.count()
-
-    # Get total blocks
-    total_blocks = Block.objects.count()
+    # I superuser vedono tutti gli utenti, gli altri solo della loro organizzazione
+    if request.user.is_superuser:
+        user_profiles = UserProfile.objects.all().select_related('user', 'organization')
+        total_users = User.objects.count()
+        total_transactions = Transaction.objects.count()
+        total_blocks = Block.objects.count()
+        
+        # Per i grafici, i superuser vedono dati globali
+        user_activity_data = []
+        for profile in user_profiles[:10]:  # Limita a 10 per il grafico
+            sent_count = Transaction.objects.filter(sender=profile.user).count()
+            received_count = Transaction.objects.filter(receiver=profile.user).count()
+            user_activity_data.append({
+                'username': profile.user.username,
+                'sent': sent_count,
+                'received': received_count
+            })
+            
+        # Dati distribuzione transazioni globali
+        transaction_distribution_data = {
+            'text_count': Transaction.objects.filter(type='text').count(),
+            'file_count': Transaction.objects.filter(type='file').count(),
+            'encrypted_count': Transaction.objects.filter(is_encrypted=True).count(),
+            'unencrypted_count': Transaction.objects.filter(is_encrypted=False).count(),
+        }
+        
+    else:
+        user_org = request.user.userprofile.organization
+        user_profiles = UserProfile.objects.filter(organization=user_org).select_related('user', 'organization')
+        total_users = User.objects.filter(userprofile__organization=user_org).count()
+        total_transactions = Transaction.objects.filter(
+            sender__userprofile__organization=user_org,
+            receiver__userprofile__organization=user_org
+        ).count()
+        total_blocks = Block.objects.filter(organization=user_org).count()
+        
+        # Per gli admin di org, dati filtrati per organizzazione
+        user_activity_data = []
+        for profile in user_profiles[:10]:
+            sent_count = Transaction.objects.filter(
+                sender=profile.user,
+                receiver__userprofile__organization=user_org
+            ).count()
+            received_count = Transaction.objects.filter(
+                receiver=profile.user,
+                sender__userprofile__organization=user_org
+            ).count()
+            user_activity_data.append({
+                'username': profile.user.username,
+                'sent': sent_count,
+                'received': received_count
+            })
+            
+        # Dati distribuzione transazioni per organizzazione
+        org_transactions = Transaction.objects.filter(
+            sender__userprofile__organization=user_org,
+            receiver__userprofile__organization=user_org
+        )
+        transaction_distribution_data = {
+            'text_count': org_transactions.filter(type='text').count(),
+            'file_count': org_transactions.filter(type='file').count(),
+            'encrypted_count': org_transactions.filter(is_encrypted=True).count(),
+            'unencrypted_count': org_transactions.filter(is_encrypted=False).count(),
+        }
 
     # Get active addresses (last 24 hours) - Temporarily commented out due to TypeError
     # now = timezone.now()
@@ -1148,9 +1335,6 @@ def admin_dashboard(request):
 
     # Get total transaction volume
     total_volume = 0  # Il campo 'amount' non esiste, quindi imposto a 0 o placeholder
-
-    # Lista di tutti i profili utente
-    user_profiles = UserProfile.objects.select_related('user').all()
     
     # Dati per i grafici
     
@@ -1164,17 +1348,33 @@ def admin_dashboard(request):
     while current_date <= end_date:
         next_date = current_date + timedelta(days=1)
         
-        # Conta i blocchi creati in questo giorno
-        day_blocks = Block.objects.filter(
-            timestamp__gte=current_date.timestamp(),
-            timestamp__lt=next_date.timestamp()
-        ).count()
-        
-        # Conta le transazioni create in questo giorno
-        day_transactions = Transaction.objects.filter(
-            timestamp__gte=current_date.timestamp(),
-            timestamp__lt=next_date.timestamp()
-        ).count()
+        if request.user.is_superuser:
+            # Conta i blocchi creati in questo giorno (globali)
+            day_blocks = Block.objects.filter(
+                timestamp__gte=current_date.timestamp(),
+                timestamp__lt=next_date.timestamp()
+            ).count()
+            
+            # Conta le transazioni create in questo giorno (globali)
+            day_transactions = Transaction.objects.filter(
+                timestamp__gte=current_date.timestamp(),
+                timestamp__lt=next_date.timestamp()
+            ).count()
+        else:
+            # Conta i blocchi creati in questo giorno (per organizzazione)
+            day_blocks = Block.objects.filter(
+                organization=user_org,
+                timestamp__gte=current_date.timestamp(),
+                timestamp__lt=next_date.timestamp()
+            ).count()
+            
+            # Conta le transazioni create in questo giorno (per organizzazione)
+            day_transactions = Transaction.objects.filter(
+                sender__userprofile__organization=user_org,
+                receiver__userprofile__organization=user_org,
+                timestamp__gte=current_date.timestamp(),
+                timestamp__lt=next_date.timestamp()
+            ).count()
         
         blockchain_growth_data.append({
             'date': current_date.strftime('%d/%m'),
@@ -1184,41 +1384,8 @@ def admin_dashboard(request):
         
         current_date = next_date
     
-    # Distribuzione transazioni
-    text_count = Transaction.objects.filter(type='text').count()
-    file_count = Transaction.objects.filter(type='file').count()
-    encrypted_count = Transaction.objects.filter(is_encrypted=True).count()
-    unencrypted_count = Transaction.objects.filter(is_encrypted=False).count()
-    
-    transaction_distribution_data = {
-        'text_count': text_count,
-        'file_count': file_count,
-        'encrypted_count': encrypted_count,
-        'unencrypted_count': unencrypted_count
-    }
-    
-    # Attività utenti (top 10)
-    top_users = User.objects.annotate(
-        sent_count=models.Count('sent_transactions'),
-        received_count=models.Count('received_transactions')
-    ).order_by('-sent_count')[:10]
-    
-    user_activity_data = []
-    for user in top_users:
-        user_activity_data.append({
-            'username': user.username,
-            'sent': user.sent_count,
-            'received': user.received_count
-        })
-    
-    # Difficoltà mining nel tempo
+    # Difficoltà mining nel tempo (rimossa perché il campo difficulty non esiste)
     mining_difficulty_data = []
-    for block in Block.objects.all().order_by('index')[:50]:  # Limita a 50 blocchi per performance
-        if block.difficulty:  # Verifica che il campo non sia nullo
-            mining_difficulty_data.append({
-                'index': block.index,
-                'difficulty': block.difficulty
-            })
 
     context = {
         'total_users': total_users,
@@ -1230,20 +1397,35 @@ def admin_dashboard(request):
         'blockchain_growth_data': json.dumps(blockchain_growth_data),
         'transaction_distribution_data': json.dumps(transaction_distribution_data),
         'user_activity_data': json.dumps(user_activity_data),
-        'mining_difficulty_data': json.dumps(mining_difficulty_data),
     }
     return render(request, 'Cripto1/admin_dashboard.html', context)
 
-@staff_member_required
+@login_required
 def verify_blockchain(request):
-    last_block = Block.objects.order_by('-index').first()
+    # Verifica che l'utente sia staff o admin di organizzazione
+    user_profile = request.user.userprofile
+    if not request.user.is_staff and not user_profile.has_role('Organization Admin'):
+        return JsonResponse({
+            'is_valid': False,
+            'message': 'Non hai i permessi per verificare la blockchain.'
+        })
+
+    # Ottieni l'organizzazione dell'utente
+    user_org = request.user.userprofile.organization
+    
+    # Verifica solo i blocchi dell'organizzazione
+    last_block = Block.objects.filter(organization=user_org).order_by('-index').first()
     if not last_block:
         return JsonResponse({'is_valid': True, 'message': 'Blockchain vuota, considerata valida.'})
 
     # Start verification from the second to last block
     current_block = last_block
     while current_block.index > 1:
-        previous_block = Block.objects.filter(index=current_block.index - 1).first()
+        # Cerca il blocco precedente nell'organizzazione
+        previous_block = Block.objects.filter(
+            organization=user_org,
+            index=current_block.index - 1
+        ).first()
 
         # Check if previous block exists and if hashes match
         if not previous_block or previous_block.hash != current_block.previous_hash:
@@ -1259,11 +1441,16 @@ def verify_blockchain(request):
             'proof': str(previous_block.proof),
             'previous_hash': previous_block.previous_hash,
             'nonce': str(previous_block.nonce),
-            'merkle_root': previous_block.merkle_root or '',
-            'difficulty': int(previous_block.difficulty) if previous_block.difficulty else 4,  # Converti a int!
+            'merkle_root': previous_block.merkle_root if previous_block.merkle_root is not None else '',
         }
         recalculated_hash = calculate_hash(previous_block_data)
 
+        # Debug per verificare il calcolo dell'hash
+        print(f"DEBUG - Blocco {previous_block.index}:")
+        print(f"  Hash memorizzato: {previous_block.hash}")
+        print(f"  Hash ricalcolato: {recalculated_hash}")
+        print(f"  Dati usati: {previous_block_data}")
+        
         if recalculated_hash != previous_block.hash:
              return JsonResponse({
                 'is_valid': False,
@@ -1273,8 +1460,8 @@ def verify_blockchain(request):
         current_block = previous_block
 
     # Check the genesis block's previous_hash (should be all zeros)
-    genesis_block = Block.objects.get(index=1)
-    if genesis_block.previous_hash != '0' * 64:
+    genesis_block = Block.objects.filter(organization=user_org, index=1).first()
+    if genesis_block and genesis_block.previous_hash != '0' * 64:
          return JsonResponse({
             'is_valid': False,
             'message': 'Blockchain non valida: Il previous_hash del genesis block non è corretto.'
@@ -1711,29 +1898,62 @@ def user_management_required(view_func):
 @user_management_required
 def user_management_dashboard(request):
     """Dashboard principale per la gestione utenti"""
-    # Statistiche
-    total_users = UserProfile.objects.count()
-    active_users = UserProfile.objects.filter(is_active=True).count()
-    inactive_users = UserProfile.objects.filter(is_active=False).count()
-    locked_users = sum(
-        1 for u in UserProfile.objects.all()
-        if (u.is_locked() if callable(getattr(u, 'is_locked', None)) else getattr(u, 'is_locked', False))
-    )
     
-    # Statistiche per ruolo
-    role_stats = {}
-    for role in Role.objects.all():
-        count = UserRole.objects.filter(role=role, is_active=True).count()
-        if count > 0:
-            role_stats[role.name] = count
-    
-    # Utenti recenti
-    recent_users = UserProfile.objects.order_by('-created_at')[:5]
-    
-    # Attività recenti
-    recent_activities = AuditLog.objects.filter(
-        action_type__in=['USER_CREATED', 'USER_UPDATED', 'USER_DELETED', 'ROLE_ASSIGNED', 'ROLE_REMOVED']
-    ).order_by('-timestamp')[:10]
+    # I superuser vedono tutti gli utenti, gli altri solo della loro organizzazione
+    if request.user.is_superuser:
+        total_users = User.objects.count()
+        active_users = UserProfile.objects.filter(is_active=True).count()
+        inactive_users = UserProfile.objects.filter(is_active=False).count()
+        locked_users = sum(
+            1 for u in UserProfile.objects.all()
+            if (u.is_locked() if callable(getattr(u, 'is_locked', None)) else getattr(u, 'is_locked', False))
+        )
+        recent_users = UserProfile.objects.select_related('user').order_by('-created_at')[:5]
+        
+        # Statistiche per ruolo per tutti gli utenti
+        role_stats = {}
+        for role in Role.objects.filter(is_active=True):
+            count = UserRole.objects.filter(
+                role=role, 
+                is_active=True
+            ).exclude(expires_at__lt=timezone.now()).count()
+            if count > 0:
+                role_stats[role.name] = count
+        
+        # Attività recenti per tutti gli utenti
+        recent_activities = AuditLog.objects.filter(
+            action_type__in=['USER_CREATED', 'USER_UPDATED', 'USER_DELETED', 'ROLE_ASSIGNED', 'ROLE_REMOVED']
+        ).order_by('-timestamp')[:10]
+    else:
+        # Ottieni l'organizzazione dell'utente corrente
+        user_org = request.user.userprofile.organization
+        
+        # Statistiche FILTRATE PER ORGANIZZAZIONE
+        total_users = UserProfile.objects.filter(organization=user_org).count()
+        active_users = UserProfile.objects.filter(organization=user_org, is_active=True).count()
+        inactive_users = UserProfile.objects.filter(organization=user_org, is_active=False).count()
+        locked_users = sum(
+            1 for u in UserProfile.objects.filter(organization=user_org)
+            if (u.is_locked() if callable(getattr(u, 'is_locked', None)) else getattr(u, 'is_locked', False))
+        )
+        recent_users = UserProfile.objects.filter(organization=user_org).order_by('-created_at')[:5]
+        
+        # Statistiche per ruolo FILTRATE PER ORGANIZZAZIONE
+        role_stats = {}
+        for role in Role.objects.filter(is_active=True):
+            count = UserRole.objects.filter(
+                role=role, 
+                is_active=True,
+                user__userprofile__organization=user_org
+            ).exclude(expires_at__lt=timezone.now()).count()
+            if count > 0:
+                role_stats[role.name] = count
+        
+        # Attività recenti FILTRATE PER ORGANIZZAZIONE
+        recent_activities = AuditLog.objects.filter(
+            action_type__in=['USER_CREATED', 'USER_UPDATED', 'USER_DELETED', 'ROLE_ASSIGNED', 'ROLE_REMOVED'],
+            user__userprofile__organization=user_org
+        ).order_by('-timestamp')[:10]
     
     context = {
         'total_users': total_users,
@@ -1754,20 +1974,58 @@ def user_list(request):
     search = request.GET.get('search', '')
     status = request.GET.get('status', '')
     role_filter = request.GET.get('role', '')
-    per_page = request.GET.get('per_page', '550')  # Nuovo parametro
+    per_page = request.GET.get('per_page', '50')  # Nuovo parametro
     
     # Validazione per per_page
     try:
         per_page = int(per_page)
         if per_page not in [12, 24, 50, 100]:
-            per_page = 550
+            per_page = 50
     except (ValueError, TypeError):
-        per_page = 550
+        per_page = 50
     
-    # Query base
-    users = UserProfile.objects.select_related('user').all()
+    # Query base - I superuser vedono tutti gli utenti, gli altri solo della loro organizzazione
+    if request.user.is_superuser:
+        users = UserProfile.objects.all().select_related('user', 'organization')
+    else:
+        user_org = request.user.userprofile.organization
+        users = UserProfile.objects.filter(organization=user_org).select_related('user')
     
-    # ... existing code per i filtri ...
+    # Applica filtri
+    if search:
+        users = users.filter(
+            Q(user__username__icontains=search) |
+            Q(user__first_name__icontains=search) |
+            Q(user__last_name__icontains=search) |
+            Q(user__email__icontains=search) |
+            Q(department__icontains=search) |
+            Q(position__icontains=search)
+        )
+    
+    if status == 'active':
+        users = users.filter(is_active=True)
+    elif status == 'inactive':
+        users = users.filter(is_active=False)
+    elif status == 'locked':
+        # Filtra utenti bloccati (con troppi tentativi di login)
+        locked_user_ids = []
+        for user_profile in users:
+            if user_profile.is_locked():
+                locked_user_ids.append(user_profile.id)
+        users = users.filter(id__in=locked_user_ids)
+    
+    if role_filter:
+        # Filtra per ruolo
+        users_with_role = UserRole.objects.filter(
+            role__name=role_filter,
+            is_active=True
+        ).exclude(
+            expires_at__lt=timezone.now()
+        ).values_list('user_id', flat=True)
+        users = users.filter(user_id__in=users_with_role)
+    
+    # Ordina per data di creazione (più recenti prima)
+    users = users.order_by('-created_at')
     
     # Paginazione
     paginator = Paginator(users, per_page)
@@ -1958,6 +2216,18 @@ def edit_user(request, user_id):
         user_profile.phone = request.POST.get('phone', '')
         user_profile.emergency_contact = request.POST.get('emergency_contact', '')
         user_profile.notes = request.POST.get('notes', '')
+        
+        # Gestione organizzazione (solo per superuser)
+        if request.user.is_superuser:
+            organization_id = request.POST.get('organization')
+            if organization_id:
+                try:
+                    from .models import Organization
+                    user_profile.organization = Organization.objects.get(id=organization_id)
+                except Organization.DoesNotExist:
+                    user_profile.organization = None
+            else:
+                user_profile.organization = None
 
         # Gestione sblocco account
         if request.POST.get('unlock_account') == '1' and user_profile.is_locked():
@@ -2022,12 +2292,13 @@ def edit_user(request, user_id):
         messages.success(request, 'Utente aggiornato con successo')
         return redirect('Cripto1:user_detail', user_id=user.id)
     else:
-        form = UserProfileEditForm(instance=user_profile)
+        form = UserProfileEditForm(instance=user_profile, user=request.user)
 
     context = {
         'user_profile': user_profile,
         'form': form,
-        'is_locked': user_profile.is_locked()
+        'is_locked': user_profile.is_locked(),
+        'can_edit_organization': request.user.is_superuser
     }
     return render(request, 'Cripto1/user_management/edit_user.html', context)
 
@@ -2338,24 +2609,56 @@ def debug_permissions(request):
         messages.error(request, f'Errore durante il debug: {str(e)}')
         return redirect('Cripto1:dashboard')
 
-@staff_member_required
+@login_required
 def backup_management(request):
+    # Verifica se l'utente è staff o amministratore di organizzazione
+    if not (request.user.is_staff or 
+            request.user.user_roles.filter(
+                role__name='Organization Admin', 
+                is_active=True
+            ).exists()):
+        messages.error(request, 'Non hai i permessi per gestire i backup.')
+        return redirect('Cripto1:dashboard')
+    
+    # Determina se l'utente può fare ripristini (solo staff)
+    can_restore = request.user.is_staff
+    
     backup_dir = 'blockchain_backups'
     os.makedirs(backup_dir, exist_ok=True)
+    
+    # Ottieni l'organizzazione dell'utente
+    user_org = request.user.userprofile.organization
     
     # Elenco dei backup disponibili
     backups = []
     for file in os.listdir(backup_dir):
         if file.endswith('.zip') and file.startswith('blockchain_backup_'):
             file_path = os.path.join(backup_dir, file)
-            file_stats = os.stat(file_path)
-            backups.append({
-                'filename': file,
-                'path': file_path,
-                'size': file_stats.st_size,
-                'created': datetime.fromtimestamp(file_stats.st_mtime),
-                'download_url': reverse('Cripto1:download_backup', args=[file])
-            })
+            
+            # Verifica se il backup appartiene all'organizzazione dell'utente
+            # Estrai e leggi i metadati dal file ZIP
+            try:
+                with zipfile.ZipFile(file_path, 'r') as zip_ref:
+                    if 'metadata.json' in zip_ref.namelist():
+                        with zip_ref.open('metadata.json') as metadata_file:
+                            metadata = json.load(metadata_file)
+                            backup_org_id = metadata.get('organization_id')
+                            
+                            # Se l'utente è staff, può vedere tutti i backup
+                            # Se è admin di organizzazione, può vedere solo i suoi
+                            if request.user.is_staff or backup_org_id == user_org.id:
+                                file_stats = os.stat(file_path)
+                                backups.append({
+                                    'filename': file,
+                                    'path': file_path,
+                                    'size': file_stats.st_size,
+                                    'created': datetime.fromtimestamp(file_stats.st_mtime),
+                                    'organization_name': metadata.get('organization_name', 'N/A'),
+                                    'download_url': reverse('Cripto1:download_backup', args=[file])
+                                })
+            except (zipfile.BadZipFile, json.JSONDecodeError, KeyError):
+                # Se non riesce a leggere i metadati, salta il file
+                continue
     
     backups.sort(key=lambda x: x['created'], reverse=True)
     
@@ -2365,17 +2668,28 @@ def backup_management(request):
         if action == 'create_backup':
             include_files = request.POST.get('include_files') == 'on'
             
+            # Ottieni l'organizzazione dell'utente
+            user_org = request.user.userprofile.organization
+            
             # Esegui il comando di backup in background
             from django.core.management import call_command
             try:
-                call_command('backup_blockchain', include_files=include_files)
-                messages.success(request, 'Backup creato con successo!')
+                # Usa il comando esistente con il parametro organization_id
+                call_command('backup_blockchain', 
+                            include_files=include_files,
+                            organization_id=user_org.id)  # NUOVO PARAMETRO
+                messages.success(request, f'Backup creato con successo per {user_org.name}!')
             except Exception as e:
                 messages.error(request, f'Errore durante la creazione del backup: {str(e)}')
             
             return redirect('Cripto1:backup_management')
         
         elif action == 'restore_backup':
+            # SOLO STAFF PUÒ RIPRISTINARE
+            if not request.user.is_staff:
+                messages.error(request, 'Solo gli amministratori di sistema possono ripristinare i backup.')
+                return redirect('Cripto1:backup_management')
+            
             backup_file = request.POST.get('backup_file')
             if not backup_file:
                 messages.error(request, 'Nessun file di backup selezionato')
@@ -2409,10 +2723,252 @@ def backup_management(request):
             return redirect('Cripto1:backup_management')
     
     context = {
-        'backups': backups
+        'backups': backups,
+        'can_restore': can_restore,  # Passa al template
     }
     
     return render(request, 'Cripto1/backup_management.html', context)
+
+@staff_member_required
+def organization_management(request):
+    """Vista per la gestione delle organizzazioni (solo superuser)"""
+    if not request.user.is_superuser:
+        messages.error(request, 'Solo i superuser possono gestire le organizzazioni.')
+        return redirect('Cripto1:dashboard')
+    
+    from .models import Organization
+    organizations = Organization.objects.all().order_by('-created_at')
+    
+    # Statistiche generali
+    stats = {
+        'total_organizations': organizations.count(),
+        'active_organizations': organizations.filter(is_active=True).count(),
+        'pending_organizations': organizations.filter(is_active=False).count(),
+        'total_users': sum(org.get_user_count() for org in organizations),
+    }
+    
+    context = {
+        'organizations': organizations,
+        'stats': stats,
+    }
+    
+    return render(request, 'Cripto1/organization_management.html', context)
+
+@staff_member_required
+def organization_detail(request, org_id):
+    """Vista dettagliata di un'organizzazione"""
+    if not request.user.is_superuser:
+        messages.error(request, 'Solo i superuser possono gestire le organizzazioni.')
+        return redirect('Cripto1:dashboard')
+    
+    from .models import Organization
+    organization = get_object_or_404(Organization, id=org_id)
+    
+    # Statistiche dell'organizzazione
+    users = UserProfile.objects.filter(organization=organization)
+    transactions = Transaction.objects.filter(
+        sender__userprofile__organization=organization,
+        receiver__userprofile__organization=organization
+    )
+    blocks = Block.objects.filter(organization=organization)
+    
+    stats = {
+        'total_users': users.count(),
+        'active_users': users.filter(is_active=True).count(),
+        'total_transactions': transactions.count(),
+        'total_blocks': blocks.count(),
+        'storage_used': sum(user.storage_used_bytes for user in users),
+        'storage_limit': organization.max_storage_gb * 1024 * 1024 * 1024,
+    }
+    
+    # Utenti recenti
+    recent_users = users.order_by('-created_at')[:10]
+    
+    # Transazioni recenti
+    recent_transactions = transactions.order_by('-timestamp')[:10]
+    
+    context = {
+        'organization': organization,
+        'stats': stats,
+        'recent_users': recent_users,
+        'recent_transactions': recent_transactions,
+    }
+    
+    return render(request, 'Cripto1/organization_detail.html', context)
+
+@staff_member_required
+def toggle_organization_status(request, org_id):
+    """Attiva/disattiva un'organizzazione"""
+    if not request.user.is_superuser:
+        messages.error(request, 'Solo i superuser possono gestire le organizzazioni.')
+        return redirect('Cripto1:dashboard')
+    
+    from .models import Organization
+    organization = get_object_or_404(Organization, id=org_id)
+    
+    organization.is_active = not organization.is_active
+    organization.save()
+    
+    status = 'attivata' if organization.is_active else 'disattivata'
+    messages.success(request, f'Organizzazione "{organization.name}" {status} con successo.')
+    
+    # Log dell'azione
+    AuditLog.log_action(
+        action_type='ORGANIZATION_MANAGEMENT',
+        description=f'Organizzazione {organization.name} {status} da {request.user.username}',
+        severity='HIGH',
+        user=request.user,
+        ip_address=request.META.get('REMOTE_ADDR'),
+        related_object_type='Organization',
+        related_object_id=organization.id,
+        success=True
+    )
+    
+    return redirect('Cripto1:organization_detail', org_id=org_id)
+
+@staff_member_required
+def edit_organization(request, org_id):
+    """Modifica un'organizzazione"""
+    if not request.user.is_superuser:
+        messages.error(request, 'Solo i superuser possono gestire le organizzazioni.')
+        return redirect('Cripto1:dashboard')
+    
+    from .models import Organization
+    organization = get_object_or_404(Organization, id=org_id)
+    
+    if request.method == 'POST':
+        # Aggiorna i campi dell'organizzazione
+        organization.name = request.POST.get('name', organization.name)
+        organization.description = request.POST.get('description', organization.description)
+        organization.domain = request.POST.get('domain', organization.domain)
+        organization.max_users = int(request.POST.get('max_users', organization.max_users))
+        organization.max_storage_gb = int(request.POST.get('max_storage_gb', organization.max_storage_gb))
+        
+        # Aggiorna le funzionalità abilitate
+        features = {
+            'blockchain': request.POST.get('feature_blockchain') == 'on',
+            '2fa': request.POST.get('feature_2fa') == 'on',
+            'audit_logs': request.POST.get('feature_audit_logs') == 'on',
+            'file_sharing': request.POST.get('feature_file_sharing') == 'on',
+            'smart_contracts': request.POST.get('feature_smart_contracts') == 'on',
+        }
+        organization.features_enabled = features
+        
+        organization.save()
+        
+        # Log dell'azione
+        AuditLog.log_action(
+            action_type='ORGANIZATION_MANAGEMENT',
+            description=f'Organizzazione {organization.name} modificata da {request.user.username}',
+            severity='MEDIUM',
+            user=request.user,
+            ip_address=request.META.get('REMOTE_ADDR'),
+            related_object_type='Organization',
+            related_object_id=organization.id,
+            success=True
+        )
+        
+        messages.success(request, f'Organizzazione "{organization.name}" aggiornata con successo.')
+        return redirect('Cripto1:organization_detail', org_id=org_id)
+    
+    context = {
+        'organization': organization,
+    }
+    
+    return render(request, 'Cripto1/edit_organization.html', context)
+
+@staff_member_required
+def delete_organization(request, org_id):
+    """Elimina un'organizzazione (solo se non ha utenti)"""
+    if not request.user.is_superuser:
+        messages.error(request, 'Solo i superuser possono gestire le organizzazioni.')
+        return redirect('Cripto1:dashboard')
+    
+    from .models import Organization
+    organization = get_object_or_404(Organization, id=org_id)
+    
+    # Verifica che l'organizzazione non abbia utenti
+    user_count = UserProfile.objects.filter(organization=organization).count()
+    if user_count > 0:
+        messages.error(request, f'Impossibile eliminare l\'organizzazione. Ha ancora {user_count} utenti associati.')
+        return redirect('Cripto1:organization_detail', org_id=org_id)
+    
+    if request.method == 'POST':
+        org_name = organization.name
+        
+        # Log dell'azione prima dell'eliminazione
+        AuditLog.log_action(
+            action_type='ORGANIZATION_MANAGEMENT',
+            description=f'Organizzazione {org_name} eliminata da {request.user.username}',
+            severity='CRITICAL',
+            user=request.user,
+            ip_address=request.META.get('REMOTE_ADDR'),
+            related_object_type='Organization',
+            related_object_id=organization.id,
+            success=True
+        )
+        
+        organization.delete()
+        messages.success(request, f'Organizzazione "{org_name}" eliminata con successo.')
+        return redirect('Cripto1:organization_management')
+    
+    context = {
+        'organization': organization,
+    }
+    
+    return render(request, 'Cripto1/delete_organization.html', context)
+
+@staff_member_required  
+def create_organization(request):
+    """Crea una nuova organizzazione (solo superuser)"""
+    if not request.user.is_superuser:
+        messages.error(request, 'Solo i superuser possono creare organizzazioni.')
+        return redirect('Cripto1:dashboard')
+    
+    if request.method == 'POST':
+        from .models import Organization
+        import uuid
+        
+        try:
+            with transaction.atomic():
+                # Crea l'organizzazione
+                organization = Organization.objects.create(
+                    name=request.POST.get('name'),
+                    slug=request.POST.get('slug'),
+                    description=request.POST.get('description', ''),
+                    domain=request.POST.get('domain', ''),
+                    registration_code=f"ORG_{uuid.uuid4().hex[:8].upper()}",
+                    max_users=int(request.POST.get('max_users', 50)),
+                    max_storage_gb=int(request.POST.get('max_storage_gb', 10)),
+                    is_active=request.POST.get('is_active') == 'on',
+                    features_enabled={
+                        'blockchain': request.POST.get('feature_blockchain') == 'on',
+                        '2fa': request.POST.get('feature_2fa') == 'on',
+                        'audit_logs': request.POST.get('feature_audit_logs') == 'on',
+                        'file_sharing': request.POST.get('feature_file_sharing') == 'on',
+                        'smart_contracts': request.POST.get('feature_smart_contracts') == 'on',
+                    }
+                )
+                
+                # Log dell'azione
+                AuditLog.log_action(
+                    action_type='ORGANIZATION_MANAGEMENT',
+                    description=f'Organizzazione {organization.name} creata da {request.user.username}',
+                    severity='HIGH',
+                    user=request.user,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    related_object_type='Organization',
+                    related_object_id=organization.id,
+                    success=True
+                )
+                
+                messages.success(request, f'Organizzazione "{organization.name}" creata con successo!')
+                return redirect('Cripto1:organization_detail', org_id=organization.id)
+                
+        except Exception as e:
+            messages.error(request, f'Errore durante la creazione: {str(e)}')
+    
+    return render(request, 'Cripto1/create_organization.html')
 
 @staff_member_required
 def download_backup(request, filename):
@@ -2427,6 +2983,51 @@ def download_backup(request, filename):
         response = HttpResponse(f.read(), content_type='application/zip')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+
+@staff_member_required
+def organization_users(request, org_id):
+    """Lista utenti di un'organizzazione"""
+    if not request.user.is_superuser:
+        messages.error(request, 'Solo i superuser possono gestire le organizzazioni.')
+        return redirect('Cripto1:dashboard')
+    
+    from .models import Organization
+    organization = get_object_or_404(Organization, id=org_id)
+    
+    # Filtri
+    search = request.GET.get('search', '')
+    status = request.GET.get('status', '')
+    
+    users = UserProfile.objects.filter(organization=organization)
+    
+    if search:
+        users = users.filter(
+            Q(user__username__icontains=search) |
+            Q(user__first_name__icontains=search) |
+            Q(user__last_name__icontains=search) |
+            Q(user__email__icontains=search)
+        )
+    
+    if status == 'active':
+        users = users.filter(is_active=True)
+    elif status == 'inactive':
+        users = users.filter(is_active=False)
+    
+    users = users.order_by('-created_at')
+    
+    # Paginazione
+    paginator = Paginator(users, 25)
+    page = request.GET.get('page')
+    users = paginator.get_page(page)
+    
+    context = {
+        'organization': organization,
+        'users': users,
+        'search': search,
+        'status': status,
+    }
+    
+    return render(request, 'Cripto1/organization_users.html', context)
 
 @staff_member_required
 def upload_backup(request):
@@ -2457,6 +3058,89 @@ def upload_backup(request):
         messages.error(request, 'Nessun file selezionato')
     
     return redirect('Cripto1:backup_management')
+
+@staff_member_required
+def organization_statistics(request, org_id):
+    """Statistiche dettagliate di un'organizzazione"""
+    if not request.user.is_superuser:
+        messages.error(request, 'Solo i superuser possono gestire le organizzazioni.')
+        return redirect('Cripto1:dashboard')
+    
+    from .models import Organization
+    organization = get_object_or_404(Organization, id=org_id)
+    
+    # Statistiche utenti
+    users = UserProfile.objects.filter(organization=organization)
+    user_stats = {
+        'total': users.count(),
+        'active': users.filter(is_active=True).count(),
+        'inactive': users.filter(is_active=False).count(),
+        'with_2fa': users.filter(two_factor_enabled=True).count(),
+    }
+    
+    # Statistiche transazioni
+    transactions = Transaction.objects.filter(
+        sender__userprofile__organization=organization,
+        receiver__userprofile__organization=organization
+    )
+    transaction_stats = {
+        'total': transactions.count(),
+        'text': transactions.filter(type='text').count(),
+        'file': transactions.filter(type='file').count(),
+        'encrypted': transactions.filter(is_encrypted=True).count(),
+    }
+    
+    # Statistiche blockchain
+    blocks = Block.objects.filter(organization=organization)
+    blockchain_stats = {
+        'total_blocks': blocks.count(),
+        'avg_transactions_per_block': blocks.aggregate(
+            avg=models.Avg('transactions__count')
+        )['avg'] or 0,
+    }
+    
+    # Statistiche storage
+    total_storage_used = sum(user.storage_used_bytes for user in users)
+    storage_stats = {
+        'used_gb': round(total_storage_used / (1024**3), 2),
+        'limit_gb': organization.max_storage_gb,
+        'percentage': round((total_storage_used / (organization.max_storage_gb * 1024**3)) * 100, 1) if organization.max_storage_gb > 0 else 0,
+    }
+    
+    # Attività mensile (ultimi 6 mesi)
+    monthly_activity = []
+    for i in range(6):
+        month_start = timezone.now() - timedelta(days=30 * (i + 1))
+        month_end = timezone.now() - timedelta(days=30 * i)
+        
+        month_transactions = transactions.filter(
+            timestamp__gte=month_start.timestamp(),
+            timestamp__lt=month_end.timestamp()
+        ).count()
+        
+        month_users = users.filter(
+            created_at__gte=month_start,
+            created_at__lt=month_end
+        ).count()
+        
+        monthly_activity.append({
+            'month': month_start.strftime('%B %Y'),
+            'transactions': month_transactions,
+            'new_users': month_users,
+        })
+    
+    monthly_activity.reverse()
+    
+    context = {
+        'organization': organization,
+        'user_stats': user_stats,
+        'transaction_stats': transaction_stats,
+        'blockchain_stats': blockchain_stats,
+        'storage_stats': storage_stats,
+        'monthly_activity': monthly_activity,
+    }
+    
+    return render(request, 'Cripto1/organization_statistics.html', context)
 
 @login_required
 def personal_documents(request):
@@ -2826,10 +3510,14 @@ def send_document_as_transaction(request, document_id):
             return redirect('Cripto1:personal_documents')
         
         user_profile = UserProfile.objects.get(user=request.user)
-        receiver_profile = UserProfile.objects.filter(user_key=receiver_key).first()
+        user_org = user_profile.organization
+        receiver_profile = UserProfile.objects.filter(
+            user_key=receiver_key,
+            organization=user_org
+        ).first()
         
         if not receiver_profile:
-            messages.error(request, 'Destinatario non trovato.')
+            messages.error(request, 'Destinatario non trovato nella tua organizzazione.')
             return redirect('Cripto1:personal_documents')
         
         # Verifica se l'utente ha il ruolo "external"
@@ -3463,9 +4151,13 @@ def create_transaction_from_document(request, document_id):
             max_downloads_str = request.POST.get('max_downloads')
             max_downloads = int(max_downloads_str) if max_downloads_str and max_downloads_str.isdigit() else None
             
-            receiver_profile = UserProfile.objects.filter(user_key=receiver_key).first()
+            user_org = request.user.userprofile.organization
+            receiver_profile = UserProfile.objects.filter(
+                user_key=receiver_key,
+                organization=user_org
+            ).first()
             if not receiver_profile:
-                messages.error(request, 'Destinatario non trovato.')
+                messages.error(request, 'Destinatario non trovato nella tua organizzazione.')
                 return redirect('Cripto1:send_document_as_transaction', document_id=document_id)
             receiver = receiver_profile.user
 
@@ -4211,13 +4903,18 @@ def search_transactions_ajax(request):
             search_query = request.GET.get('q', '').strip()
             page = request.GET.get('page', 1)
             
-            # Base queryset
+            # Base queryset filtrato per organizzazione
+            user_org = request.user.userprofile.organization
             if request.user.is_superuser:
-                transactions_list = Transaction.objects.all()
+                transactions_list = Transaction.objects.filter(
+                    sender__userprofile__organization=user_org,
+                    receiver__userprofile__organization=user_org
+                )
             else:
                 transactions_list = Transaction.objects.filter(
-                    models.Q(sender=request.user) | 
-                    models.Q(receiver=request.user)
+                    models.Q(sender__userprofile__organization=user_org) & 
+                    models.Q(receiver__userprofile__organization=user_org) &
+                    (models.Q(sender=request.user) | models.Q(receiver=request.user))
                 )
             
             # Applica filtri di ricerca SOLO per hash completo
@@ -4285,29 +4982,44 @@ def search_transactions_ajax(request):
 @login_required
 def personal_statistics(request):
     user_profile = UserProfile.objects.get(user=request.user)
+    user_org = request.user.userprofile.organization
     
-    # Statistiche delle transazioni
+    # Statistiche delle transazioni filtrate per organizzazione
     total_transactions = Transaction.objects.filter(
-        models.Q(sender=request.user) | models.Q(receiver=request.user)
+        models.Q(sender__userprofile__organization=user_org) & 
+        models.Q(receiver__userprofile__organization=user_org) &
+        (models.Q(sender=request.user) | models.Q(receiver=request.user))
     ).count()
     
-    sent_transactions = Transaction.objects.filter(sender=request.user).count()
-    received_transactions = Transaction.objects.filter(receiver=request.user).count()
+    sent_transactions = Transaction.objects.filter(
+        sender=request.user,
+        receiver__userprofile__organization=user_org
+    ).count()
+    received_transactions = Transaction.objects.filter(
+        receiver=request.user,
+        sender__userprofile__organization=user_org
+    ).count()
     
-    # Statistiche per tipo
+    # Statistiche per tipo filtrate per organizzazione
     text_transactions = Transaction.objects.filter(
-        models.Q(sender=request.user) | models.Q(receiver=request.user),
+        models.Q(sender__userprofile__organization=user_org) & 
+        models.Q(receiver__userprofile__organization=user_org) &
+        (models.Q(sender=request.user) | models.Q(receiver=request.user)),
         type='text'
     ).count()
     
     file_transactions = Transaction.objects.filter(
-        models.Q(sender=request.user) | models.Q(receiver=request.user),
+        models.Q(sender__userprofile__organization=user_org) & 
+        models.Q(receiver__userprofile__organization=user_org) &
+        (models.Q(sender=request.user) | models.Q(receiver=request.user)),
         type='file'
     ).count()
     
-    # Transazioni crittografate
+    # Transazioni crittografate filtrate per organizzazione
     encrypted_transactions = Transaction.objects.filter(
-        models.Q(sender=request.user) | models.Q(receiver=request.user),
+        models.Q(sender__userprofile__organization=user_org) & 
+        models.Q(receiver__userprofile__organization=user_org) &
+        (models.Q(sender=request.user) | models.Q(receiver=request.user)),
         is_encrypted=True
     ).count()
     
@@ -4319,7 +5031,9 @@ def personal_statistics(request):
     last_month_timestamp = last_month.timestamp()
     
     recent_transactions = Transaction.objects.filter(
-        models.Q(sender=request.user) | models.Q(receiver=request.user),
+        models.Q(sender__userprofile__organization=user_org) & 
+        models.Q(receiver__userprofile__organization=user_org) &
+        (models.Q(sender=request.user) | models.Q(receiver=request.user)),
         timestamp__gte=last_month_timestamp
     ).count()
     
@@ -4330,7 +5044,9 @@ def personal_statistics(request):
         month_end = timezone.now() - timedelta(days=30 * i)
         
         month_transactions = Transaction.objects.filter(
-            models.Q(sender=request.user) | models.Q(receiver=request.user),
+            models.Q(sender__userprofile__organization=user_org) & 
+            models.Q(receiver__userprofile__organization=user_org) &
+            (models.Q(sender=request.user) | models.Q(receiver=request.user)),
             timestamp__gte=month_start.timestamp(),
             timestamp__lt=month_end.timestamp()
         ).count()
@@ -4372,9 +5088,11 @@ def personal_statistics(request):
             else:
                 other_files_storage += size_mb
     
-    # Calcola storage file transazioni
+    # Calcola storage file transazioni filtrati per organizzazione
     for tx in Transaction.objects.filter(
-        models.Q(sender=request.user) | models.Q(receiver=request.user),
+        models.Q(sender__userprofile__organization=user_org) & 
+        models.Q(receiver__userprofile__organization=user_org) &
+        (models.Q(sender=request.user) | models.Q(receiver=request.user)),
         type='file', file__isnull=False
     ):
         if tx.file and hasattr(tx.file, 'size'):
@@ -4401,9 +5119,11 @@ def personal_statistics(request):
                 'upload_date': doc.uploaded_at
             })
     
-    # Aggiungi file transazioni
+    # Aggiungi file transazioni filtrati per organizzazione
     for tx in Transaction.objects.filter(
-        models.Q(sender=request.user) | models.Q(receiver=request.user),
+        models.Q(sender__userprofile__organization=user_org) & 
+        models.Q(receiver__userprofile__organization=user_org) &
+        (models.Q(sender=request.user) | models.Q(receiver=request.user)),
         type='file', file__isnull=False
     ):
         if tx.file and hasattr(tx.file, 'size'):
@@ -4431,12 +5151,14 @@ def personal_statistics(request):
         
         sent_count = Transaction.objects.filter(
             sender=request.user,
+            receiver__userprofile__organization=user_org,
             timestamp__gte=day_start.timestamp(),
             timestamp__lt=day_end.timestamp()
         ).count()
         
         received_count = Transaction.objects.filter(
             receiver=request.user,
+            sender__userprofile__organization=user_org,
             timestamp__gte=day_start.timestamp(),
             timestamp__lt=day_end.timestamp()
         ).count()
@@ -4451,13 +5173,19 @@ def personal_statistics(request):
     from django.db.models import Count
     top_contacts = []
     
-    # Utenti a cui hai inviato di più
-    sent_to = Transaction.objects.filter(sender=request.user).values('receiver__username').annotate(
+    # Utenti a cui hai inviato di più (filtrati per organizzazione)
+    sent_to = Transaction.objects.filter(
+        sender=request.user,
+        receiver__userprofile__organization=user_org
+    ).values('receiver__username').annotate(
         count=Count('receiver')
     ).order_by('-count')[:5]
     
-    # Utenti da cui hai ricevuto di più
-    received_from = Transaction.objects.filter(receiver=request.user).values('sender__username').annotate(
+    # Utenti da cui hai ricevuto di più (filtrati per organizzazione)
+    received_from = Transaction.objects.filter(
+        receiver=request.user,
+        sender__userprofile__organization=user_org
+    ).values('sender__username').annotate(
         count=Count('sender')
     ).order_by('-count')[:5]
     
@@ -5061,6 +5789,7 @@ def create_transaction_from_created_document(request, document_id):
     from .models import CreatedDocument
     document = get_object_or_404(CreatedDocument, id=document_id, user=request.user)
     user_profile = UserProfile.objects.get(user=request.user)
+    user_org = user_profile.organization
     
     # Verifica se l'utente ha il ruolo "external"
     if user_profile.has_role('external'):
@@ -5076,12 +5805,17 @@ def create_transaction_from_created_document(request, document_id):
             max_downloads_str = request.POST.get('max_downloads')
             max_downloads = int(max_downloads_str) if max_downloads_str and max_downloads_str.isdigit() else None
             
-            receiver_profile = UserProfile.objects.filter(user_key=receiver_key).first()
+            receiver_profile = UserProfile.objects.filter(
+                user_key=receiver_key,
+                organization=user_org
+            ).first()
             if not receiver_profile:
-                messages.error(request, 'Destinatario non trovato.')
+                messages.error(request, 'Destinatario non trovato nella tua organizzazione.')
                 return render(request, 'Cripto1/share_created_document.html', {
                     'document': document,
-                    'users': UserProfile.objects.exclude(user=request.user)
+                    'users': UserProfile.objects.filter(
+                        organization=user_org
+                    ).exclude(user=request.user)
                 })
             receiver = receiver_profile.user
 
@@ -5116,7 +5850,9 @@ def create_transaction_from_created_document(request, document_id):
                     messages.error(request, f'Errore durante la decifratura del documento: {str(e)}')
                     return render(request, 'Cripto1/share_created_document.html', {
                         'document': document,
-                        'users': UserProfile.objects.exclude(user=request.user)
+                        'users': UserProfile.objects.filter(
+                            organization=user_org
+                        ).exclude(user=request.user)
                     })
             else:
                 content = document.content
@@ -5236,7 +5972,9 @@ def create_transaction_from_created_document(request, document_id):
                     messages.error(request, f'Errore durante la cifratura del file: {str(e)}')
                     return render(request, 'Cripto1/share_created_document.html', {
                         'document': document,
-                        'users': UserProfile.objects.exclude(user=request.user)
+                        'users': UserProfile.objects.filter(
+                            organization=user_org
+                        ).exclude(user=request.user)
                     })
             else:
                 filename = f"{time.time()}_{document.title}.pdf"
@@ -5255,7 +5993,9 @@ def create_transaction_from_created_document(request, document_id):
                 messages.error(request, 'Errore durante il recupero della chiave privata.')
                 return render(request, 'Cripto1/share_created_document.html', {
                     'document': document,
-                    'users': UserProfile.objects.exclude(user=request.user)
+                    'users': UserProfile.objects.filter(
+                        organization=user_org
+                    ).exclude(user=request.user)
                 })
             
             data_to_sign = transaction_hash.encode()
@@ -5300,13 +6040,17 @@ def create_transaction_from_created_document(request, document_id):
             messages.error(request, f'Errore durante la condivisione: {str(e)}')
             return render(request, 'Cripto1/share_created_document.html', {
                 'document': document,
-                'users': UserProfile.objects.exclude(user=request.user)
+                'users': UserProfile.objects.filter(
+                    organization=user_org
+                ).exclude(user=request.user)
             })
     
     # GET request - mostra il form di condivisione
     return render(request, 'Cripto1/share_created_document.html', {
         'document': document,
-        'users': UserProfile.objects.exclude(user=request.user)
+        'users': UserProfile.objects.filter(
+            organization=user_org
+        ).exclude(user=request.user)
     })
 
 @login_required

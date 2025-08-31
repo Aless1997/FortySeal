@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.core import serializers
 from django.utils import timezone
+from django.db.models import Q
 from Cripto1.models import Block, Transaction, BlockchainState, UserProfile, SmartContract
 import os
 import json
@@ -19,12 +20,33 @@ class Command(BaseCommand):
         parser.add_argument(
             '--include-files',
             action='store_true',
-            help='Include anche i file allegati alle transazioni'
+            help='Includi i file allegati alle transazioni nel backup'
+        )
+        # NUOVO: Aggiungi parametro per organizzazione
+        parser.add_argument(
+            '--organization-id',
+            type=int,
+            help='ID dell\'organizzazione per backup specifico (opzionale)'
         )
 
     def handle(self, *args, **options):
         output_dir = options['output_dir']
-        include_files = options['include_files']
+        include_files = options.get('include_files', False)
+        organization_id = options.get('organization_id')  # NUOVO
+        
+        # Se è specificata un'organizzazione, filtra i dati
+        if organization_id:
+            try:
+                from Cripto1.models import Organization
+                organization = Organization.objects.get(id=organization_id)
+                self.stdout.write(self.style.SUCCESS(f'Backup per organizzazione: {organization.name}'))
+            except Organization.DoesNotExist:
+                self.stdout.write(self.style.ERROR(f'Organizzazione con ID {organization_id} non trovata'))
+                return
+        else:
+            organization = None
+            self.stdout.write(self.style.SUCCESS('Backup completo del sistema'))
+        
         timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
         backup_dir = os.path.join(output_dir, f'backup_{timestamp}')
         
@@ -34,14 +56,24 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'Avvio backup nella directory {backup_dir}'))
         
         # Backup dei blocchi
-        blocks = Block.objects.all().order_by('index')
+        if organization:
+            blocks = Block.objects.filter(organization=organization).order_by('index')
+        else:
+            blocks = Block.objects.all().order_by('index')
+        
         with open(os.path.join(backup_dir, 'blocks.json'), 'w', encoding='utf-8') as f:
             data = serializers.serialize('json', blocks)
             f.write(data)
         self.stdout.write(self.style.SUCCESS(f'Salvati {blocks.count()} blocchi'))
         
-        # Backup delle transazioni
-        transactions = Transaction.objects.all().order_by('id')
+        # Backup delle transazioni  
+        if organization:
+            transactions = Transaction.objects.filter(
+                Q(sender__userprofile__organization=organization) |
+                Q(receiver__userprofile__organization=organization)
+            ).order_by('id')
+        else:
+            transactions = Transaction.objects.all().order_by('id')
         with open(os.path.join(backup_dir, 'transactions.json'), 'w', encoding='utf-8') as f:
             data = serializers.serialize('json', transactions)
             f.write(data)
@@ -62,7 +94,10 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'Salvati {smart_contracts.count()} smart contract'))
         
         # Backup dei profili utente (solo dati essenziali per la blockchain)
-        user_profiles = UserProfile.objects.all()
+        if organization:
+            user_profiles = UserProfile.objects.filter(organization=organization)
+        else:
+            user_profiles = UserProfile.objects.all()
         with open(os.path.join(backup_dir, 'user_profiles.json'), 'w', encoding='utf-8') as f:
             data = serializers.serialize('json', user_profiles, fields=[
                 'user', 'user_key', 'public_key', 'balance'
@@ -75,7 +110,14 @@ class Command(BaseCommand):
             files_dir = os.path.join(backup_dir, 'transaction_files')
             os.makedirs(files_dir, exist_ok=True)
             
-            file_transactions = Transaction.objects.filter(file__isnull=False).exclude(file='')
+            if organization:
+                file_transactions = Transaction.objects.filter(
+                    Q(sender__userprofile__organization=organization) |
+                    Q(receiver__userprofile__organization=organization),
+                    file__isnull=False
+                ).exclude(file='')
+            else:
+                file_transactions = Transaction.objects.filter(file__isnull=False).exclude(file='')
             for tx in file_transactions:
                 if tx.file and os.path.exists(tx.file.path):
                     file_name = os.path.basename(tx.file.name)
@@ -92,6 +134,8 @@ class Command(BaseCommand):
             'users_count': user_profiles.count(),
             'smart_contracts_count': smart_contracts.count(),
             'include_files': include_files,
+            'organization_id': organization_id if organization else None,
+            'organization_name': organization.name if organization else 'Sistema completo',
             'version': '1.0'
         }
         

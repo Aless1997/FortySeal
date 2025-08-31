@@ -244,6 +244,14 @@
                     <span class="text-danger">Nessuna chiave privata trovata.</span>
                 {% endif %}
             </p>
+            
+            {% if organization_registration_code %}
+            <p class="card-text">
+                <strong>Codice della mia Organizzazione:</strong><br>
+                <code class="bg-light p-2 d-block text-break">{{ organization_registration_code }}</code>
+            </p>
+            {% endif %}
+            
             <!--<p class="card-text">
                 <strong>Saldo:</strong> {{ user_profile.balance|floatformat:"2" }} CA$
             </p>-->

@@ -1,0 +1,229 @@
+{% extends "Cripto1/base.html" %}
+{% load static %}
+
+{% block title %}Dashboard Amministratore Organizzazione{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0 text-gray-800">
+                    <i class="fas fa-building"></i> Dashboard Amministratore Organizzazione
+                </h1>
+                <div class="text-muted">
+                    <i class="fas fa-user"></i> {{ request.user.get_full_name|default:request.user.username }}
+                    <br><small>{{ request.user.userprofile.organization.name }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiche Organizzazione -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Utenti Organizzazione
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_users }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Utenti Attivi
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ active_users }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-user-check fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Transazioni Totali
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_transactions }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exchange-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Blocchi Totali
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_blocks }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-cubes fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Funzionalità Principali -->
+    <div class="row">
+        <!-- RIMUOVI COMPLETAMENTE QUESTA SEZIONE -->
+        <!-- Gestione File di Sistema - RIMOSSO PER SICUREZZA
+        <div class="col-md-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-folder-open"></i> File di Sistema
+                    </h6>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-folder-open fa-4x text-primary mb-3"></i>
+                    </div>
+                    <h5 class="card-title">Gestione File</h5>
+                    <p class="card-text text-muted">
+                        Visualizza e gestisci i file di sistema relativi alla tua organizzazione: 
+                        foto profilo, documenti personali e file delle transazioni.
+                    </p>
+                </div>
+                <div class="card-footer bg-transparent text-center">
+                    <a href="{% url 'Cripto1:file_manager' %}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-cog"></i> Gestisci File
+                    </a>
+                </div>
+            </div>
+        </div>
+        -->
+
+        <!-- Backup Blockchain - ANCHE QUESTO DA RIMUOVERE SE NON GIÀ FATTO -->
+        <!-- <div class="col-md-4 mb-4"> ... </div> -->
+
+        <!-- Verifica Integrità -->
+        <div class="col-md-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-info">
+                        <i class="fas fa-shield-alt"></i> Verifica Integrità
+                    </h6>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-shield-alt fa-4x text-info mb-3"></i>
+                    </div>
+                    <h5 class="card-title">Verifica Blockchain</h5>
+                    <p class="card-text text-muted">
+                        Verifica l'integrità della blockchain della tua organizzazione 
+                        per assicurarti che i dati non siano stati compromessi.
+                    </p>
+                    <div class="mt-3">
+                        <button id="verifyBlockchainBtn" class="btn btn-info btn-lg">
+                            <i class="fas fa-check-circle"></i> Verifica Ora
+                        </button>
+                    </div>
+                    <div id="verificationStatus" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attività Recenti -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-history"></i> Attività Recenti Organizzazione
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if recent_activities %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered" width="100%" cellspacing="0">
+                                <thead>
+                                    <tr>
+                                        <th>Data/Ora</th>
+                                        <th>Utente</th>
+                                        <th>Azione</th>
+                                        <th>Dettagli</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for activity in recent_activities %}
+                                    <tr>
+                                        <td>{{ activity.timestamp|date:"d/m/Y H:i" }}</td>
+                                        <td>{{ activity.user.get_full_name|default:activity.user.username }}</td>
+                                        <td>
+                                            <span class="badge badge-primary">{{ activity.get_action_type_display }}</span>
+                                        </td>
+                                        <td>{{ activity.details|truncatechars:50 }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">Nessuna attività recente trovata.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#verifyBlockchainBtn').click(function() {
+        var btn = $(this);
+        var statusDiv = $('#verificationStatus');
+
+        btn.prop('disabled', true);
+        btn.html('<i class="fas fa-spinner fa-spin"></i> Verifica in corso...');
+        statusDiv.html('<div class="alert alert-info"><i class="fas fa-info-circle"></i> Verifica dell\'integrità della blockchain in corso...</div>');
+
+        $.get("{% url 'Cripto1:verify_blockchain' %}")
+            .done(function(response) {
+                if (response.is_valid) {
+                    statusDiv.html('<div class="alert alert-success"><i class="fas fa-check-circle"></i> ' + response.message + '</div>');
+                } else {
+                    statusDiv.html('<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> ' + response.message + '</div>');
+                }
+            })
+            .fail(function() {
+                statusDiv.html('<div class="alert alert-danger"><i class="fas fa-times-circle"></i> Errore durante la verifica della blockchain.</div>');
+            })
+            .always(function() {
+                btn.prop('disabled', false);
+                btn.html('<i class="fas fa-check-circle"></i> Verifica Ora');
+            });
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

@@ -27,12 +27,15 @@
                 <p class="lead mb-4 text-secondary">
                     Integrità assoluta: la certezza matematica che i tuoi file non siano stati alterati. Crea, invia e ricevi documenti con la massima sicurezza.
                 </p>
-                <div class="d-flex gap-3 justify-content-center justify-content-lg-start">
+                <div class="d-flex gap-3 justify-content-center justify-content-lg-start flex-wrap">
                     <a href="{% url 'Cripto1:register' %}" class="btn btn-primary btn-lg px-4 rounded-pill">
                         <i class="fas fa-rocket me-2"></i>Inizia Ora
                     </a>
                     <a href="{% url 'Cripto1:login' %}" class="btn btn-outline-primary btn-lg px-4 rounded-pill">
                         <i class="fas fa-sign-in-alt me-2"></i>Accedi
+                    </a>
+                    <a href="{% url 'Cripto1:register_organization' %}" class="btn btn-success btn-lg px-4 rounded-pill">
+                        <i class="fas fa-building me-2"></i>Registra Organizzazione
                     </a>
                 </div>
             </div>

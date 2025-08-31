@@ -114,6 +114,62 @@ def role_required(role_name, redirect_url=None):
     return decorator
 
 
+def organization_admin_required(redirect_url=None):
+    """
+    Decoratore per verificare se un utente è amministratore della propria organizzazione.
+    L'utente deve avere il ruolo 'Organization Admin' o essere superuser.
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return redirect('Cripto1:login')
+            
+            # I superuser hanno sempre accesso
+            if request.user.is_superuser:
+                return view_func(request, *args, **kwargs)
+            
+            try:
+                user_profile = UserProfile.objects.get(user=request.user)
+                
+                if not user_profile.is_active:
+                    messages.error(request, 'Il tuo account è stato disattivato.')
+                    return redirect('Cripto1:login')
+                
+                if user_profile.is_locked():
+                    messages.error(request, 'Il tuo account è temporaneamente bloccato.')
+                    return redirect('Cripto1:login')
+                
+                # Verifica se l'utente ha il ruolo di Organization Admin
+                if user_profile.has_role('Organization Admin'):
+                    return view_func(request, *args, **kwargs)
+                else:
+                    # Log dell'accesso negato
+                    AuditLog.log_action(
+                        user=request.user,
+                        action_type='SECURITY_EVENT',
+                        description=f'Tentativo di accesso negato alla vista amministrativa organizzazione {view_func.__name__}',
+                        severity='HIGH',
+                        ip_address=request.META.get('REMOTE_ADDR'),
+                        user_agent=request.META.get('HTTP_USER_AGENT', ''),
+                        success=False,
+                        error_message='Privilegi di amministratore organizzazione richiesti'
+                    )
+                    
+                    if redirect_url:
+                        messages.error(request, 'Accesso negato: privilegi di amministratore organizzazione richiesti.')
+                        return redirect(redirect_url)
+                    else:
+                        return HttpResponseForbidden('Accesso negato: privilegi di amministratore organizzazione richiesti.')
+                        
+            except UserProfile.DoesNotExist:
+                messages.error(request, 'Profilo utente non trovato.')
+                return redirect('Cripto1:login')
+                
+        return _wrapped_view
+    return decorator
+
+
 def admin_required(redirect_url=None):
     """
     Decoratore per verificare se un utente è amministratore (staff o superuser).

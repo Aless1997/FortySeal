@@ -13,23 +13,21 @@ class AuditLogMiddleware(MiddlewareMixin):
     
     def __init__(self, get_response):
         super().__init__(get_response)
-        # Lista delle azioni da tracciare automaticamente
+        # Mappa i view names agli action types del modello
         self.tracked_actions = {
-            'login_view': 'LOGIN',
-            'logout_view': 'LOGOUT',
-            'register': 'REGISTER',
-            'create_transaction': 'CREATE_TRANSACTION',
-            'transaction_details': 'VIEW_TRANSACTION',
-            'download_file': 'DOWNLOAD_FILE',
-            'decrypt_transaction': 'DECRYPT_MESSAGE',
-            'mine_block': 'MINE_BLOCK',
-            'edit_profile': 'EDIT_PROFILE',
-
-            'admin_dashboard': 'ADMIN_ACTION',
-            'verify_blockchain': 'VERIFY_BLOCKCHAIN',
-            'export_csv': 'EXPORT_DATA',
-            'admin_user_detail': 'USER_MANAGEMENT',
-
+            'Cripto1:login_view': 'LOGIN',
+            'Cripto1:logout_view': 'LOGOUT',
+            'Cripto1:register': 'REGISTER',
+            'Cripto1:create_transaction': 'CREATE_TRANSACTION',
+            'Cripto1:transaction_details': 'VIEW_TRANSACTION',
+            'Cripto1:download_file': 'DOWNLOAD_FILE',
+            'Cripto1:decrypt_transaction': 'DECRYPT_MESSAGE',
+            'Cripto1:mine_block': 'MINE_BLOCK',
+            'Cripto1:personal_profile': 'EDIT_PROFILE',
+            'Cripto1:personal_statistics': 'VIEW_TRANSACTION',
+            'Cripto1:dashboard': 'SYSTEM_EVENT',
+            'Cripto1:users_feed': 'SYSTEM_EVENT',
+            # Aggiungi altre mappature secondo necessità
         }
 
     def process_request(self, request):
@@ -64,8 +62,9 @@ class AuditLogMiddleware(MiddlewareMixin):
 
     def log_action(self, request, view_name, response):
         try:
-            action_type = view_name or 'SYSTEM_EVENT'
-            print(f"[AUDIT DEBUG] user={getattr(request, 'user', None)}, action_type={action_type}, path={request.path}")
+            # Usa la mappatura per convertire view_name in action_type valido
+            action_type = self.tracked_actions.get(view_name, 'SYSTEM_EVENT')
+            print(f"[AUDIT DEBUG] user={getattr(request, 'user', None)}, view_name={view_name}, mapped_action_type={action_type}, path={request.path}")
             # Determina la severità basata sul tipo di azione
             severity = self.get_severity(action_type)
             # Crea la descrizione
@@ -376,3 +375,62 @@ class RoleExpirationMiddleware(MiddlewareMixin):
                 print(f"[INFO] Disattivati {count} ruoli scaduti")
         
         return None
+
+
+class MultiTenantMiddleware(MiddlewareMixin):
+    """
+    Middleware per gestire il multi-tenancy basato su dominio o subdomain
+    """
+    
+    def process_request(self, request):
+        # Determina l'organizzazione basandosi sul dominio
+        organization = self.get_organization_from_request(request)
+        
+        if organization:
+            request.organization = organization
+            # Imposta il database per l'organizzazione se necessario
+            # self.set_organization_database(organization)
+        else:
+            # Organizzazione di default o errore
+            request.organization = None
+        
+        return None
+    
+    def get_organization_from_request(self, request):
+        """Determina l'organizzazione dal request"""
+        host = request.get_host().lower()
+        
+        # Rimuovi la porta se presente
+        if ':' in host:
+            host = host.split(':')[0]
+        
+        # Controlla se è un subdomain (es: org1.fortyseal.com)
+        if '.' in host:
+            subdomain = host.split('.')[0]
+            
+            # Ignora www e altri subdomain comuni
+            if subdomain not in ['www', 'api', 'admin', 'mail']:
+                try:
+                    from Cripto1.models import Organization
+                    return Organization.objects.get(slug=subdomain, is_active=True)
+                except Organization.DoesNotExist:
+                    pass
+        
+        # Controlla se è un dominio personalizzato
+        try:
+            from Cripto1.models import Organization
+            return Organization.objects.get(domain=host, is_active=True)
+        except Organization.DoesNotExist:
+            pass
+        
+        # Se non trova nulla, usa l'organizzazione di default
+        try:
+            from Cripto1.models import Organization
+            return Organization.objects.filter(is_active=True).first()
+        except Exception:
+            return None
+    
+    def set_organization_database(self, organization):
+        """Imposta il database per l'organizzazione specifica"""
+        # Per implementazioni più avanzate con database separati
+        pass

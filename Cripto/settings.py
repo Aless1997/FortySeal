@@ -56,6 +56,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'Cripto1.middleware.MultiTenantMiddleware',  # Middleware per multi-tenancy
     'Cripto1.middleware.AuditLogMiddleware',  # Middleware per audit log
     'Cripto1.middleware.SecurityMiddleware',  # Middleware per sicurezza e gestione login
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -75,7 +76,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-
+                'Cripto1.context_processors.organization_context',  # Context processor per multi-tenancy
             ],
         },
     },
@@ -182,7 +183,6 @@ EMAIL_HOST_USER = 'ale.social97@gmail.com'  # Sostituisci con la tua email
 EMAIL_HOST_PASSWORD = 'qjch lohe smcy pwsk'  # Usa una App Password di Google
 DEFAULT_FROM_EMAIL = 'FortySeal <ale.social97@gmail.com>'
 SERVER_EMAIL = 'ale.social97@gmail.com'
-
 
 
 # Ottimizzazioni PostgreSQL per applicazioni blockchain

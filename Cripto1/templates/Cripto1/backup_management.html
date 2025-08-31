@@ -93,21 +93,25 @@
                                                 <i class="fas fa-download"></i>
                                             </a>
                                             
+                                            {% if user.is_staff %}
                                             <button type="button" class="btn btn-sm btn-warning" onclick="toggleConfirm('restore', {{ forloop.counter }})">
                                                 <i class="fas fa-undo"></i>
                                             </button>
+                                            {% endif %}
                                             
                                             <button type="button" class="btn btn-sm btn-danger" onclick="toggleConfirm('delete', {{ forloop.counter }})">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
                                         
+                                        {% if user.is_staff %}
                                         <!-- Form per il ripristino -->
                                         <form id="restoreForm{{ forloop.counter }}" method="post" action="{% url 'Cripto1:backup_management' %}" style="display: none;">
                                             {% csrf_token %}
                                             <input type="hidden" name="action" value="restore_backup">
                                             <input type="hidden" name="backup_file" value="{{ backup.filename }}">
                                         </form>
+                                        {% endif %}
                                         
                                         <!-- Form per l'eliminazione -->
                                         <form id="deleteForm{{ forloop.counter }}" method="post" action="{% url 'Cripto1:backup_management' %}" style="display: none;">
@@ -132,6 +136,7 @@
                                         </div>
                                     </td>
                                 </tr>
+                          
                                 <!-- Riga per eliminazione (inizialmente nascosta) -->
                                 <tr id="delete-confirm-{{ forloop.counter }}" class="confirm-row bg-danger-subtle" style="display: none;">
                                     <td colspan="4" class="p-2"><!-- Ridotto padding -->

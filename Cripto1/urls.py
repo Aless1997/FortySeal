@@ -1,10 +1,10 @@
 from django.contrib import admin
 from django.urls import path, include
 from . import views
-from . import user_management_views  # Aggiungi questa riga
+from . import user_management_views
+from . import organization_admin_views  # Aggiungi questa riga
 from django.contrib.auth import views as auth_views
 from django.urls import reverse_lazy
-from django.urls import path
 from .decorators import external_forbidden
 
 app_name = 'Cripto1'
@@ -12,6 +12,8 @@ app_name = 'Cripto1'
 urlpatterns = [
     path('', views.homepage, name='home'),
     path('register/', views.register, name='register'),
+    path('register-organization/', views.register_organization, name='register_organization'),
+    path('organization-registration-success/', views.organization_registration_success, name='organization_registration_success'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
 
@@ -57,14 +59,12 @@ urlpatterns = [
     path('user-management/users/<int:user_id>/assign-role/', user_management_views.assign_role, name='assign_role'),
     path('user-management/users/<int:user_id>/assign-role-form/', user_management_views.assign_role_form, name='assign_role_form'),
     path('user-management/users/<int:user_id>/remove-role/<int:role_id>/', views.remove_role, name='remove_role'),
-
-    
+   
     # Role Management URLs
     path('user-management/roles/', views.role_list, name='role_list'),
     path('user-management/roles/create/', views.create_role, name='create_role'),
     path('user-management/roles/<int:role_id>/', views.role_detail, name='role_detail'),
     path('users/<int:user_id>/storage/', views.manage_user_storage, name='manage_user_storage'),
-
     # Debug URLs
     path('debug/permissions/', views.debug_permissions, name='debug_permissions'),
 
@@ -122,5 +122,11 @@ urlpatterns = [
     path('documents/created/<int:document_id>/add-collaborator/', views.add_collaborator, name='add_collaborator'),
     # Notification URLs
     path('notifications/', views.notifications, name='notifications'),
-    path('notifications/<int:notification_id>/mark-read/', views.mark_notification_as_read, name='mark_notification_as_read')
-    ]
+    path('notifications/<int:notification_id>/mark-read/', views.mark_notification_as_read, name='mark_notification_as_read'),
+    # ... Organization Admin URLs
+    path('org-admin/dashboard/', organization_admin_views.org_admin_dashboard, name='org_admin_dashboard'),
+    path('org-admin/users/', organization_admin_views.org_user_management, name='org_user_management'),
+    path('org-admin/roles/', organization_admin_views.org_role_management, name='org_role_management'),
+    path('org-admin/logs/', organization_admin_views.org_audit_logs, name='org_audit_logs'),
+    path('org-admin/sessions/', organization_admin_views.org_sessions, name='org_sessions'),
+]

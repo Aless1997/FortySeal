@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib import messages  # Aggiungi questa importazione
 from django.http import HttpResponse
 import csv
-from Cripto1.models import BlockchainState, CreatedDocument, Transaction, UserProfile, Block, SmartContract, AuditLog, Role, Permission, UserRole
+from Cripto1.models import BlockchainState, CreatedDocument, Transaction, UserProfile, Block, SmartContract, AuditLog, Role, Permission, UserRole, Organization
 
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
@@ -93,6 +93,45 @@ class RoleAdmin(admin.ModelAdmin, ExportCsvMixin):
     def deactivate_roles(self, request, queryset):
         queryset.update(is_active=False)
     deactivate_roles.short_description = "Disattiva ruoli selezionati"
+
+@admin.register(Organization)
+class OrganizationAdmin(admin.ModelAdmin, ExportCsvMixin):
+    list_display = ['name', 'slug', 'domain', 'max_users', 'max_storage_gb', 'is_active', 'created_at']
+    list_filter = ['is_active', 'created_at', 'require_2fa']
+    search_fields = ['name', 'slug', 'domain', 'description']
+    readonly_fields = ['created_at', 'updated_at']
+    
+    fieldsets = (
+        ('Informazioni Base', {
+            'fields': ('name', 'slug', 'description', 'domain')
+        }),
+        ('Configurazioni', {
+            'fields': ('max_users', 'max_storage_gb', 'logo', 'primary_color', 'secondary_color')
+        }),
+        ('Sicurezza', {
+            'fields': ('require_2fa', 'password_policy', 'session_timeout_hours')
+        }),
+        ('Funzionalità', {
+            'fields': ('features_enabled',)
+        }),
+        ('Stato', {
+            'fields': ('is_active',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    actions = ["export_as_csv", "activate_organizations", "deactivate_organizations"]
+    
+    def activate_organizations(self, request, queryset):
+        queryset.update(is_active=True)
+    activate_organizations.short_description = "Attiva organizzazioni selezionate"
+    
+    def deactivate_organizations(self, request, queryset):
+        queryset.update(is_active=False)
+    deactivate_organizations.short_description = "Disattiva organizzazioni selezionate"
 
 @admin.register(Permission)
 class PermissionAdmin(admin.ModelAdmin, ExportCsvMixin):

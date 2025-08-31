@@ -18,8 +18,51 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.padding import PSS, MGF1
 from cryptography.exceptions import InvalidSignature
 
+
+class Organization(models.Model):
+    name = models.CharField(max_length=200, unique=True)
+    slug = models.SlugField(max_length=50, unique=True)
+    description = models.TextField(blank=True)
+    domain = models.CharField(max_length=100, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Configurazioni organizzazione
+    max_users = models.IntegerField(default=100)
+    max_storage_gb = models.IntegerField(default=10)
+    
+    # Personalizzazione UI
+    primary_color = models.CharField(max_length=7, default='#6366f1')
+    secondary_color = models.CharField(max_length=7, default='#8b5cf6')
+    logo = models.ImageField(upload_to='organizations/logos/', blank=True, null=True)
+    
+    # Funzionalità abilitate
+    features_enabled = models.JSONField(default=dict)
+    
+    # Politiche di sicurezza
+    require_2fa = models.BooleanField(default=False)
+    password_policy = models.JSONField(default=dict)
+    session_timeout_hours = models.IntegerField(default=24)
+    
+    class Meta:
+        db_table = 'cripto1_organization'
+        verbose_name = 'Organizzazione'
+        verbose_name_plural = 'Organizzazioni'
+    
+    def __str__(self):
+        return self.name
+    
+    registration_code = models.CharField(
+        max_length=50, 
+        unique=True,
+        help_text="Codice univoco per la registrazione degli utenti"
+    )
+
+
 class Block(models.Model):
-    index = models.IntegerField(unique=True)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='blocks', null=True, blank=True)
+    index = models.IntegerField()
     timestamp = models.FloatField()
     proof = models.CharField(max_length=255)
     previous_hash = models.CharField(max_length=255)
@@ -33,6 +76,7 @@ class Block(models.Model):
 
     class Meta:
         ordering = ['index']
+        unique_together = ['organization', 'index']  # L'index è unico per organizzazione
 
 class Transaction(models.Model):
     TRANSACTION_TYPES = [
@@ -40,6 +84,7 @@ class Transaction(models.Model):
         ('file', 'File Upload'),
     ]
 
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='transactions', null=True, blank=True)
     block = models.ForeignKey('Block', on_delete=models.CASCADE, null=True, blank=True, related_name='transactions')
     type = models.CharField(max_length=50, choices=TRANSACTION_TYPES)
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_transactions')
@@ -136,6 +181,7 @@ class Transaction(models.Model):
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='user_profiles', null=True, blank=True)
     user_key = models.CharField(max_length=255, unique=True) # Keep as a unique identifier (can be hash of public key)
     public_key = models.TextField(null=True, blank=True) # Allow null for existing rows
     private_key = EncryptedTextField(null=True, blank=True) # Allow null for existing rows

@@ -45,6 +45,17 @@
         transition: border-color 0.3s ease, box-shadow 0.3s ease;
     }
     
+    .form-control select {
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+        padding: 12px 15px;
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .form-control select:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
     .form-control:focus {
         border-color: #007bff;
         box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
@@ -156,8 +167,54 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
+                        
+                        <!-- Informazioni di base -->
+                        <div class="card border-primary mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0"><i class="fas fa-user"></i> Informazioni di Base</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="mb-3">
+                                            <!-- DEBUG -->
+                                            <div class="alert alert-warning">
+                                                User: {{ request.user.username }}<br>
+                                                Is superuser: {{ request.user.is_superuser }}<br>
+                                                Can edit org: {{ can_edit_organization }}
+                                            </div>
+                                            <!-- FINE DEBUG -->
+                                            
+                                            {% if can_edit_organization %}
+                                                <label class="form-label fw-bold">Organizzazione</label>
+                                                {{ form.organization }}
+                                                {% if form.organization.errors %}
+                                                    <div class="text-danger mt-1">
+                                                        {{ form.organization.errors }}
+                                                    </div>
+                                                {% endif %}
+                                                <small class="form-text text-muted">
+                                                    <i class="fas fa-info-circle"></i> Solo i superuser di sistema possono modificare l'organizzazione
+                                                </small>
+                                            {% else %}
+                                                <!-- Campo nascosto per mantenere il valore corrente -->
+                                                {{ form.organization }}
+                                                <!-- Mostra solo l'informazione di sola lettura -->
+                                                <div class="current-info">
+                                                    <strong>Organizzazione attuale:</strong> 
+                                                    {% if user_profile.organization %}
+                                                        <span class="badge bg-secondary">{{ user_profile.organization.name }}</span>
+                                                    {% else %}
+                                                        <span class="text-muted">Nessuna organizzazione</span>
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                               
+                            </div>
+                        </div>
 
                 <!-- Password Django -->
                 <div class="card border-danger mb-4">

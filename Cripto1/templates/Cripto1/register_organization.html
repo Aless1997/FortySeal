@@ -1,0 +1,181 @@
+{% extends 'Cripto1/base.html' %}
+
+{% block title %}Registrazione Organizzazione - FortySeal{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="text-center">Registrazione Organizzazione</h3>
+                <p class="text-center text-muted mb-0">Crea una nuova organizzazione e diventa amministratore</p>
+            </div>
+            <div class="card-body">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <!-- Sezione Dati Organizzazione -->
+                    <div class="mb-4">
+                        <h5 class="text-primary mb-3"><i class="fas fa-building me-2"></i>Dati Organizzazione</h5>
+                        
+                        <div class="mb-3">
+                            <label for="organization_name" class="form-label">Nome Organizzazione *</label>
+                            <input type="text" class="form-control" id="organization_name" name="organization_name" 
+                                   value="{{ form.organization_name.value|default:'' }}" required>
+                            <div class="form-text">Nome completo della tua organizzazione</div>
+                            {% if form.organization_name.errors %}
+                                <div class="text-danger">{{ form.organization_name.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="organization_slug" class="form-label">Codice Organizzazione *</label>
+                            <input type="text" class="form-control" id="organization_slug" name="organization_slug" 
+                                   value="{{ form.organization_slug.value|default:'' }}" required>
+                            <div class="form-text">Codice univoco (es: azienda-abc). Solo lettere, numeri e trattini.</div>
+                            {% if form.organization_slug.errors %}
+                                <div class="text-danger">{{ form.organization_slug.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="organization_domain" class="form-label">Dominio Email</label>
+                            <input type="text" class="form-control" id="organization_domain" name="organization_domain" 
+                                   value="{{ form.organization_domain.value|default:'' }}">
+                            <div class="form-text">Dominio email aziendale (es: azienda.com) - opzionale</div>
+                            {% if form.organization_domain.errors %}
+                                <div class="text-danger">{{ form.organization_domain.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="organization_description" class="form-label">Descrizione</label>
+                            <textarea class="form-control" id="organization_description" name="organization_description" rows="3">{{ form.organization_description.value|default:'' }}</textarea>
+                            <div class="form-text">Breve descrizione della tua organizzazione</div>
+                            {% if form.organization_description.errors %}
+                                <div class="text-danger">{{ form.organization_description.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Sezione Dati Amministratore -->
+                    <div class="mb-4">
+                        <h5 class="text-primary mb-3"><i class="fas fa-user-shield me-2"></i>Dati Amministratore</h5>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="admin_first_name" class="form-label">Nome *</label>
+                                <input type="text" class="form-control" id="admin_first_name" name="admin_first_name" 
+                                       value="{{ form.admin_first_name.value|default:'' }}" required>
+                                {% if form.admin_first_name.errors %}
+                                    <div class="text-danger">{{ form.admin_first_name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="admin_last_name" class="form-label">Cognome *</label>
+                                <input type="text" class="form-control" id="admin_last_name" name="admin_last_name" 
+                                       value="{{ form.admin_last_name.value|default:'' }}" required>
+                                {% if form.admin_last_name.errors %}
+                                    <div class="text-danger">{{ form.admin_last_name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="admin_username" class="form-label">Username *</label>
+                            <input type="text" class="form-control" id="admin_username" name="admin_username" 
+                                   value="{{ form.admin_username.value|default:'' }}" required>
+                            {% if form.admin_username.errors %}
+                                <div class="text-danger">{{ form.admin_username.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="admin_email" class="form-label">Email *</label>
+                            <input type="email" class="form-control" id="admin_email" name="admin_email" 
+                                   value="{{ form.admin_email.value|default:'' }}" required>
+                            {% if form.admin_email.errors %}
+                                <div class="text-danger">{{ form.admin_email.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="admin_password" class="form-label">Password *</label>
+                                <input type="password" class="form-control" id="admin_password" name="admin_password" required>
+                                <div class="form-text">Minimo 8 caratteri, almeno un numero e una lettera</div>
+                                {% if form.admin_password.errors %}
+                                    <div class="text-danger">{{ form.admin_password.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="admin_confirm_password" class="form-label">Conferma Password *</label>
+                                <input type="password" class="form-control" id="admin_confirm_password" name="admin_confirm_password" required>
+                                {% if form.admin_confirm_password.errors %}
+                                    <div class="text-danger">{{ form.admin_confirm_password.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Termini e Condizioni -->
+                    <div class="mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="accept_terms" name="accept_terms" required>
+                            <label class="form-check-label" for="accept_terms">
+                                Accetto i termini e condizioni di servizio *
+                            </label>
+                            {% if form.accept_terms.errors %}
+                                <div class="text-danger">{{ form.accept_terms.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Errori generali del form -->
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-building me-2"></i>Registra Organizzazione
+                        </button>
+                    </div>
+                </form>
+                
+                <div class="text-center mt-4">
+                    <p class="text-muted">Hai già un account? <a href="{% url 'Cripto1:login' %}" class="text-decoration-none">Accedi</a></p>
+                    <p class="text-muted">Vuoi registrarti come utente individuale? <a href="{% url 'Cripto1:register' %}" class="text-decoration-none">Registrazione Utente</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Script per generare automaticamente lo slug dal nome organizzazione
+document.getElementById('organization_name').addEventListener('input', function() {
+    const name = this.value;
+    const slug = name.toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '') // Rimuovi caratteri speciali
+        .replace(/\s+/g, '-') // Sostituisci spazi con trattini
+        .replace(/-+/g, '-') // Rimuovi trattini multipli
+        .replace(/^-|-$/g, ''); // Rimuovi trattini all'inizio e alla fine
+    
+    document.getElementById('organization_slug').value = slug;
+});
+</script>
+{% endblock %}

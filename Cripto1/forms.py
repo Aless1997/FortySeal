@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User
-from .models import UserProfile, Role, Permission
+from .models import UserProfile, Role, Permission, Organization
 
 class UserProfileEditForm(forms.ModelForm):
     """Form per la modifica del profilo utente"""
@@ -12,14 +12,21 @@ class UserProfileEditForm(forms.ModelForm):
         label='Foto Profilo',
         widget=forms.FileInput(attrs={'accept': 'image/*'})
     )
+    organization = forms.ModelChoiceField(
+        queryset=Organization.objects.all(),
+        required=False,
+        label='Organizzazione',
+        empty_label='Nessuna organizzazione'
+    )
     
     class Meta:
         model = UserProfile
         fields = [
-            'department', 'position', 'phone', 'emergency_contact', 
+            'organization', 'department', 'position', 'phone', 'emergency_contact', 
             'notes', 'profile_picture'
         ]
         labels = {
+            'organization': 'Organizzazione',
             'department': 'Dipartimento',
             'position': 'Posizione',
             'phone': 'Telefono',
@@ -29,11 +36,22 @@ class UserProfileEditForm(forms.ModelForm):
         }
     
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)  # Utente che sta facendo la modifica
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.user:
             self.fields['first_name'].initial = self.instance.user.first_name
             self.fields['last_name'].initial = self.instance.user.last_name
             self.fields['email'].initial = self.instance.user.email
+        
+        # Solo i superuser possono modificare l'organizzazione
+        if not (user and user.is_superuser):
+            self.fields['organization'].widget = forms.HiddenInput()
+            self.fields['organization'].required = False
+        else:
+            # Per i superuser, assicuriamoci che il campo sia visibile
+            self.fields['organization'].widget.attrs.update({
+                'class': 'form-control'
+            })
     
     def save(self, commit=True):
         user_profile = super().save(commit=False)
@@ -143,3 +161,103 @@ class UserSearchForm(forms.Form):
         required=False,
         label='Ruolo'
     )
+
+
+class OrganizationRegistrationForm(forms.Form):
+    """Form per la registrazione di una nuova organizzazione"""
+    
+    # Dati Organizzazione
+    organization_name = forms.CharField(
+        max_length=200, 
+        label='Nome Organizzazione',
+        help_text='Nome completo della tua organizzazione'
+    )
+    organization_slug = forms.SlugField(
+        max_length=50,
+        label='Codice Organizzazione',
+        help_text='Codice univoco (es: azienda-abc). Solo lettere, numeri e trattini.'
+    )
+    organization_domain = forms.CharField(
+        max_length=100,
+        required=False,
+        label='Dominio Email',
+        help_text='Dominio email aziendale (es: azienda.com) - opzionale'
+    )
+    organization_description = forms.CharField(
+        widget=forms.Textarea(attrs={'rows': 3}),  # ← CORREZIONE QUI
+        required=False,
+        label='Descrizione',
+        help_text='Breve descrizione della tua organizzazione'
+    )
+    
+    # Dati Amministratore
+    admin_username = forms.CharField(
+        max_length=150, 
+        label='Username Amministratore'
+    )
+    admin_email = forms.EmailField(
+        label='Email Amministratore'
+    )
+    admin_password = forms.CharField(
+        widget=forms.PasswordInput, 
+        label='Password'
+    )
+    admin_confirm_password = forms.CharField(
+        widget=forms.PasswordInput, 
+        label='Conferma Password'
+    )
+    admin_first_name = forms.CharField(
+        max_length=30, 
+        label='Nome'
+    )
+    admin_last_name = forms.CharField(
+        max_length=30, 
+        label='Cognome'
+    )
+    
+    # Termini e Condizioni
+    accept_terms = forms.BooleanField(
+        required=True,
+        label='Accetto i termini e condizioni di servizio'
+    )
+    
+    def clean_organization_slug(self):
+        slug = self.cleaned_data['organization_slug']
+        if Organization.objects.filter(slug=slug).exists():
+            raise forms.ValidationError('Questo codice organizzazione è già in uso')
+        return slug
+    
+    def clean_organization_domain(self):
+        domain = self.cleaned_data.get('organization_domain')
+        if domain and Organization.objects.filter(domain=domain).exists():
+            raise forms.ValidationError('Questo dominio è già registrato')
+        return domain
+    
+    def clean_admin_username(self):
+        username = self.cleaned_data['admin_username']
+        if User.objects.filter(username=username).exists():
+            raise forms.ValidationError('Username già esistente')
+        return username
+    
+    def clean_admin_email(self):
+        email = self.cleaned_data['admin_email']
+        if User.objects.filter(email=email).exists():
+            raise forms.ValidationError('Email già registrata')
+        return email
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get('admin_password')
+        confirm_password = cleaned_data.get('admin_confirm_password')
+        
+        if password and confirm_password and password != confirm_password:
+            raise forms.ValidationError('Le password non coincidono')
+        
+        # Validazione robustezza password
+        if password and len(password) < 8:
+            raise forms.ValidationError('La password deve essere di almeno 8 caratteri')
+        
+        if password and not (any(c.isdigit() for c in password) and any(c.isalpha() for c in password)):
+            raise forms.ValidationError('La password deve contenere almeno un numero e una lettera')
+        
+        return cleaned_data
