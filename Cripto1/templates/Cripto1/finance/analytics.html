@@ -1,0 +1,550 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Analytics Finanziarie - Dashboard{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .analytics-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease;
+    }
+    .analytics-card:hover {
+        transform: translateY(-2px);
+    }
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .metric-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .chart-container {
+        position: relative;
+        height: 400px;
+        margin: 20px 0;
+    }
+    .export-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 10px 20px;
+        color: white;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    .export-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header con Export -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1">Analytics Finanziarie</h1>
+                    <p class="text-muted mb-0">Analisi dettagliata delle performance finanziarie - {{ current_month|date:"F Y" }}</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn export-btn" onclick="exportToPDF()">
+                        <i class="fas fa-file-pdf me-2"></i>Esporta PDF
+                    </button>
+                    <button class="btn export-btn" onclick="exportToExcel()">
+                        <i class="fas fa-file-excel me-2"></i>Esporta Excel
+                    </button>
+                    <a href="{% url 'Cripto1:payment_history' %}" class="btn export-btn">
+                        <i class="fas fa-history me-2"></i>Storico Fatturato
+                    </a>
+                    <a href="{% url 'Cripto1:finance_dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Torna al Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Metriche Principali -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card analytics-card border-left-primary">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="metric-label text-primary mb-2">Fatturato Mensile</div>
+                            <div class="metric-value text-dark">€{{ monthly_revenue|floatformat:2 }}</div>
+                            <small class="text-success"><i class="fas fa-arrow-up"></i> +12.5% vs mese scorso</small>
+                        </div>
+                        <div class="text-primary">
+                            <i class="fas fa-euro-sign fa-3x opacity-25"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card analytics-card border-left-success">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="metric-label text-success mb-2">Organizzazioni Attive</div>
+                            <div class="metric-value text-dark">{{ total_organizations }}</div>
+                            <small class="text-success"><i class="fas fa-arrow-up"></i> +{{ status_stats.paid }} pagate</small>
+                        </div>
+                        <div class="text-success">
+                            <i class="fas fa-building fa-3x opacity-25"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card analytics-card border-left-warning">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="metric-label text-warning mb-2">Pagamenti Pending</div>
+                            <div class="metric-value text-dark">{{ status_stats.pending }}</div>
+                            <small class="text-warning"><i class="fas fa-clock"></i> In attesa di pagamento</small>
+                        </div>
+                        <div class="text-warning">
+                            <i class="fas fa-hourglass-half fa-3x opacity-25"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card analytics-card border-left-danger">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="metric-label text-danger mb-2">Pagamenti Scaduti</div>
+                            <div class="metric-value text-dark">{{ status_stats.overdue }}</div>
+                            <small class="text-danger"><i class="fas fa-exclamation-triangle"></i> Richiedono attenzione</small>
+                        </div>
+                        <div class="text-danger">
+                            <i class="fas fa-exclamation-circle fa-3x opacity-25"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grafici -->
+    <div class="row mb-4">
+        <!-- Grafico Revenue Trend -->
+        <div class="col-xl-8 col-lg-7">
+            <div class="card analytics-card">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Trend Fatturato Mensile</h6>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-calendar"></i> Ultimi 12 mesi
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#">Ultimi 6 mesi</a></li>
+                            <li><a class="dropdown-item" href="#">Ultimi 12 mesi</a></li>
+                            <li><a class="dropdown-item" href="#">Anno corrente</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grafico Status Distribution -->
+        <div class="col-xl-4 col-lg-5">
+            <div class="card analytics-card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Distribuzione Stato Pagamenti</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span><i class="fas fa-circle text-success"></i> Pagati</span>
+                            <strong>{{ status_stats.paid }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span><i class="fas fa-circle text-warning"></i> In Attesa</span>
+                            <strong>{{ status_stats.pending }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span><i class="fas fa-circle text-danger"></i> Scaduti</span>
+                            <strong>{{ status_stats.overdue }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span><i class="fas fa-circle text-secondary"></i> Sospesi</span>
+                            <strong>{{ status_stats.suspended }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Organizations -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card analytics-card">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Top 10 Organizzazioni per Fatturato</h6>
+                    <button class="btn btn-sm btn-outline-primary" onclick="exportTopOrganizations()">
+                        <i class="fas fa-download"></i> Esporta Lista
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="topOrganizationsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Organizzazione</th>
+                                    <th>Utenti Attivi</th>
+                                    <th>Fatturato Mensile</th>
+                                    <th>Stato Pagamento</th>
+                                    <th>Trend</th>
+                                    <th>Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for org in top_organizations %}
+                                <tr>
+                                    <td><strong>{{ forloop.counter }}</strong></td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if org.organization.logo %}
+                                                <img src="{{ org.organization.logo.url }}" class="rounded-circle me-2" width="32" height="32">
+                                            {% else %}
+                                                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                                                    <i class="fas fa-building text-white"></i>
+                                                </div>
+                                            {% endif %}
+                                            <div>
+                                                <strong>{{ org.organization.name }}</strong>
+                                                {% if org.organization.domain %}
+                                                    <br><small class="text-muted">{{ org.organization.domain }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ org.organization.user_profiles.count }} utenti</span>
+                                    </td>
+                                    <td>
+                                        <strong class="text-success">€{{ org.get_monthly_cost|floatformat:2 }}</strong>
+                                    </td>
+                                    <td>
+                                        {% if org.payment_status == 'paid' %}
+                                            <span class="badge bg-success">Pagato</span>
+                                        {% elif org.payment_status == 'pending' %}
+                                            <span class="badge bg-warning">In Attesa</span>
+                                        {% elif org.payment_status == 'overdue' %}
+                                            <span class="badge bg-danger">Scaduto</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ org.payment_status|title }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <i class="fas fa-arrow-up text-success"></i>
+                                        <small class="text-success">+5.2%</small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{% url 'Cripto1:organization_billing_detail' org.organization.id %}" class="btn btn-sm btn-outline-primary" title="Visualizza Dettagli">
+                                                <i class="fas fa-cog"></i>
+                                            </a>
+                                            {% if org.payment_status != 'paid' %}
+                                                <button type="button" class="btn btn-sm btn-outline-success" 
+                                                        onclick="registerOrganizationPayment({{ org.organization.id }}, '{{ org.organization.name }}')" 
+                                                        title="Registra Pagamento">
+                                                    <i class="fas fa-credit-card"></i>
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        <i class="fas fa-chart-bar fa-3x mb-3 opacity-25"></i>
+                                        <p>Nessuna organizzazione trovata</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Insights e Raccomandazioni -->
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card analytics-card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Insights Automatici</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-lightbulb text-warning me-2"></i>
+                            <strong>Crescita Fatturato</strong>
+                        </div>
+                        <p class="text-muted mb-0">Il fatturato è cresciuto del 12.5% rispetto al mese scorso, principalmente grazie all'acquisizione di nuove organizzazioni.</p>
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-exclamation-triangle text-danger me-2"></i>
+                            <strong>Pagamenti Scaduti</strong>
+                        </div>
+                        <p class="text-muted mb-0">{{ status_stats.overdue }} organizzazioni hanno pagamenti scaduti. Considera l'invio di solleciti automatici.</p>
+                    </div>
+                    <hr>
+                    <div>
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-chart-line text-success me-2"></i>
+                            <strong>Trend Positivo</strong>
+                        </div>
+                        <p class="text-muted mb-0">Il tasso di conversione dei pagamenti è migliorato del 8% negli ultimi 3 mesi.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card analytics-card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Azioni Raccomandate</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Solleciti Automatici</strong>
+                                <br><small class="text-muted">Configura promemoria per pagamenti scaduti</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary">Configura</button>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Report Mensile</strong>
+                                <br><small class="text-muted">Genera report automatico per stakeholder</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary">Attiva</button>
+                        </div>
+                    </div>
+                    <hr>
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Dashboard Personalizzata</strong>
+                                <br><small class="text-muted">Crea viste personalizzate per team</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary">Crea</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Configurazione Chart.js
+Chart.defaults.font.family = 'Inter';
+Chart.defaults.color = '#6b7280';
+
+// Grafico Revenue Trend
+const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+const revenueChart = new Chart(revenueCtx, {
+    type: 'line',
+    data: {
+        labels: ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'],
+        datasets: [{
+            label: 'Fatturato (€)',
+            data: {{ revenue_data|safe }},
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#6366f1',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2,
+            pointRadius: 6
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(0,0,0,0.1)'
+                },
+                ticks: {
+                    callback: function(value) {
+                        return '€' + value.toLocaleString();
+                    }
+                }
+            },
+            x: {
+                grid: {
+                    display: false
+                }
+            }
+        },
+        interaction: {
+            intersect: false,
+            mode: 'index'
+        }
+    }
+});
+
+// Grafico Status Distribution
+const statusCtx = document.getElementById('statusChart').getContext('2d');
+const statusChart = new Chart(statusCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Pagati', 'In Attesa', 'Scaduti', 'Sospesi'],
+        datasets: [{
+            data: [{{ status_stats.paid }}, {{ status_stats.pending }}, {{ status_stats.overdue }}, {{ status_stats.suspended }}],
+            backgroundColor: [
+                '#22c55e',
+                '#f59e0b', 
+                '#ef4444',
+                '#6b7280'
+            ],
+            borderWidth: 0,
+            cutout: '60%'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            }
+        }
+    }
+});
+
+// Funzioni Export
+function exportToPDF() {
+    // Implementazione export PDF
+    alert('Funzionalità di export PDF in sviluppo');
+}
+
+function exportToExcel() {
+    // Implementazione export Excel
+    alert('Funzionalità di export Excel in sviluppo');
+}
+
+function exportTopOrganizations() {
+    // Export della tabella top organizations
+    const table = document.getElementById('topOrganizationsTable');
+    let csv = 'Posizione,Organizzazione,Utenti Attivi,Fatturato Mensile,Stato Pagamento\n';
+    
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length > 0) {
+            const data = [
+                cells[0].textContent.trim(),
+                cells[1].textContent.trim().replace(/\n/g, ' '),
+                cells[2].textContent.trim(),
+                cells[3].textContent.trim(),
+                cells[4].textContent.trim()
+            ];
+            csv += data.join(',') + '\n';
+        }
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'top_organizations_' + new Date().toISOString().split('T')[0] + '.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+// Animazioni al caricamento
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.analytics-card');
+    cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            card.style.transition = 'all 0.5s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+});
+</script>
+<script>
+function registerOrganizationPayment(organizationId, organizationName) {
+    if (confirm(`Sei sicuro di voler registrare il pagamento per ${organizationName}?`)) {
+        fetch(`{% url 'Cripto1:register_organization_payment' 0 %}`.replace('0', organizationId), {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Errore: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Errore durante la registrazione del pagamento');
+        });
+    }
+}
+</script>
+{% endblock %}

@@ -30,6 +30,7 @@ from django.contrib.auth.forms import UserChangeForm, PasswordResetForm
 import uuid
 from cryptography.hazmat.primitives.asymmetric import padding
 import base64
+import os
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.urls import reverse
 from datetime import datetime, timedelta
@@ -39,8 +40,11 @@ import pyotp
 import qrcode
 import io
 import re
+import zipfile
+import subprocess
+import sys
 from .decorators import permission_required, role_required, admin_required, active_user_required, external_forbidden, user_manager_forbidden
-from .email_utils import send_welcome_email, send_transaction_notification, send_block_confirmation_emails
+from .email_utils import send_welcome_email, send_transaction_notification, send_block_confirmation_emails, send_admin_welcome_email
 from django.core.cache import caches
 from django.contrib.sessions.models import Session
 from django.contrib.auth.decorators import user_passes_test
@@ -48,12 +52,14 @@ from django.db.models import Count
 from django.template.loader import render_to_string
 import traceback
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.lib.enums import TA_CENTER
-import zipfile
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib import colors
+from io import BytesIO
+from .tasks import cleanup_expired_files, trigger_cleanup_if_needed
 
 cipher_suite = Fernet(settings.FERNET_KEY)
 
@@ -77,7 +83,7 @@ def register_organization(request):
                         registration_code=f"ORG_{uuid.uuid4().hex[:8].upper()}",
                         max_users=50,  # Default per nuove organizzazioni
                         max_storage_gb=10,  # Default per nuove organizzazioni
-                        is_active=True,  # Attiva automaticamente alla registrazione
+                        is_active=False,  # Richiede approvazione del superuser
                         features_enabled={
                             'blockchain': True,
                             '2fa': True,
@@ -101,7 +107,7 @@ def register_organization(request):
                         user=admin_user,
                         organization=organization,
                         position='Amministratore',
-                        is_active=True  # Attiva automaticamente alla registrazione
+                        is_active=False  # Richiede approvazione del superuser
                     )
                     
                     # 4. Genera chiavi crittografiche
@@ -111,12 +117,14 @@ def register_organization(request):
                     try:
                         org_admin_role = Role.objects.get(name='Organization Admin')
                         admin_profile.assign_role(org_admin_role)
-                    except Role.DoesNotExist:
-                        # Se il ruolo non esiste, logga l'errore ma non bloccare la registrazione
-                        import logging
-                        logger = logging.getLogger(__name__)
-                        logger.error(f"Ruolo 'Organization Admin' non trovato durante la registrazione dell'organizzazione {organization.name}")
-
+                        
+                        # Invia email di benvenuto per l'admin - CORREZIONE PARAMETRI
+                        send_admin_welcome_email(admin_user, admin_profile, request)
+                        
+                        # Invia email di benvenuto per l'organizzazione
+                        from .email_utils import send_organization_welcome_email
+                        send_organization_welcome_email(organization, admin_user.email, request)
+                        
                     except Role.DoesNotExist:
                         # Se il ruolo non esiste, logga l'errore ma non bloccare la registrazione
                         import logging
@@ -126,7 +134,8 @@ def register_organization(request):
                     messages.success(
                         request, 
                         f'Organizzazione "{organization.name}" registrata con successo! '
-                        f'La registrazione è in attesa di approvazione da parte degli amministratori.'
+                        f'La richiesta è in attesa di approvazione da parte del superuser. '
+                        f'Riceverai una notifica via email quando l\'organizzazione sarà attivata.'
                     )
                     return redirect('Cripto1:organization_registration_success')
                     
@@ -171,6 +180,12 @@ def register(request):
         except Organization.DoesNotExist:
             messages.error(request, 'Codice organizzazione non valido')
             return render(request, 'Cripto1/register.html')
+        
+        # NUOVO: Controllo limite massimo utenti
+        current_users_count = UserProfile.objects.filter(organization=organization).count()
+        if current_users_count >= organization.max_users:
+            messages.error(request, f'Limite massimo di {organization.max_users} utenti raggiunto per questa organizzazione')
+            return render(request, 'Cripto1/register.html')
             
         user = User.objects.create_user(username=username, email=email, password=password)
         
@@ -182,6 +197,11 @@ def register(request):
         
         # Genera un segreto 2FA per l'utente
         user_profile.generate_2fa_secret()
+        
+        # NUOVO: Se l'organizzazione richiede 2FA obbligatorio, abilitalo automaticamente
+        if organization.require_2fa:
+            user_profile.two_factor_enabled = True
+            user_profile.save()
         
         # Assegna il ruolo "external" all'utente
         try:
@@ -202,8 +222,16 @@ def register(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
-            messages.success(request, 'Configura ora l\'autenticazione a due fattori.')
-            return redirect('Cripto1:setup_2fa')  # Reindirizza alla configurazione 2FA
+            
+            # NUOVO: Controllo 2FA obbligatorio
+            if organization.require_2fa and not user_profile.two_factor_verified:
+                messages.warning(request, 'Questa organizzazione richiede l\'autenticazione a due fattori. Devi configurarla ora per completare la registrazione.')
+                return redirect('Cripto1:setup_2fa')
+            elif not organization.require_2fa:
+                messages.success(request, 'Configura ora l\'autenticazione a due fattori per maggiore sicurezza.')
+                return redirect('Cripto1:setup_2fa')
+            else:
+                return redirect('Cripto1:dashboard')
         
     return render(request, 'Cripto1/register.html')
 
@@ -287,16 +315,26 @@ def login_view(request):
 
 @login_required
 def all_transactions_view(request):
-    user_org = request.user.userprofile.organization
+    # Auto-cleanup intelligente quando si visualizzano le transazioni
+    trigger_cleanup_if_needed()
     
-    # Se l'utente è un superuser, mostra tutte le transazioni della sua organizzazione
-    if request.user.is_superuser:
+    user_profile = request.user.userprofile
+    user_org = user_profile.organization
+    
+    # Super Admin di sistema: vedono TUTTE le transazioni nel sistema
+    # Controlla sia is_superuser che il ruolo 'Super Admin'
+    if request.user.is_superuser or user_profile.has_role('Super Admin'):
+        transactions_list = Transaction.objects.all().order_by('-timestamp')
+    
+    # Organization Admin: vedono tutte le transazioni della propria organizzazione
+    elif user_profile.has_role('Organization Admin'):
         transactions_list = Transaction.objects.filter(
-            sender__userprofile__organization=user_org,
-            receiver__userprofile__organization=user_org
+            models.Q(sender__userprofile__organization=user_org) |
+            models.Q(receiver__userprofile__organization=user_org)
         ).order_by('-timestamp')
+    
+    # Utenti normali: vedono solo le proprie transazioni inviate/ricevute
     else:
-        # Altrimenti mostra solo le transazioni dell'utente corrente nella sua organizzazione
         transactions_list = Transaction.objects.filter(
             models.Q(sender__userprofile__organization=user_org) & 
             models.Q(receiver__userprofile__organization=user_org) &
@@ -311,7 +349,7 @@ def all_transactions_view(request):
         elif tx.receiver == request.user:
             tx.direction = "Ricevuta"
         else:
-            # Per i superuser che visualizzano transazioni di altri utenti
+            # Per admin che visualizzano transazioni di altri utenti
             tx.direction = "Tra altri utenti"
     
     paginator = Paginator(transactions_list, 10) # Show 10 transactions per page
@@ -361,6 +399,9 @@ def unviewed_transactions_list(request):
 
 @login_required
 def dashboard(request):
+    # Auto-cleanup intelligente ogni volta che si accede alla dashboard
+    trigger_cleanup_if_needed()
+    
     user_profile, created = UserProfile.objects.get_or_create(user=request.user)
     if created or not user_profile.public_key or not user_profile.private_key:
         user_profile.generate_key_pair()
@@ -700,6 +741,7 @@ def create_transaction(request):
                 type=transaction_type,
                 sender=request.user,
                 receiver=receiver,
+                organization=request.user.userprofile.organization,  # AGGIUNGI QUESTA RIGA
                 sender_public_key=sender_public_key,
                 content=encrypted_content,
                 sender_encrypted_content=transaction_data.get('sender_encrypted_content'),
@@ -848,7 +890,6 @@ def calculate_merkle_root(transactions_hashes):
 def decrypt_transaction(request):
     if request.method == 'POST':
         try:
-            import json
             data = json.loads(request.body)
             transaction_id = data.get('transaction_id')
             password = data.get('password', 'securepassword').encode()  # default per retrocompatibilità
@@ -1325,12 +1366,6 @@ def admin_dashboard(request):
             'unencrypted_count': org_transactions.filter(is_encrypted=False).count(),
         }
 
-    # Get active addresses (last 24 hours) - Temporarily commented out due to TypeError
-    # now = timezone.now()
-    # day_ago = now - timezone.timedelta(days=1)
-    # active_addresses = Transaction.objects.filter(
-    #     timestamp__gte=day_ago
-    # ).values('sender', 'receiver').distinct().count()
     active_addresses = "N/A" # Placeholder value
 
     # Get total transaction volume
@@ -1489,12 +1524,55 @@ def export_csv(request, model):
     response['Content-Disposition'] = f'attachment; filename="{model}.csv"'
     
     writer = csv.writer(response)
-    # Write headers
-    writer.writerow([field.name for field in Model._meta.fields])
     
-    # Write data
-    for obj in queryset:
-        writer.writerow([getattr(obj, field.name) for field in Model._meta.fields])
+    # Gestione speciale per le transazioni
+    if model == 'transaction':
+        # Headers personalizzati per le transazioni
+        headers = [
+            'ID', 'Organizzazione', 'Blocco', 'Tipo', 'Mittente (Username)', 'Mittente (Email)',
+            'Destinatario (Username)', 'Destinatario (Email)', 'Contenuto', 'File', 'Nome File Originale',
+            'Timestamp', 'Data/Ora', 'Hash Transazione', 'Firma', 'Crittografata', 'Condivisibile',
+            'Max Download', 'Download Correnti', 'Visualizzata', 'Chiave Pubblica Mittente',
+            'Chiave Pubblica Destinatario', 'Contenuto Crittografato Mittente'
+        ]
+        writer.writerow(headers)
+        
+        # Dati personalizzati per le transazioni
+        for transaction in queryset.select_related('sender', 'receiver', 'organization', 'block'):
+            from datetime import datetime
+            readable_date = datetime.fromtimestamp(transaction.timestamp).strftime('%Y-%m-%d %H:%M:%S') if transaction.timestamp else ''
+            
+            row = [
+                transaction.id,
+                transaction.organization.name if transaction.organization else '',
+                f"Block #{transaction.block.index}" if transaction.block else '',
+                transaction.get_type_display(),
+                transaction.sender.username,
+                transaction.sender.email,
+                transaction.receiver.username,
+                transaction.receiver.email,
+                transaction.content[:100] + '...' if len(transaction.content) > 100 else transaction.content,
+                transaction.file.name if transaction.file else '',
+                transaction.original_filename or '',
+                transaction.timestamp,
+                readable_date,
+                transaction.transaction_hash,
+                'Presente' if transaction.signature else 'Assente',
+                'Sì' if transaction.is_encrypted else 'No',
+                'Sì' if transaction.is_shareable else 'No',
+                transaction.max_downloads or 'Illimitati',
+                transaction.current_downloads,
+                'Sì' if transaction.is_viewed else 'No',
+                'Presente' if transaction.sender_public_key else 'Assente',
+                'Presente' if transaction.receiver_public_key_at_encryption else 'Assente',
+                'Presente' if transaction.sender_encrypted_content else 'Assente'
+            ]
+            writer.writerow(row)
+    else:
+        # Comportamento standard per altri modelli
+        writer.writerow([field.name for field in Model._meta.fields])
+        for obj in queryset:
+            writer.writerow([getattr(obj, field.name) for field in Model._meta.fields])
     
     return response
 
@@ -1584,13 +1662,13 @@ def audit_logs_view(request):
         queryset = queryset.filter(user_id=user_id)
     if date_from:
         try:
-            date_from_obj = timezone.strptime(date_from, '%Y-%m-%d')
+            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
             queryset = queryset.filter(timestamp__date__gte=date_from_obj.date())
         except ValueError:
             pass
     if date_to:
         try:
-            date_to_obj = timezone.strptime(date_to, '%Y-%m-%d')
+            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d')
             queryset = queryset.filter(timestamp__date__lte=date_to_obj.date())
         except ValueError:
             pass
@@ -2668,43 +2746,99 @@ def backup_management(request):
         if action == 'create_backup':
             include_files = request.POST.get('include_files') == 'on'
             
-            # Ottieni l'organizzazione dell'utente
-            user_org = request.user.userprofile.organization
+            # Per i superuser, permettere backup completo o per organizzazione
+            if request.user.is_superuser:
+                backup_type = request.POST.get('backup_type', 'full')
+                if backup_type == 'organization':
+                    user_org = request.user.userprofile.organization
+                    organization_id = user_org.id
+                    success_msg = f'Backup avviato per {user_org.name}!'
+                else:
+                    organization_id = None
+                    success_msg = 'Backup completo del sistema avviato!'
+            else:
+                user_org = request.user.userprofile.organization
+                organization_id = user_org.id
+                success_msg = f'Backup avviato per {user_org.name}!'
             
-            # Esegui il comando di backup in background
-            from django.core.management import call_command
+            # Esegui il comando di backup in un processo separato
+            import subprocess
+            import sys
             try:
-                # Usa il comando esistente con il parametro organization_id
-                call_command('backup_blockchain', 
-                            include_files=include_files,
-                            organization_id=user_org.id)  # NUOVO PARAMETRO
-                messages.success(request, f'Backup creato con successo per {user_org.name}!')
+                cmd = [sys.executable, 'manage.py', 'backup_blockchain']
+                if include_files:
+                    cmd.append('--include-files')
+                if organization_id:
+                    cmd.extend(['--organization-id', str(organization_id)])
+                
+                # Avvia il processo in background
+                subprocess.Popen(cmd, cwd=os.getcwd())
+                messages.success(request, success_msg)
             except Exception as e:
-                messages.error(request, f'Errore durante la creazione del backup: {str(e)}')
+                messages.error(request, f'Errore durante l\'avvio del backup: {str(e)}')
             
             return redirect('Cripto1:backup_management')
         
         elif action == 'restore_backup':
-            # SOLO STAFF PUÒ RIPRISTINARE
             if not request.user.is_staff:
-                messages.error(request, 'Solo gli amministratori di sistema possono ripristinare i backup.')
+                messages.error(request, 'Solo gli staff possono ripristinare i backup.')
                 return redirect('Cripto1:backup_management')
             
-            backup_file = request.POST.get('backup_file')
-            if not backup_file:
-                messages.error(request, 'Nessun file di backup selezionato')
-            else:
-                backup_path = os.path.join(backup_dir, backup_file)
-                if not os.path.exists(backup_path):
-                    messages.error(request, 'File di backup non trovato')
-                else:
-                    # Esegui il comando di ripristino
-                    from django.core.management import call_command
-                    try:
-                        call_command('restore_blockchain', backup_path, skip_confirmation=True)
-                        messages.success(request, 'Ripristino completato con successo!')
-                    except Exception as e:
-                        messages.error(request, f'Errore durante il ripristino: {str(e)}')
+            backup_filename = request.POST.get('backup_filename')
+            if not backup_filename:
+                messages.error(request, 'Nome del file di backup non specificato.')
+                return redirect('Cripto1:backup_management')
+            
+            backup_path = os.path.join('blockchain_backups', backup_filename)
+            if not os.path.exists(backup_path):
+                messages.error(request, 'File di backup non trovato.')
+                return redirect('Cripto1:backup_management')
+            
+            try:
+                import logging
+                logger = logging.getLogger(__name__)
+                
+                # Log dell'inizio del ripristino
+                logger.info(f'Inizio ripristino backup: {backup_filename} da utente: {request.user.username}')
+                
+                # Esegui il comando di ripristino con logging dettagliato
+                from django.core.management import call_command
+                from io import StringIO
+                import sys
+                
+                # Cattura l'output del comando
+                old_stdout = sys.stdout
+                old_stderr = sys.stderr
+                stdout_capture = StringIO()
+                stderr_capture = StringIO()
+                
+                try:
+                    sys.stdout = stdout_capture
+                    sys.stderr = stderr_capture
+                    
+                    call_command('restore_blockchain', backup_path)
+                    
+                    # Ripristina stdout/stderr
+                    sys.stdout = old_stdout
+                    sys.stderr = old_stderr
+                    
+                    stdout_content = stdout_capture.getvalue()
+                    stderr_content = stderr_capture.getvalue()
+                    
+                    if stderr_content:
+                        logger.warning(f'Warning durante ripristino: {stderr_content}')
+                    
+                    logger.info(f'Ripristino completato con successo: {stdout_content}')
+                    messages.success(request, f'Backup ripristinato con successo. {stdout_content}')
+                    
+                except Exception as cmd_error:
+                    sys.stdout = old_stdout
+                    sys.stderr = old_stderr
+                    raise cmd_error
+                    
+            except Exception as e:
+                logger.error(f'Errore durante il ripristino del backup {backup_filename}: {str(e)}')
+                messages.error(request, f'Errore durante il ripristino: {str(e)}')
             
             return redirect('Cripto1:backup_management')
         
@@ -2719,6 +2853,65 @@ def backup_management(request):
                     messages.success(request, 'Backup eliminato con successo')
                 else:
                     messages.error(request, 'File di backup non trovato')
+            
+            return redirect('Cripto1:backup_management')
+        
+        elif action == 'test_integrity':
+            if not request.user.is_staff:
+                messages.error(request, 'Solo gli staff possono testare l\'integrità dei backup.')
+                return redirect('Cripto1:backup_management')
+            
+            backup_filename = request.POST.get('backup_filename')
+            if not backup_filename:
+                messages.error(request, 'Nome del file di backup non specificato.')
+                return redirect('Cripto1:backup_management')
+            
+            backup_path = os.path.join('blockchain_backups', backup_filename)
+            if not os.path.exists(backup_path):
+                messages.error(request, 'File di backup non trovato.')
+                return redirect('Cripto1:backup_management')
+            
+            try:
+                with zipfile.ZipFile(backup_path, 'r') as zip_file:
+                    # Verifica l'integrità del ZIP
+                    bad_files = zip_file.testzip()
+                    if bad_files:
+                        messages.error(request, f'File corrotto nel backup: {bad_files}')
+                        return redirect('Cripto1:backup_management')
+                    
+                    # Verifica i file richiesti
+                    file_list = zip_file.namelist()
+                    required_files = ['metadata.json', 'blocks.json', 'transactions.json', 'blockchain_state.json']
+                    missing_files = [f for f in required_files if f not in file_list]
+                    
+                    if missing_files:
+                        messages.error(request, f'File mancanti nel backup: {", ".join(missing_files)}')
+                        return redirect('Cripto1:backup_management')
+                    
+                    # Verifica che i JSON siano validi
+                    integrity_report = []
+                    for json_file in required_files:
+                        try:
+                            content = zip_file.read(json_file)
+                            data = json.loads(content.decode('utf-8'))
+                            
+                            if json_file == 'blocks.json':
+                                integrity_report.append(f"Blocchi: {len(data)} trovati")
+                            elif json_file == 'transactions.json':
+                                integrity_report.append(f"Transazioni: {len(data)} trovate")
+                            elif json_file == 'metadata.json':
+                                org_name = data.get('organization_name', 'N/A')
+                                backup_date = data.get('backup_date', 'N/A')
+                                integrity_report.append(f"Organizzazione: {org_name}, Data: {backup_date}")
+                            
+                        except json.JSONDecodeError as e:
+                            messages.error(request, f'JSON non valido in {json_file}: {str(e)}')
+                            return redirect('Cripto1:backup_management')
+                    
+                    messages.success(request, f'✅ Test di integrità superato! {" | ".join(integrity_report)}')
+                    
+            except Exception as e:
+                messages.error(request, f'Errore durante il test di integrità: {str(e)}')
             
             return redirect('Cripto1:backup_management')
     
@@ -2824,7 +3017,7 @@ def toggle_organization_status(request, org_id):
         success=True
     )
     
-    return redirect('Cripto1:organization_detail', org_id=org_id)
+    return redirect('Cripto1:organization_management_detail', org_id=org_id)
 
 @staff_member_required
 def edit_organization(request, org_id):
@@ -2869,7 +3062,7 @@ def edit_organization(request, org_id):
         )
         
         messages.success(request, f'Organizzazione "{organization.name}" aggiornata con successo.')
-        return redirect('Cripto1:organization_detail', org_id=org_id)
+        return redirect('Cripto1:organization_management_detail', org_id=org_id)
     
     context = {
         'organization': organization,
@@ -2891,7 +3084,7 @@ def delete_organization(request, org_id):
     user_count = UserProfile.objects.filter(organization=organization).count()
     if user_count > 0:
         messages.error(request, f'Impossibile eliminare l\'organizzazione. Ha ancora {user_count} utenti associati.')
-        return redirect('Cripto1:organization_detail', org_id=org_id)
+        return redirect('Cripto1:organization_management_detail', org_id=org_id)
     
     if request.method == 'POST':
         org_name = organization.name
@@ -2963,7 +3156,7 @@ def create_organization(request):
                 )
                 
                 messages.success(request, f'Organizzazione "{organization.name}" creata con successo!')
-                return redirect('Cripto1:organization_detail', org_id=organization.id)
+                return redirect('Cripto1:organization_management_detail', org_id=organization.id)
                 
         except Exception as e:
             messages.error(request, f'Errore durante la creazione: {str(e)}')
@@ -2983,6 +3176,8 @@ def download_backup(request, filename):
         response = HttpResponse(f.read(), content_type='application/zip')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+
+
 
 @staff_member_required
 def organization_users(request, org_id):
@@ -3031,6 +3226,7 @@ def organization_users(request, org_id):
 
 @staff_member_required
 def upload_backup(request):
+    """Carica un file di backup"""
     if request.method == 'POST' and request.FILES.get('backup_file'):
         backup_file = request.FILES['backup_file']
         
@@ -3039,21 +3235,67 @@ def upload_backup(request):
             messages.error(request, 'Il file deve essere in formato ZIP')
             return redirect('Cripto1:backup_management')
         
-        # Crea la directory di backup se non esiste
-        backup_dir = 'blockchain_backups'
-        os.makedirs(backup_dir, exist_ok=True)
-        
-        # Genera un nome file basato sulla data e ora corrente
-        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
-        filename = f'blockchain_backup_{timestamp}.zip'
-        file_path = os.path.join(backup_dir, filename)
-        
-        # Salva il file caricato
-        with open(file_path, 'wb+') as destination:
-            for chunk in backup_file.chunks():
-                destination.write(chunk)
-        
-        messages.success(request, f'Backup importato con successo come {filename}')
+        # Validazione del contenuto ZIP
+        try:
+            import tempfile
+            
+            # Salva temporaneamente il file per la validazione
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_file:
+                for chunk in backup_file.chunks():
+                    temp_file.write(chunk)
+                temp_path = temp_file.name
+            
+            # Verifica che sia un ZIP valido e contenga i file necessari
+            with zipfile.ZipFile(temp_path, 'r') as zip_file:
+                file_list = zip_file.namelist()
+                required_files = ['metadata.json', 'blocks.json', 'transactions.json', 'blockchain_state.json']
+                
+                missing_files = [f for f in required_files if f not in file_list]
+                if missing_files:
+                    os.unlink(temp_path)
+                    messages.error(request, f'File di backup non valido. File mancanti: {", ".join(missing_files)}')
+                    return redirect('Cripto1:backup_management')
+                
+                # Verifica i metadati
+                try:
+                    metadata_content = zip_file.read('metadata.json')
+                    metadata = json.loads(metadata_content.decode('utf-8'))
+                    
+                    # Verifica che l'organizzazione sia compatibile
+                    if not request.user.is_staff:
+                        backup_org_id = metadata.get('organization_id')
+                        user_org_id = request.user.userprofile.organization.id if hasattr(request.user, 'userprofile') and request.user.userprofile.organization else None
+                        
+                        if backup_org_id != user_org_id:
+                            os.unlink(temp_path)
+                            messages.error(request, 'Il backup non appartiene alla tua organizzazione')
+                            return redirect('Cripto1:backup_management')
+                    
+                except (json.JSONDecodeError, KeyError) as e:
+                    os.unlink(temp_path)
+                    messages.error(request, f'Metadati del backup non validi: {str(e)}')
+                    return redirect('Cripto1:backup_management')
+            
+            # Se la validazione è passata, salva il file
+            backup_dir = 'blockchain_backups'
+            os.makedirs(backup_dir, exist_ok=True)
+            
+            timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+            filename = f'blockchain_backup_{timestamp}.zip'
+            file_path = os.path.join(backup_dir, filename)
+            
+            # Sposta il file temporaneo nella posizione finale
+            import shutil
+            shutil.move(temp_path, file_path)
+            
+            messages.success(request, f'Backup validato e importato con successo come {filename}')
+            
+        except zipfile.BadZipFile:
+            messages.error(request, 'Il file caricato non è un archivio ZIP valido')
+            return redirect('Cripto1:backup_management')
+        except Exception as e:
+            messages.error(request, f'Errore durante la validazione del backup: {str(e)}')
+            return redirect('Cripto1:backup_management')
     else:
         messages.error(request, 'Nessun file selezionato')
     
@@ -3150,6 +3392,9 @@ def personal_documents(request):
 @login_required
 def upload_personal_document(request):
     if request.method == 'POST':
+        # Auto-cleanup intelligente prima di caricare nuovi file
+        trigger_cleanup_if_needed()
+        
         title = request.POST.get('title')
         description = request.POST.get('description', '')
         is_encrypted = request.POST.get('is_encrypted', 'false').lower() in ['true', 'on', '1']
@@ -3658,6 +3903,7 @@ def send_document_as_transaction(request, document_id):
                 type='file',
                 sender=request.user,
                 receiver=receiver_profile.user,
+                organization=request.user.userprofile.organization,  # AGGIUNGI QUESTA RIGA
                 sender_public_key=sender_public_key,
                 content='',
                 file=transaction_data.get('file'),
@@ -3811,10 +4057,15 @@ def add_transaction_file_to_personal_documents(request, transaction_id):
 def setup_2fa(request):
     """Vista per la configurazione iniziale del 2FA"""
     user_profile = UserProfile.objects.get(user=request.user)
+    organization = user_profile.organization
     
-    # Se l'utente ha già configurato 2FA, reindirizza alla pagina di gestione
-    if user_profile.two_factor_verified:
-        return redirect('Cripto1:manage_2fa')
+    # NUOVO: Se il 2FA è obbligatorio e non è ancora verificato, non permettere di saltare
+    if organization and organization.require_2fa and not user_profile.two_factor_verified:
+        # L'utente DEVE completare il setup 2FA
+        pass  # Continua con il setup normale
+    elif user_profile.two_factor_verified:
+        messages.info(request, 'Autenticazione a due fattori già configurata')
+        return redirect('Cripto1:dashboard')
     
     # Genera un nuovo segreto se non esiste
     if not user_profile.two_factor_secret:
@@ -4290,6 +4541,7 @@ def create_transaction_from_document(request, document_id):
                 type='file',
                 sender=request.user,
                 receiver=receiver,
+                organization=request.user.userprofile.organization,  # AGGIUNGI QUESTA RIGA
                 sender_public_key=sender_public_key,
                 content='',
                 file=transaction_data.get('file'),
@@ -4404,7 +4656,7 @@ def terminate_session(request):
     if request.method == 'POST':
         # Gestisci sia i dati POST che JSON
         if request.content_type == 'application/json':
-            import json
+
             try:
                 data = json.loads(request.body)
                 session_key = data.get('session_key')
@@ -4903,27 +5155,34 @@ def search_transactions_ajax(request):
             search_query = request.GET.get('q', '').strip()
             page = request.GET.get('page', 1)
             
-            # Base queryset filtrato per organizzazione
-            user_org = request.user.userprofile.organization
-            if request.user.is_superuser:
+            user_profile = request.user.userprofile
+            user_org = user_profile.organization
+            
+            # STESSA LOGICA DELLA VISTA NORMALE
+            # Super Admin di sistema: vedono TUTTE le transazioni nel sistema
+            if request.user.is_superuser or user_profile.has_role('Super Admin'):
+                transactions_list = Transaction.objects.all().order_by('-timestamp')
+            
+            # Organization Admin: vedono tutte le transazioni della propria organizzazione
+            elif user_profile.has_role('Organization Admin'):
                 transactions_list = Transaction.objects.filter(
-                    sender__userprofile__organization=user_org,
-                    receiver__userprofile__organization=user_org
-                )
+                    models.Q(sender__userprofile__organization=user_org) |
+                    models.Q(receiver__userprofile__organization=user_org)
+                ).order_by('-timestamp')
+            
+            # Utenti normali: vedono solo le proprie transazioni inviate/ricevute
             else:
                 transactions_list = Transaction.objects.filter(
                     models.Q(sender__userprofile__organization=user_org) & 
                     models.Q(receiver__userprofile__organization=user_org) &
                     (models.Q(sender=request.user) | models.Q(receiver=request.user))
-                )
+                ).order_by('-timestamp')
             
             # Applica filtri di ricerca SOLO per hash completo
             if search_query:
                 transactions_list = transactions_list.filter(
                     transaction_hash__exact=search_query
                 )
-            
-            transactions_list = transactions_list.order_by('-timestamp')
             
             # Processa le transazioni
             for tx in transactions_list:
@@ -6013,6 +6272,7 @@ def create_transaction_from_created_document(request, document_id):
                 type='file',
                 sender=request.user,
                 receiver=receiver,
+                organization=request.user.userprofile.organization,  # AGGIUNGI QUESTA RIGA
                 sender_public_key=sender_public_key,
                 content=transaction_data['content'],
                 file=transaction_data.get('file'),
@@ -6263,3 +6523,698 @@ def edit_shared_document(request, share_id):
         'collaborator_name': shared_doc.owner.get_full_name() or shared_doc.owner.username
     }
     return render(request, 'Cripto1/edit_shared_document.html', context)
+
+@login_required
+def export_transaction_pdf(request, transaction_id):
+    """Esporta i dettagli della transazione in PDF"""
+    tx = get_object_or_404(Transaction, id=transaction_id)
+    
+    # Check if user is either sender or receiver or a superuser
+    if request.user != tx.sender and request.user != tx.receiver and not request.user.is_superuser:
+        messages.error(request, 'Non hai il permesso di esportare questa transazione.')
+        return redirect('Cripto1:dashboard')
+    
+    # Convert timestamp to datetime
+    tx.timestamp_datetime = datetime.fromtimestamp(tx.timestamp, tz=timezone.get_current_timezone())
+    
+    # Verify signature
+    is_valid = tx.verify_signature()
+    
+    # Create PDF
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+    
+    # Container for the 'Flowable' objects
+    elements = []
+    
+    # Define styles
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        textColor=colors.darkblue
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceAfter=12,
+        textColor=colors.darkblue
+    )
+    
+    # Title
+    elements.append(Paragraph("Dettagli Transazione", title_style))
+    elements.append(Spacer(1, 12))
+    
+    # Transaction Information Table
+    elements.append(Paragraph("Informazioni Transazione", heading_style))
+    
+    transaction_data = [
+        ['Tipo:', tx.type.title()],
+        ['Da:', tx.sender.username],
+        ['A:', tx.receiver.username],
+        ['Data:', tx.timestamp_datetime.strftime('%d/%m/%Y %H:%M:%S')],
+        ['Hash Transazione:', tx.transaction_hash],
+        ['Stato:', 'Confermata' if tx.block else 'In attesa'],
+        ['Validità:', 'Valida' if is_valid else 'Non valida']
+    ]
+    
+    transaction_table = Table(transaction_data, colWidths=[2*inch, 4*inch])
+    transaction_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    
+    elements.append(transaction_table)
+    elements.append(Spacer(1, 20))
+    
+    # Message Content (if text transaction)
+    if tx.type == 'text':
+        elements.append(Paragraph("Contenuto Messaggio", heading_style))
+        if tx.is_encrypted:
+            content_text = "Questo messaggio è crittografato."
+        else:
+            content_text = tx.content or "Nessun contenuto"
+        
+        elements.append(Paragraph(content_text, styles['Normal']))
+        elements.append(Spacer(1, 20))
+    
+    # File Information (if file transaction)
+    if tx.type == 'file' and tx.file:
+        elements.append(Paragraph("Informazioni File", heading_style))
+        file_name = tx.file.name.split('/')[-1] if '/' in tx.file.name else tx.file.name
+        elements.append(Paragraph(f"Nome File: {file_name}", styles['Normal']))
+        elements.append(Spacer(1, 20))
+    
+    # Block Information (if confirmed)
+    if tx.block:
+        elements.append(Paragraph("Informazioni Blocco", heading_style))
+        
+        block_data = [
+            ['Indice Blocco:', str(tx.block.index)],
+            ['Hash Blocco:', tx.block.hash],
+            ['Hash Precedente:', tx.block.previous_hash]
+        ]
+        
+        block_table = Table(block_data, colWidths=[2*inch, 4*inch])
+        block_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        
+        elements.append(block_table)
+    
+    # Build PDF
+    doc.build(elements)
+    
+    # Get PDF data
+    pdf_data = buffer.getvalue()
+    buffer.close()
+    
+    # Create response
+    response = HttpResponse(pdf_data, content_type='application/pdf')
+    filename = f"transazione_{tx.transaction_hash[:16]}.pdf"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    return response
+
+@login_required
+def save_transaction_details_to_personal_documents(request, transaction_id):
+    """Salva i dettagli della transazione come PDF nei documenti personali"""
+    tx = get_object_or_404(Transaction, id=transaction_id)
+    
+    # Check if user is either sender or receiver or a superuser
+    if request.user != tx.sender and request.user != tx.receiver and not request.user.is_superuser:
+        messages.error(request, 'Non hai il permesso di salvare questa transazione.')
+        return redirect('Cripto1:dashboard')
+    
+    try:
+        # Convert timestamp to datetime
+        tx.timestamp_datetime = datetime.fromtimestamp(tx.timestamp, tz=timezone.get_current_timezone())
+        
+        # Verify signature
+        is_valid = tx.verify_signature()
+        
+        # Create PDF (same logic as export)
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+        
+        # Container for the 'Flowable' objects
+        elements = []
+        
+        # Define styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=18,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.darkblue
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=12,
+            textColor=colors.darkblue
+        )
+        
+        # Title
+        elements.append(Paragraph("Dettagli Transazione", title_style))
+        elements.append(Spacer(1, 12))
+        
+        # Transaction Information Table
+        elements.append(Paragraph("Informazioni Transazione", heading_style))
+        
+        transaction_data = [
+            ['Tipo:', tx.type.title()],
+            ['Da:', tx.sender.username],
+            ['A:', tx.receiver.username],
+            ['Data:', tx.timestamp_datetime.strftime('%d/%m/%Y %H:%M:%S')],
+            ['Hash Transazione:', tx.transaction_hash],
+            ['Stato:', 'Confermata' if tx.block else 'In attesa'],
+            ['Validità:', 'Valida' if is_valid else 'Non valida']
+        ]
+        
+        transaction_table = Table(transaction_data, colWidths=[2*inch, 4*inch])
+        transaction_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        
+        elements.append(transaction_table)
+        elements.append(Spacer(1, 20))
+        
+        # Message Content (if text transaction)
+        if tx.type == 'text':
+            elements.append(Paragraph("Contenuto Messaggio", heading_style))
+            if tx.is_encrypted:
+                content_text = "Questo messaggio è crittografato."
+            else:
+                content_text = tx.content or "Nessun contenuto"
+            
+            elements.append(Paragraph(content_text, styles['Normal']))
+            elements.append(Spacer(1, 20))
+        
+        # File Information (if file transaction)
+        if tx.type == 'file' and tx.file:
+            elements.append(Paragraph("Informazioni File", heading_style))
+            file_name = tx.file.name.split('/')[-1] if '/' in tx.file.name else tx.file.name
+            elements.append(Paragraph(f"Nome File: {file_name}", styles['Normal']))
+            elements.append(Spacer(1, 20))
+        
+        # Block Information (if confirmed)
+        if tx.block:
+            elements.append(Paragraph("Informazioni Blocco", heading_style))
+            
+            block_data = [
+                ['Indice Blocco:', str(tx.block.index)],
+                ['Hash Blocco:', tx.block.hash],
+                ['Hash Precedente:', tx.block.previous_hash]
+            ]
+            
+            block_table = Table(block_data, colWidths=[2*inch, 4*inch])
+            block_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            
+            elements.append(block_table)
+        
+        # Build PDF
+        doc.build(elements)
+        
+        # Get PDF data
+        pdf_data = buffer.getvalue()
+        buffer.close()
+        
+        # Save PDF to personal documents
+        filename = f"transazione_{tx.transaction_hash[:16]}.pdf"
+        file_to_save = ContentFile(pdf_data)
+        file_path = default_storage.save(f'personal_documents/{filename}', file_to_save)
+        
+        # Create the personal document
+        PersonalDocument.objects.create(
+            user=request.user,
+            title=f"Dettagli Transazione - {tx.transaction_hash[:16]}",
+            description=f"Dettagli della transazione {tx.type} tra {tx.sender.username} e {tx.receiver.username} del {tx.timestamp_datetime.strftime('%d/%m/%Y %H:%M:%S')}",
+            file=file_path,
+            is_encrypted=False,
+            original_filename=filename
+        )
+        
+        messages.success(request, 'Dettagli della transazione salvati con successo nei tuoi documenti personali.')
+        return redirect('Cripto1:personal_documents')
+        
+    except Exception as e:
+        messages.error(request, f'Errore durante il salvataggio: {str(e)}')
+        return redirect('Cripto1:transaction_details', transaction_id=transaction_id)
+
+@login_required
+def blockchain_list(request):
+    """Vista per la lista dei blocchi della blockchain con stile card"""
+    user_profile = request.user.userprofile
+    
+    # Superuser vede tutti i blocchi, admin org vede solo i propri
+    if request.user.is_superuser:
+        blocks = Block.objects.all().select_related('organization').order_by('-index')
+        page_title = "Blockchain Globale"
+        page_subtitle = "Visualizza tutti i blocchi del sistema"
+    elif user_profile.has_role('Organization Admin'):
+        blocks = Block.objects.filter(organization=user_profile.organization).order_by('-index')
+        page_title = f"Blockchain - {user_profile.organization.name}"
+        page_subtitle = "Visualizza i blocchi della tua organizzazione"
+    else:
+        messages.error(request, 'Non hai i permessi per accedere a questa sezione.')
+        return redirect('Cripto1:dashboard')
+    
+    # Filtri di ricerca
+    search_query = request.GET.get('search', '')
+    if search_query:
+        blocks = blocks.filter(
+            Q(hash__icontains=search_query) |
+            Q(previous_hash__icontains=search_query) |
+            Q(index__icontains=search_query)
+        )
+    
+    # Statistiche
+    total_blocks = blocks.count()
+    total_transactions = sum(block.transactions.count() for block in blocks)
+    
+    if blocks.exists():
+        latest_block = blocks.first()
+        avg_transactions = total_transactions / total_blocks if total_blocks > 0 else 0
+    else:
+        latest_block = None
+        avg_transactions = 0
+    
+    # Paginazione
+    paginator = Paginator(blocks, 12)  # 12 card per pagina
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Aggiungi timestamp formattato per ogni blocco
+    for block in page_obj:
+        block.timestamp_datetime = datetime.fromtimestamp(block.timestamp, tz=timezone.get_current_timezone())
+        block.transactions_count = block.transactions.count()
+    
+    context = {
+        'page_obj': page_obj,
+        'total_blocks': total_blocks,
+        'total_transactions': total_transactions,
+        'latest_block': latest_block,
+        'avg_transactions': round(avg_transactions, 1),
+        'page_title': page_title,
+        'page_subtitle': page_subtitle,
+        'search_query': search_query,
+        'is_superuser': request.user.is_superuser,
+    }
+    
+    return render(request, 'Cripto1/blockchain/blockchain_list.html', context)
+
+@login_required
+def block_detail_view(request, block_id):
+    """Vista dettaglio di un singolo blocco"""
+    block = get_object_or_404(Block, id=block_id)
+    user_profile = request.user.userprofile
+    
+    # Verifica permessi
+    if not request.user.is_superuser and block.organization != user_profile.organization:
+        messages.error(request, 'Non hai i permessi per visualizzare questo blocco.')
+        return redirect('Cripto1:blockchain_list')
+    
+    # Ottieni le transazioni del blocco
+    transactions = block.transactions.all().select_related('sender', 'receiver')
+    transactions_count = transactions.count()
+    
+    # Converti timestamp
+    block.timestamp_datetime = datetime.fromtimestamp(block.timestamp, tz=timezone.get_current_timezone())
+    
+    # Calcola tempo di creazione se possibile
+    creation_time = None
+    if block.index > 0:
+        try:
+            previous_block = Block.objects.get(organization=block.organization, index=block.index-1)
+            creation_time_seconds = block.timestamp - previous_block.timestamp
+            creation_time = f"{creation_time_seconds:.2f} secondi"
+        except Block.DoesNotExist:
+            pass
+    
+    context = {
+        'block': block,
+        'transactions': transactions,
+        'transactions_count': transactions_count,
+        'creation_time': creation_time,
+    }
+    
+    return render(request, 'Cripto1/block_detail_view.html', context)
+
+@login_required
+def block_details_list(request):
+    """Vista lista blocchi esistente (mantieni per compatibilità)"""
+    user_profile = request.user.userprofile
+    
+    if request.user.is_superuser:
+        blocks = Block.objects.all().order_by('-index')
+    else:
+        blocks = Block.objects.filter(organization=user_profile.organization).order_by('-index')
+    
+    latest_block = blocks.first() if blocks.exists() else None
+    total_transactions = sum(block.transactions.count() for block in blocks)
+    
+    context = {
+        'blocks': blocks,
+        'latest_block': latest_block,
+        'total_transactions': total_transactions,
+    }
+    
+    return render(request, 'Cripto1/block_details_list.html', context)
+
+def generate_invoice_pdf(invoice):
+    """Genera un PDF professionale per la fattura"""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+    
+    # Stili
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#2c3e50')
+    )
+    
+    header_style = ParagraphStyle(
+        'CustomHeader',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceAfter=12,
+        textColor=colors.HexColor('#34495e')
+    )
+    
+    normal_style = ParagraphStyle(
+        'CustomNormal',
+        parent=styles['Normal'],
+        fontSize=11,
+        spaceAfter=6
+    )
+    
+    # Contenuto del PDF
+    story = []
+    
+    # Intestazione
+    story.append(Paragraph("FATTURA", title_style))
+    story.append(Spacer(1, 20))
+    
+    # Informazioni fattura
+    invoice_info = [
+        ['Numero Fattura:', invoice.invoice_number],
+        ['Data Emissione:', invoice.issue_date.strftime('%d/%m/%Y')],
+        ['Data Scadenza:', invoice.due_date.strftime('%d/%m/%Y')],
+        ['Status:', invoice.get_status_display()],
+    ]
+    
+    invoice_table = Table(invoice_info, colWidths=[2*inch, 3*inch])
+    invoice_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    
+    story.append(invoice_table)
+    story.append(Spacer(1, 30))
+    
+    # Informazioni organizzazione
+    story.append(Paragraph("Dati Cliente", header_style))
+    
+    org = invoice.organization_billing.organization
+    org_info = [
+        ['Organizzazione:', org.name],
+        ['Dominio:', org.domain or 'N/A'],
+        ['Email Fatturazione:', invoice.organization_billing.billing_email or 'N/A'],
+        ['Contatto:', invoice.organization_billing.billing_contact_name or 'N/A'],
+    ]
+    
+    org_table = Table(org_info, colWidths=[2*inch, 4*inch])
+    org_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 1, colors.lightgrey),
+    ]))
+    
+    story.append(org_table)
+    story.append(Spacer(1, 30))
+    
+    # Periodo di fatturazione
+    story.append(Paragraph("Periodo di Fatturazione", header_style))
+    period_text = f"Dal {invoice.billing_period_start.strftime('%d/%m/%Y')} al {invoice.billing_period_end.strftime('%d/%m/%Y')}"
+    story.append(Paragraph(period_text, normal_style))
+    story.append(Spacer(1, 20))
+    
+    # Dettagli costi
+    story.append(Paragraph("Dettagli Fatturazione", header_style))
+    
+    cost_data = [
+        ['Descrizione', 'Quantità', 'Prezzo Unitario', 'Totale'],
+        ['Costo Base Mensile', '1', f"€{invoice.base_amount}", f"€{invoice.base_amount}"],
+        ['Costo Utenti', str(invoice.user_count), f"€{invoice.user_amount/invoice.user_count if invoice.user_count > 0 else 0:.2f}", f"€{invoice.user_amount}"],
+    ]
+    
+    if invoice.additional_amount > 0:
+        cost_data.append(['Costi Aggiuntivi', '1', f"€{invoice.additional_amount}", f"€{invoice.additional_amount}"])
+    
+    cost_data.append(['', '', 'TOTALE:', f"€{invoice.total_amount}"])
+    
+    cost_table = Table(cost_data, colWidths=[3*inch, 1*inch, 1.5*inch, 1.5*inch])
+    cost_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#34495e')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ('BACKGROUND', (0, 1), (-1, -2), colors.beige),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e8f5e8')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    
+    story.append(cost_table)
+    story.append(Spacer(1, 30))
+    
+    # Note aggiuntive
+    if invoice.invoice_details:
+        story.append(Paragraph("Note", header_style))
+        for key, value in invoice.invoice_details.items():
+            story.append(Paragraph(f"<b>{key}:</b> {value}", normal_style))
+    
+    # Footer
+    story.append(Spacer(1, 50))
+    footer_text = "Documento generato automaticamente dal sistema di gestione."
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=9,
+        alignment=TA_CENTER,
+        textColor=colors.grey
+    )
+    story.append(Paragraph(footer_text, footer_style))
+    
+    # Genera il PDF
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+def send_invoice_email_and_save_pdf(invoice):
+    """Invia email all'admin di organizzazione e salva PDF per il superuser e admin org"""
+    from django.core.mail import EmailMessage
+    from django.template.loader import render_to_string
+    from django.conf import settings
+    
+    # Genera il PDF
+    pdf_buffer = generate_invoice_pdf(invoice)
+    pdf_filename = f"fattura_{invoice.invoice_number}.pdf"
+    
+    # 1. Invia email all'admin di organizzazione
+    org = invoice.organization_billing.organization
+    
+    # Trova l'admin dell'organizzazione
+    admin_users = UserProfile.objects.filter(
+        organization=org,
+        user__user_roles__role__name__in=['Organization Admin', 'Admin'],
+        user__user_roles__is_active=True
+    ).select_related('user')
+    
+    # Email di destinazione (priorità: billing_email, poi admin dell'org)
+    recipient_email = invoice.organization_billing.billing_email
+    admin_user = None
+    if not recipient_email and admin_users.exists():
+        admin_user = admin_users.first()
+        recipient_email = admin_user.user.email
+    elif admin_users.exists():
+        admin_user = admin_users.first()
+    
+    if recipient_email:
+        subject = f'Fattura {invoice.invoice_number} - {org.name}'
+        
+        # Corpo email HTML
+        email_context = {
+            'invoice': invoice,
+            'organization': org,
+            'invoice_url': f"{settings.SITE_URL}/finance/invoice/{invoice.id}/"
+        }
+        
+        html_message = render_to_string('Cripto1/finance/invoice_email.html', email_context)
+        
+        email = EmailMessage(
+            subject=subject,
+            body=html_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[recipient_email]
+        )
+        email.content_subtype = 'html'
+        
+        # Allega il PDF
+        pdf_buffer.seek(0)
+        email.attach(pdf_filename, pdf_buffer.read(), 'application/pdf')
+        
+        try:
+            email.send()
+            print(f"Email inviata a {recipient_email} per fattura {invoice.invoice_number}")
+        except Exception as e:
+            print(f"Errore invio email: {e}")
+    
+    # 2. Salva PDF nei documenti del superuser
+    try:
+        # Trova il superuser
+        superuser = User.objects.filter(is_superuser=True).first()
+        
+        if superuser:
+            # Reset buffer
+            pdf_buffer.seek(0)
+            
+            # Salva nei documenti personali del superuser
+            file_path = f'personal_documents/fatture/{pdf_filename}'
+            
+            # Crea la directory se non esiste
+            dir_path = os.path.join(settings.MEDIA_ROOT, 'personal_documents', 'fatture')
+            os.makedirs(dir_path, exist_ok=True)
+            
+            # Salva il file
+            saved_path = default_storage.save(file_path, ContentFile(pdf_buffer.read()))
+            
+            # Crea record nel database
+            PersonalDocument.objects.create(
+                user=superuser,
+                title=f"Fattura {invoice.invoice_number} - {org.name}",
+                description=f"Fattura generata automaticamente per {org.name} - Periodo: {invoice.billing_period_start.strftime('%d/%m/%Y')} - {invoice.billing_period_end.strftime('%d/%m/%Y')}",
+                file=saved_path
+            )
+            
+            print(f"PDF salvato nei documenti del superuser: {saved_path}")
+        
+    except Exception as e:
+        print(f"Errore salvataggio PDF superuser: {e}")
+    
+    # 3. Salva PDF nei documenti dell'admin dell'organizzazione
+    if admin_user:
+        try:
+            # Reset buffer
+            pdf_buffer.seek(0)
+            
+            # Salva nei documenti personali dell'admin dell'organizzazione
+            admin_file_path = f'personal_documents/fatture_ricevute/{pdf_filename}'
+            
+            # Crea la directory se non esiste
+            admin_dir_path = os.path.join(settings.MEDIA_ROOT, 'personal_documents', 'fatture_ricevute')
+            os.makedirs(admin_dir_path, exist_ok=True)
+            
+            # Salva il file
+            admin_saved_path = default_storage.save(admin_file_path, ContentFile(pdf_buffer.read()))
+            
+            # Crea record nel database per l'admin dell'organizzazione
+            PersonalDocument.objects.create(
+                user=admin_user.user,
+                title=f"Fattura Ricevuta {invoice.invoice_number}",
+                description=f"Fattura per la vostra organizzazione {org.name} - Periodo: {invoice.billing_period_start.strftime('%d/%m/%Y')} - {invoice.billing_period_end.strftime('%d/%m/%Y')}",
+                file=admin_saved_path
+            )
+            
+            print(f"PDF salvato nei documenti dell'admin dell'organizzazione: {admin_saved_path}")
+            
+        except Exception as e:
+            print(f"Errore salvataggio PDF admin organizzazione: {e}")
+    
+    # Chiudi sempre il buffer alla fine
+    pdf_buffer.close()
+
+# Signal per automatizzare l'invio quando una fattura viene creata o aggiornata
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+@receiver(post_save, sender='Cripto1.Invoice')
+def handle_invoice_creation(sender, instance, created, **kwargs):
+    """Gestisce l'invio automatico quando una fattura viene creata o il status cambia"""
+    # Invia solo per fatture inviate o pagate
+    if instance.status in ['sent', 'paid']:
+        # Evita loop infiniti controllando se è già stata processata
+        if not hasattr(instance, '_pdf_processed'):
+            instance._pdf_processed = True
+            send_invoice_email_and_save_pdf(instance)
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def generate_invoice_pdf_view(request, invoice_id):
+    """View per generare manualmente il PDF di una fattura"""
+    try:
+        from .models import Invoice
+        invoice = Invoice.objects.get(id=invoice_id)
+        
+        # Genera PDF
+        pdf_buffer = generate_invoice_pdf(invoice)
+        
+        # Restituisci come download
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="fattura_{invoice.invoice_number}.pdf"'
+        
+        pdf_buffer.close()
+        return response
+        
+    except Exception as e:
+        messages.error(request, f'Errore nella generazione del PDF: {str(e)}')
+        return redirect('Cripto1:billing_analytics')

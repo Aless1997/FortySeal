@@ -94,6 +94,10 @@
                                             </a>
                                             
                                             {% if user.is_staff %}
+                                            <button type="button" class="btn btn-sm btn-info" onclick="testBackupIntegrity('{{ backup.filename }}', {{ forloop.counter }})" title="Testa integrità">
+                                                <i class="fas fa-check-circle"></i>
+                                            </button>
+                                            
                                             <button type="button" class="btn btn-sm btn-warning" onclick="toggleConfirm('restore', {{ forloop.counter }})">
                                                 <i class="fas fa-undo"></i>
                                             </button>
@@ -105,11 +109,18 @@
                                         </div>
                                         
                                         {% if user.is_staff %}
+                                        <!-- Form per il test di integrità -->
+                                        <form id="testIntegrityForm{{ forloop.counter }}" method="post" action="{% url 'Cripto1:backup_management' %}" style="display: none;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="test_integrity">
+                                            <input type="hidden" name="backup_filename" value="{{ backup.filename }}">
+                                        </form>
+                                        
                                         <!-- Form per il ripristino -->
                                         <form id="restoreForm{{ forloop.counter }}" method="post" action="{% url 'Cripto1:backup_management' %}" style="display: none;">
                                             {% csrf_token %}
                                             <input type="hidden" name="action" value="restore_backup">
-                                            <input type="hidden" name="backup_file" value="{{ backup.filename }}">
+                                            <input type="hidden" name="backup_filename" value="{{ backup.filename }}">
                                         </form>
                                         {% endif %}
                                         
@@ -213,5 +224,12 @@
             confirmRow.style.display = 'none';
         }
     }
+</script>
+<script>
+function testBackupIntegrity(filename, counter) {
+    if (confirm('Vuoi testare l\'integrità del backup "' + filename + '"?')) {
+        document.getElementById('testIntegrityForm' + counter).submit();
+    }
+}
 </script>
 {% endblock %}

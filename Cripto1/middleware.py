@@ -4,6 +4,98 @@ from django.contrib import messages
 from django.utils import timezone
 from .models import AuditLog, UserProfile
 import json
+from datetime import timedelta
+import threading
+import time
+from django.core.cache import cache
+from datetime import timedelta
+import threading
+from .models import Organization, Transaction
+import os
+import logging
+
+logger = logging.getLogger(__name__)
+
+class SmartAutoCleanupMiddleware:
+    """Middleware MRP che rispetta gli intervalli configurati da ogni admin"""
+    
+    def __init__(self, get_response):
+        self.get_response = get_response
+        
+    def __call__(self, request):
+        # Controlla per ogni organizzazione se è ora del cleanup
+        self.check_and_run_cleanup()
+        response = self.get_response(request)
+        return response
+    
+    def check_and_run_cleanup(self):
+        """Controlla ogni organizzazione e esegue cleanup se necessario"""
+        now = timezone.now()
+        
+        for org in Organization.objects.filter(auto_delete_enabled=True):
+            cache_key = f'last_cleanup_org_{org.id}'
+            last_cleanup = cache.get(cache_key)
+            
+            # Usa l'intervallo configurato dall'admin
+            interval_minutes = org.cleanup_check_interval
+            check_interval = timedelta(minutes=interval_minutes)
+            
+            # Controlla se è ora di fare cleanup per questa organizzazione
+            if not last_cleanup or (now - last_cleanup) >= check_interval:
+                # Esegui cleanup in background per questa organizzazione
+                threading.Thread(
+                    target=self.run_org_cleanup, 
+                    args=(org,), 
+                    daemon=True
+                ).start()
+                
+                # Aggiorna cache per questa organizzazione
+                cache.set(cache_key, now, timeout=interval_minutes * 60)
+    
+    def run_org_cleanup(self, org):
+        """Esegue cleanup per una specifica organizzazione"""
+        try:
+            # Usa i nomi corretti dei campi
+            if not org.auto_delete_enabled:
+                return
+                
+            # Calcola retention usando il metodo del modello
+            retention_delta = org.get_auto_delete_timedelta()
+            if not retention_delta:
+                return
+                
+            cutoff_time = timezone.now() - retention_delta
+            cutoff_timestamp = cutoff_time.timestamp()
+            
+            expired_transactions = Transaction.objects.filter(
+                organization=org,
+                timestamp__lt=cutoff_timestamp
+            )
+            
+            deleted_count = 0
+            for transaction in expired_transactions:
+                try:
+                    file_deleted = False
+                    if transaction.file and os.path.exists(transaction.file.path):
+                        file_path = transaction.file.path
+                        os.remove(file_path)
+                        file_deleted = True
+                    
+                    if file_deleted:
+                        transaction.file = None
+                        transaction.save()
+                        deleted_count += 1
+                except Exception as e:
+                    logger.error(f'Errore cleanup transazione {transaction.id}: {e}')
+            
+            if deleted_count > 0:
+                logger.info(
+                    f'Org {org.name}: {deleted_count} file eliminati '
+                    f'(controllo ogni {org.cleanup_check_interval} min)'
+                )
+                
+        except Exception as e:
+            logger.error(f'Errore cleanup org {org.id}: {e}')
 print("=== AuditLogMiddleware caricato ===")
 
 class AuditLogMiddleware(MiddlewareMixin):
@@ -434,3 +526,32 @@ class MultiTenantMiddleware(MiddlewareMixin):
         """Imposta il database per l'organizzazione specifica"""
         # Per implementazioni più avanzate con database separati
         pass
+
+
+class Require2FAMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # URL che non richiedono il controllo 2FA
+        exempt_urls = [
+            '/setup-2fa/',
+            '/logout/',
+            '/login/',
+            '/admin/',
+        ]
+        
+        if (request.user.is_authenticated and 
+            hasattr(request.user, 'userprofile') and
+            not any(request.path.startswith(url) for url in exempt_urls)):
+            
+            user_profile = request.user.userprofile
+            if (user_profile.organization and 
+                user_profile.organization.require_2fa and 
+                not user_profile.two_factor_verified):
+                
+                from django.shortcuts import redirect
+                return redirect('Cripto1:setup_2fa')
+        
+        response = self.get_response(request)
+        return response

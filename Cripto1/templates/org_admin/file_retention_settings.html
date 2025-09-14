@@ -1,0 +1,13 @@
+<!-- Aggiungere dopo la riga 40 (dopo il campo auto_delete_after_unit): -->
+<div class="form-group">
+    <label for="{{ form.cleanup_check_interval.id_for_label }}">{{ form.cleanup_check_interval.label }}</label>
+    {{ form.cleanup_check_interval }}
+    {% if form.cleanup_check_interval.help_text %}
+        <small class="form-text text-muted">{{ form.cleanup_check_interval.help_text }}</small>
+    {% endif %}
+    {% if form.cleanup_check_interval.errors %}
+        <div class="invalid-feedback d-block">
+            {{ form.cleanup_check_interval.errors }}
+        </div>
+    {% endif %}
+</div>

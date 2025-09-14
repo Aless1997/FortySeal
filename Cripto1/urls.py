@@ -3,9 +3,11 @@ from django.urls import path, include
 from . import views
 from . import user_management_views
 from . import organization_admin_views  # Aggiungi questa riga
+from . import organization_views  # Aggiungi questa riga
 from django.contrib.auth import views as auth_views
 from django.urls import reverse_lazy
 from .decorators import external_forbidden
+from . import finance_views
 
 app_name = 'Cripto1'
 
@@ -89,11 +91,14 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # Aggiungi questa riga per il pattern backup_management
     path('admdashboard/backup/', views.backup_management, name='backup_management'),
-    # Aggiungi questa riga alle URL patterns esistenti
+    # RIMUOVI QUESTA RIGA CHE CAUSA L'ERRORE:
+    # path('test-backup-integrity/', views.test_backup_integrity, name='test_backup_integrity'),
     path('transactions/<int:transaction_id>/view-file/', views.view_transaction_file, name='view_transaction_file'),
     path('admdashboard/backup/upload/', views.upload_backup, name='upload_backup'),
     path('admdashboard/backup/download/<str:filename>/', views.download_backup, name='download_backup'),
-    # Aggiungi questi URL al tuo urlpatterns
+    # Aggiungi questi URL al tuo file urls.py
+    path('transaction/<int:transaction_id>/export-pdf/', views.export_transaction_pdf, name='export_transaction_pdf'),
+    path('transaction/<int:transaction_id>/save-to-documents/', views.save_transaction_details_to_personal_documents, name='save_transaction_details_to_personal_documents'),
     path('setup-2fa/', views.setup_2fa, name='setup_2fa'),
     path('manage-2fa/', views.manage_2fa, name='manage_2fa'),
     path('verify-2fa/', views.verify_2fa, name='verify_2fa'),
@@ -129,4 +134,31 @@ urlpatterns = [
     path('org-admin/roles/', organization_admin_views.org_role_management, name='org_role_management'),
     path('org-admin/logs/', organization_admin_views.org_audit_logs, name='org_audit_logs'),
     path('org-admin/sessions/', organization_admin_views.org_sessions, name='org_sessions'),
+    # Organization Management (Superuser only)
+    path('organization-management/', organization_views.organization_management_dashboard, name='organization_management_dashboard'),
+    path('organization-management/list/', organization_views.organization_management_list, name='organization_management_list'),
+    path('organization-management/detail/<int:org_id>/', organization_views.organization_management_detail, name='organization_management_detail'),
+    path('organization-management/create/', organization_views.organization_create, name='organization_create'),
+    path('organization-management/edit/<int:org_id>/', organization_views.organization_edit, name='organization_edit'),
+    path('organizations/<int:org_id>/delete/', organization_views.organization_delete, name='organization_delete'),
+    path('organization-management/create/', organization_views.organization_create, name='organization_create'),
+    # Commenta o rimuovi questa riga:
+    # path('org-admin/file-retention/', organization_admin_views.file_retention_settings, name='file_retention_settings'),
+    
+    # Finance URLs
+    path('finance/', finance_views.finance_dashboard, name='finance_dashboard'),
+    path('finance/organization/<int:org_id>/', finance_views.organization_billing_detail, name='organization_billing_detail'),
+    path('finance/payment-received/<int:org_id>/', finance_views.mark_payment_received, name='mark_payment_received'),
+    path('finance/send-request/<int:org_id>/', finance_views.send_payment_request, name='send_payment_request'),
+    path('finance/analytics/', finance_views.billing_analytics, name='billing_analytics'),
+    path('finance/register-organization-payment/<int:organization_id>/', finance_views.register_organization_payment, name='register_organization_payment'),
+    path('finance/payment-history/', finance_views.payment_history, name='payment_history'),
+    # Aggiungi questa riga per risolvere l'errore
+    path('finance/invoice/<int:invoice_id>/', finance_views.invoice_detail, name='invoice_detail'),
+    # Blockchain URLs
+    path('blockchain/', views.blockchain_list, name='blockchain_list'),
+    path('blockchain/block/<int:block_id>/', views.block_detail_view, name='block_detail_view'),
+    path('blockchain/blocks/', views.block_details_list, name='block_details_list'),
 ]
+# Aggiungi questa riga nelle URL patterns
+path('finance/invoice/<int:invoice_id>/pdf/', views.generate_invoice_pdf_view, name='generate_invoice_pdf'),

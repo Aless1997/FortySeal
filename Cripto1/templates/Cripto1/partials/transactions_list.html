@@ -7,7 +7,7 @@
                 <th>Direzione</th>
                 <th>Controparte</th>
                 <th>Timestamp</th>
-                <th>Hash Transazione</th>
+                <th style="min-width: 300px;">Hash Transazione</th>
                 <th>Note</th>
                 <th>Dettagli</th>
             </tr>
@@ -25,7 +25,7 @@
                     {% endif %}
                 </td>
                 <td>{{ tx.timestamp_datetime|date:"d/m/Y H:i:s" }}</td>
-                <td>{{ tx.transaction_hash|truncatechars:10 }}</td>
+                <td style="word-break: break-all; font-family: monospace; font-size: 0.85em;">{{ tx.transaction_hash }}</td>
                 <td>{{ tx.notes }}</td>
                 <td><a href="{% url 'Cripto1:transaction_details' tx.id %}" class="btn btn-info btn-sm">Vedi</a></td>
             </tr>

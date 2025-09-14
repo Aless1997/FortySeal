@@ -1,0 +1,139 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Fatturazione - {{ organization.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2>Configurazione Fatturazione - {{ organization.name }}</h2>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5>Informazioni Organizzazione</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Nome:</strong> {{ organization.name }}</p>
+                    <p><strong>Utenti Attivi:</strong> {{ user_count }}</p>
+                    <p><strong>Costo Mensile:</strong> €{{ monthly_cost|floatformat:2 }}</p>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5>Configurazione Fatturazione</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="billing_plan" class="form-label">Piano di Fatturazione</label>
+                                    <select class="form-select" id="billing_plan" name="billing_plan">
+                                        <option value="">Seleziona piano...</option>
+                                        {% for plan in billing_plans %}
+                                            <option value="{{ plan.id }}" 
+                                                {% if billing_config.billing_plan_id == plan.id %}selected{% endif %}>
+                                                {{ plan.name }} - €{{ plan.monthly_cost }}/mese
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="custom_monthly_cost" class="form-label">Costo Mensile Personalizzato</label>
+                                    <input type="number" step="0.01" class="form-control" 
+                                           id="custom_monthly_cost" name="custom_monthly_cost" 
+                                           value="{{ billing_config.custom_monthly_cost|default:'' }}">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="custom_cost_per_user" class="form-label">Costo per Utente</label>
+                                    <input type="number" step="0.01" class="form-control" 
+                                           id="custom_cost_per_user" name="custom_cost_per_user" 
+                                           value="{{ billing_config.custom_cost_per_user|default:'' }}">
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="billing_email" class="form-label">Email di Fatturazione</label>
+                                    <input type="email" class="form-control" 
+                                           id="billing_email" name="billing_email" 
+                                           value="{{ billing_config.billing_email }}">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="billing_contact_name" class="form-label">Nome Contatto</label>
+                                    <input type="text" class="form-control" 
+                                           id="billing_contact_name" name="billing_contact_name" 
+                                           value="{{ billing_config.billing_contact_name }}">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="admin_notes" class="form-label">Note Admin</label>
+                                    <textarea class="form-control" rows="3" 
+                                              id="admin_notes" name="admin_notes">{{ billing_config.admin_notes }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Salva Configurazione</button>
+                        <a href="{% url 'Cripto1:finance_dashboard' %}" class="btn btn-secondary">Torna al Dashboard</a>
+                    </form>
+                </div>
+            </div>
+            
+            {% if invoices %}
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5>Ultime Fatture</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Importo</th>
+                                    <th>Stato</th>
+                                    <th>Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for invoice in invoices %}
+                                <tr>
+                                    <td>{{ invoice.created_at|date:"d/m/Y" }}</td>
+                                    <td>€{{ invoice.amount|floatformat:2 }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if invoice.is_paid %}success{% else %}warning{% endif %}">
+                                            {% if invoice.is_paid %}Pagata{% else %}In attesa{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="#" class="btn btn-sm btn-outline-primary">Dettagli</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

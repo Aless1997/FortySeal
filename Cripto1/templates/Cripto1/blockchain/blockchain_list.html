@@ -1,0 +1,290 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-container {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .block-card {
+        border: none;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    }
+    
+    .block-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        transform: scaleY(0);
+        transition: transform 0.3s ease;
+    }
+    
+    .block-card:hover::before {
+        transform: scaleY(1);
+    }
+    
+    .block-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    
+    .block-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.5rem;
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        color: white;
+    }
+    
+    .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+        background: #10b981;
+    }
+    
+    .hash-display {
+        font-family: 'Courier New', monospace;
+        font-size: 0.8rem;
+        background: #f1f5f9;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        word-break: break-all;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-1">
+                        <i class="fas fa-cubes text-primary me-3"></i>
+                        {{ page_title }}
+                    </h1>
+                    <p class="text-muted mb-0">{{ page_subtitle }}</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'Cripto1:dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Dashboard
+                    </a>
+                    {% if is_superuser %}
+                        <a href="{% url 'Cripto1:block_details_list' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-list me-2"></i>Vista Lista
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtri e Ricerca -->
+    <div class="search-container">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Cerca Blocco</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="fas fa-search text-muted"></i>
+                    </span>
+                    <input type="text" class="form-control border-start-0" name="search" 
+                           value="{{ search_query }}" placeholder="Hash, indice...">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter me-2"></i>Filtra
+                </button>
+            </div>
+            <div class="col-md-3">
+                <a href="{% url 'Cripto1:blockchain_list' %}" class="btn btn-outline-secondary w-100">
+                    <i class="fas fa-times me-2"></i>Reset
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Statistiche Rapide -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-1">{{ total_blocks }}</h3>
+                    <small>Blocchi Totali</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-1">{{ total_transactions }}</h3>
+                    <small>Transazioni Totali</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-1">{% if latest_block %}#{{ latest_block.index }}{% else %}0{% endif %}</h3>
+                    <small>Ultimo Blocco</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-1">{{ avg_transactions }}</h3>
+                    <small>Media Tx/Blocco</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista Blocchi -->
+    <div class="row">
+        {% for block in page_obj %}
+            <div class="col-xl-4 col-lg-6 mb-4">
+                <div class="card block-card h-100">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-start mb-3">
+                            <div class="block-icon me-3">
+                                {{ block.index }}
+                            </div>
+                            <div class="flex-grow-1">
+                                <h5 class="card-title mb-1 fw-bold">Blocco #{{ block.index }}</h5>
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="status-indicator"></span>
+                                    <small class="text-muted">Confermato</small>
+                                </div>
+                                {% if block.organization and not is_superuser %}
+                                    <p class="text-muted small mb-0">
+                                        <i class="fas fa-building me-1"></i>{{ block.organization.name }}
+                                    </p>
+                                {% elif block.organization and is_superuser %}
+                                    <p class="text-muted small mb-0">
+                                        <i class="fas fa-building me-1"></i>{{ block.organization.name }}
+                                    </p>
+                                {% endif %}
+                            </div>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{% url 'Cripto1:block_detail_view' block.id %}">
+                                        <i class="fas fa-eye me-2"></i>Visualizza Dettagli
+                                    </a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <small class="text-muted d-block mb-1">Hash del Blocco:</small>
+                            <div class="hash-display">{{ block.hash|slice:":20" }}...</div>
+                        </div>
+                        
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <div class="text-center p-2 bg-light rounded">
+                                    <h6 class="mb-0 text-primary">{{ block.transactions_count }}</h6>
+                                    <small class="text-muted">Transazioni</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-center p-2 bg-light rounded">
+                                    <h6 class="mb-0 text-success">{{ block.difficulty|floatformat:1 }}</h6>
+                                    <small class="text-muted">Difficoltà</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                <i class="fas fa-clock me-1"></i>
+                                {{ block.timestamp_datetime|date:"d/m/Y H:i" }}
+                            </small>
+                            <a href="{% url 'Cripto1:block_detail_view' block.id %}" 
+                               class="btn btn-sm btn-primary">
+                                <i class="fas fa-arrow-right me-1"></i>Dettagli
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-cubes fa-4x text-muted mb-4"></i>
+                        <h4 class="text-muted mb-3">Nessun blocco trovato</h4>
+                        <p class="text-muted mb-4">Non ci sono blocchi che corrispondono ai criteri di ricerca.</p>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Paginazione -->
+    {% if page_obj.has_other_pages %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <nav aria-label="Paginazione blocchi">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

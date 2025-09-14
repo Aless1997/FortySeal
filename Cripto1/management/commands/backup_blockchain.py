@@ -7,6 +7,8 @@ import os
 import json
 import shutil
 import zipfile
+import threading
+import atexit
 
 class Command(BaseCommand):
     help = 'Esegue un backup completo della blockchain e dei dati correlati'
@@ -28,6 +30,17 @@ class Command(BaseCommand):
             type=int,
             help='ID dell\'organizzazione per backup specifico (opzionale)'
         )
+
+    def __init__(self):
+        super().__init__()
+        self.active_threads = []
+        atexit.register(self.cleanup_threads)
+    
+    def cleanup_threads(self):
+        """Assicura che tutti i thread siano terminati"""
+        for thread in self.active_threads:
+            if thread.is_alive():
+                thread.join(timeout=5)
 
     def handle(self, *args, **options):
         output_dir = options['output_dir']

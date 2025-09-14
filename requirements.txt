@@ -27,3 +27,4 @@ qrcode>=7.4.2
 sentry-sdk[django]
 reportlab
 faker
+celery redis

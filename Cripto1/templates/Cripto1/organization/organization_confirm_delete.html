@@ -1,0 +1,114 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Elimina Organizzazione - {{ organization.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .delete-card {
+        border: 2px solid #dc3545;
+        border-radius: 12px;
+        background: #fff5f5;
+    }
+    .warning-icon {
+        color: #dc3545;
+        font-size: 4rem;
+    }
+    .org-info {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card delete-card">
+                <div class="card-body text-center p-5">
+                    <div class="warning-icon mb-4">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    
+                    <h2 class="text-danger mb-3">Conferma Eliminazione</h2>
+                    <p class="lead mb-4">
+                        Sei sicuro di voler eliminare questa organizzazione? 
+                        <strong>Questa azione non può essere annullata.</strong>
+                    </p>
+                    
+                    <div class="org-info">
+                        <h5 class="mb-2">
+                            <i class="fas fa-building me-2"></i>{{ organization.name }}
+                        </h5>
+                        <div class="row text-start">
+                            <div class="col-sm-6">
+                                <small class="text-muted">Slug:</small><br>
+                                <code>{{ organization.slug }}</code>
+                            </div>
+                            <div class="col-sm-6">
+                                <small class="text-muted">Dominio:</small><br>
+                                {{ organization.domain|default:"Non specificato" }}
+                            </div>
+                            <div class="col-sm-6 mt-2">
+                                <small class="text-muted">Utenti:</small><br>
+                                {{ users_count }} utenti
+                            </div>
+                            <div class="col-sm-6 mt-2">
+                                <small class="text-muted">Creata il:</small><br>
+                                {{ organization.created_at|date:"d/m/Y" }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-warning text-start">
+                        <h6><i class="fas fa-warning me-2"></i>Conseguenze dell'eliminazione:</h6>
+                        <ul class="mb-0">
+                            <li>Tutti gli utenti dell'organizzazione perderanno l'accesso</li>
+                            <li>Tutte le transazioni associate verranno eliminate</li>
+                            <li>I blocchi della blockchain dell'organizzazione verranno rimossi</li>
+                            <li>Tutti i file e documenti verranno eliminati definitivamente</li>
+                        </ul>
+                    </div>
+                    
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-center gap-3 mt-4">
+                            <a href="{% url 'Cripto1:organization_management_list' %}" class="btn btn-secondary btn-lg">
+                                <i class="fas fa-times me-2"></i>Annulla
+                            </a>
+                            <button type="submit" class="btn btn-danger btn-lg" onclick="return confirm('Sei assolutamente sicuro? Digita ELIMINA per confermare.')">
+                                <i class="fas fa-trash me-2"></i>Elimina Definitivamente
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Conferma aggiuntiva con input di testo
+    const deleteForm = document.querySelector('form');
+    const deleteButton = deleteForm.querySelector('button[type="submit"]');
+    
+    deleteButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        const confirmation = prompt('Per confermare l\'eliminazione, digita "ELIMINA" (tutto maiuscolo):');
+        
+        if (confirmation === 'ELIMINA') {
+            if (confirm('Ultima conferma: eliminare definitivamente l\'organizzazione "{{ organization.name }}"?')) {
+                deleteForm.submit();
+            }
+        } else if (confirmation !== null) {
+            alert('Testo di conferma non corretto. Eliminazione annullata.');
+        }
+    });
+});
+</script>
+{% endblock %}

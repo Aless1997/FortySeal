@@ -1,0 +1,416 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}{{ organization.name }} - Dettagli{% endblock %}
+
+{% block extra_css %}
+<style>
+    .org-header {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        border-radius: 16px;
+        color: white;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .org-avatar-large {
+        width: 80px;
+        height: 80px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 2rem;
+        background: rgba(255,255,255,0.2);
+        backdrop-filter: blur(10px);
+    }
+    
+    .info-card {
+        border: none;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+    }
+    
+    .info-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .activity-timeline {
+        position: relative;
+        padding-left: 2rem;
+    }
+    
+    .activity-timeline::before {
+        content: '';
+        position: absolute;
+        left: 0.75rem;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e5e7eb;
+    }
+    
+    .activity-item {
+        position: relative;
+        padding-bottom: 1.5rem;
+    }
+    
+    .activity-item::before {
+        content: '';
+        position: absolute;
+        left: -1.75rem;
+        top: 0.5rem;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--primary-color);
+        border: 3px solid white;
+        box-shadow: 0 0 0 2px #e5e7eb;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header Organizzazione -->
+    <div class="org-header">
+        <div class="d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center">
+                <div class="org-avatar-large me-4">
+                    {{ organization.name|first|upper }}
+                </div>
+                <div>
+                    <h1 class="mb-2">{{ organization.name }}</h1>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="badge {% if organization.is_active %}bg-success{% else %}bg-danger{% endif %} fs-6">
+                            {% if organization.is_active %}Attiva{% else %}Inattiva{% endif %}
+                        </span>
+                        {% if organization.domain %}
+                            <span class="opacity-75">
+                                <i class="fas fa-globe me-1"></i>{{ organization.domain }}
+                            </span>
+                        {% endif %}
+                        <span class="opacity-75">
+                            <i class="fas fa-calendar me-1"></i>Creata il {{ organization.created_at|date:"d/m/Y" }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'Cripto1:organization_management_list' %}" class="btn btn-light">
+                    <i class="fas fa-arrow-left me-2"></i>Torna alla Lista
+                </a>
+                <a href="{% url 'Cripto1:organization_edit' organization.id %}" class="btn btn-warning">
+                    <i class="fas fa-edit me-2"></i>Modifica
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Informazioni Generali -->
+        <div class="col-lg-8">
+            <div class="card info-card mb-4">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle text-primary me-2"></i>
+                        Informazioni Generali
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-muted">Nome Organizzazione</label>
+                            <p class="mb-0">{{ organization.name }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-muted">Slug</label>
+                            <p class="mb-0"><code>{{ organization.slug }}</code></p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-muted">Dominio</label>
+                            <p class="mb-0">{{ organization.domain|default:"Non specificato" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-muted">Stato</label>
+                            <p class="mb-0">
+                                <span class="badge {% if organization.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                    {% if organization.is_active %}Attiva{% else %}Inattiva{% endif %}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold text-muted">Descrizione</label>
+                            <p class="mb-0">{{ organization.description|default:"Nessuna descrizione disponibile" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configurazioni -->
+            <div class="card info-card mb-4">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cogs text-info me-2"></i>
+                        Configurazioni
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-muted">Massimo Utenti</label>
+                            <p class="mb-0">{{ organization.max_users|default:"Illimitato" }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-muted">Storage (GB)</label>
+                            <p class="mb-0">{{ organization.max_storage_gb|default:"Illimitato" }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-muted">Timeout Sessione</label>
+                            <p class="mb-0">{{ organization.session_timeout_hours|default:"Default" }} ore</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-muted">2FA Obbligatorio</label>
+                            <p class="mb-0">
+                                <span class="badge {% if organization.require_2fa %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {% if organization.require_2fa %}Sì{% else %}No{% endif %}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-muted">Codice Registrazione</label>
+                            <p class="mb-0">
+                                {% if organization.registration_code %}
+                                    <code>{{ organization.registration_code }}</code>
+                                {% else %}
+                                    Non impostato
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Utenti dell'Organizzazione -->
+            <div class="card info-card">
+                <div class="card-header bg-transparent border-0">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-users text-success me-2"></i>
+                            Utenti ({{ organization_users.count }})
+                        </h5>
+                        <!-- Pulsante "Aggiungi Utente" rimosso -->
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if organization_users %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="border-0">Utente</th>
+                                        <th class="border-0">Email</th>
+                                        <th class="border-0">Ruolo</th>
+                                        <th class="border-0">Ultimo Accesso</th>
+                                        <th class="border-0">Stato</th>
+                                        <th class="border-0">Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user_profile in organization_users %}
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="user-avatar bg-primary text-white me-3">
+                                                        {{ user_profile.user.username|first|upper }}
+                                                    </div>
+                                                    <div>
+                                                        <h6 class="mb-0">{{ user_profile.user.username }}</h6>
+                                                        <small class="text-muted">{{ user_profile.user.first_name }} {{ user_profile.user.last_name }}</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>{{ user_profile.user.email }}</td>
+                                            <td>
+                                                {% for user_role in user_profile.user_roles.all %}
+                                                    <span class="badge bg-info me-1">{{ user_role.role.name }}</span>
+                                                {% endfor %}
+                                            </td>
+                                            <td>
+                                                {% if user_profile.user.last_login %}
+                                                    {{ user_profile.user.last_login|date:"d/m/Y H:i" }}
+                                                {% else %}
+                                                    <span class="text-muted">Mai</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="badge {% if user_profile.user.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                                    {% if user_profile.user.is_active %}Attivo{% else %}Inattivo{% endif %}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <a href="{% url 'Cripto1:user_detail' user_profile.user.id %}" class="btn btn-outline-primary">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    <a href="{% url 'Cripto1:edit_user' user_profile.user.id %}" class="btn btn-outline-warning">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                            <h6 class="text-muted">Nessun utente nell'organizzazione</h6>
+                            <p class="text-muted mb-0">Aggiungi il primo utente per iniziare</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Statistiche Rapide -->
+            <div class="card info-card mb-4">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar text-warning me-2"></i>
+                        Statistiche
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-primary bg-opacity-10 rounded">
+                                <h4 class="text-primary mb-1">{{ organization_users_count }}</h4>
+                                <small class="text-muted">Utenti Totali</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-success bg-opacity-10 rounded">
+                                <h4 class="text-success mb-1">{{ active_users_count }}</h4>
+                                <small class="text-muted">Utenti Attivi</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-info bg-opacity-10 rounded">
+                                <h4 class="text-info mb-1">{{ total_transactions }}</h4>
+                                <small class="text-muted">Transazioni</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-warning bg-opacity-10 rounded">
+                                <h4 class="text-warning mb-1">{{ total_blocks }}</h4>
+                                <small class="text-muted">Blocchi</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attività Recenti -->
+            <div class="card info-card">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history text-secondary me-2"></i>
+                        Attività Recenti
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_activities %}
+                        <div class="activity-timeline">
+                            {% for activity in recent_activities %}
+                                <div class="activity-item">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="mb-1">{{ activity.description }}</h6>
+                                            <small class="text-muted">
+                                                {% if activity.user %}
+                                                    {{ activity.user.username }}
+                                                {% else %}
+                                                    Sistema
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                        <small class="text-muted">{{ activity.timestamp|date:"H:i" }}</small>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-history fa-2x text-muted mb-3"></i>
+                            <p class="text-muted mb-0">Nessuna attività recente</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Animazione delle card al caricamento
+    $('.info-card').each(function(index) {
+        $(this).css('opacity', '0').delay(index * 200).animate({
+            opacity: 1
+        }, 600);
+    });
+});
+</script>
+{% endblock %}
+
+<!-- Nella sezione delle informazioni generali -->
+<div class="col-md-6">
+    <div class="info-item">
+        <i class="fas fa-power-off text-muted me-2"></i>
+        <strong>Stato:</strong>
+        {% if organization.is_active %}
+            <span class="badge bg-success ms-2">
+                <i class="fas fa-check me-1"></i>Attiva
+            </span>
+        {% else %}
+            <span class="badge bg-danger ms-2">
+                <i class="fas fa-times me-1"></i>Disattivata
+            </span>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Aggiungere nella sezione statistiche utenti -->
+<div class="col-md-3">
+    <div class="stat-card text-center p-3">
+        <i class="fas fa-user-check text-success mb-2" style="font-size: 2rem;"></i>
+        <h4 class="text-success mb-1">{{ organization.get_active_users_count }}</h4>
+        <p class="text-muted mb-0">Utenti Attivi</p>
+    </div>
+</div>
+<div class="col-md-3">
+    <div class="stat-card text-center p-3">
+        <i class="fas fa-user-times text-warning mb-2" style="font-size: 2rem;"></i>
+        <h4 class="text-warning mb-1">{{ organization.get_inactive_users_count }}</h4>
+        <p class="text-muted mb-0">Utenti Inattivi</p>
+    </div>
+</div>

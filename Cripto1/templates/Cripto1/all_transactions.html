@@ -3,12 +3,12 @@
 {% block title %}Tutte le Transazioni - Blockchain App{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid px-4 mt-4">
     <h2 class="mb-4">Tutte le Transazioni</h2>
 
     {# Campo di ricerca migliorato #}
     <div class="mb-3">
-        <div class="input-group">
+        <div class="input-group" style="max-width: 600px;">
             <span class="input-group-text"><i class="fas fa-search"></i></span>
             <input type="text" id="transactionSearch" class="form-control" placeholder="Cerca per hash, note, tipo, utente...">
             <button class="btn btn-outline-secondary" type="button" id="clearSearch">

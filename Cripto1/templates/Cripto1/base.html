@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-GZPCH0WD1Z"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-GZPCH0WD1Z');
+    </script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#6366f1">
@@ -150,100 +161,133 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center" href="{% url 'Cripto1:dashboard' %}">
-                                <i class="fas fa-chart-line me-2"></i> Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center" href="{% url 'Cripto1:personal_profile' %}">
-                                <i class="fas fa-user me-2"></i> Profile
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center" href="{% url 'Cripto1:users_feed' %}">
-                                <i class="fas fa-users me-2"></i> Users
-                            </a>
-                        </li>
-                        {% if user.is_superuser or user.is_staff %}
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="fas fa-cogs me-2"></i> Amministrazione
-                            </a>
-                            <ul class="dropdown-menu" aria-labelledby="adminDropdown">
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'Cripto1:admin_dashboard' %}">
-                                        <i class="fas fa-tachometer-alt me-2"></i> Dashboard Admin
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'Cripto1:user_management_dashboard' %}">
-                                        <i class="fas fa-user-cog me-2"></i> Gestione Utenti
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'Cripto1:audit_logs' %}">
-                                        <i class="fas fa-history me-2"></i> Log Attività
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'Cripto1:security_alerts' %}">
-                                        <i class="fas fa-shield-alt me-2"></i> Allerte Sicurezza
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'Cripto1:session_management' %}">
-                                        <i class="fas fa-clock me-2"></i> Gestione Sessioni
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'Cripto1:my_sessions' %}">
-                                        <i class="fas fa-user-clock me-2"></i> Le Mie Sessioni
-                                    </a>
-                                </li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'admin:index' %}">
-                                        <i class="fas fa-database me-2"></i> Django Admin
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
+                        {% if require_2fa_setup %}
+                            <!-- Quando il 2FA è obbligatorio ma non configurato, mostra solo il link per configurarlo -->
+                            <li class="nav-item">
+                                <div class="alert alert-warning d-inline-block mb-0 me-3">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>2FA Obbligatorio:</strong> Devi configurare l'autenticazione a due fattori
+                                </div>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link btn btn-warning d-flex align-items-center" href="{% url 'Cripto1:setup_2fa' %}">
+                                    <i class="fas fa-shield-alt me-2"></i> Configura 2FA
+                                </a>
+                            </li>
+                        {% else %}
+                            <!-- Navbar normale quando il 2FA non è obbligatorio o è già configurato -->
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center" href="{% url 'Cripto1:dashboard' %}">
+                                    <i class="fas fa-chart-line me-2"></i> Dashboard
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center" href="{% url 'Cripto1:personal_profile' %}">
+                                    <i class="fas fa-user me-2"></i> Profile
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center" href="{% url 'Cripto1:users_feed' %}">
+                                    <i class="fas fa-users me-2"></i> Users
+                                </a>
+                            </li>
+                            {% if user.is_superuser or user.is_staff %}
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-cogs me-2"></i> Amministrazione
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="adminDropdown">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'Cripto1:admin_dashboard' %}">
+                                            <i class="fas fa-tachometer-alt me-2"></i> Dashboard Admin
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'Cripto1:user_management_dashboard' %}">
+                                            <i class="fas fa-user-cog me-2"></i> Gestione Utenti
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'Cripto1:audit_logs' %}">
+                                            <i class="fas fa-history me-2"></i> Log Attività
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'Cripto1:security_alerts' %}">
+                                            <i class="fas fa-shield-alt me-2"></i> Allerte Sicurezza
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'Cripto1:session_management' %}">
+                                            <i class="fas fa-clock me-2"></i> Gestione Sessioni
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'Cripto1:my_sessions' %}">
+                                            <i class="fas fa-user-clock me-2"></i> Le Mie Sessioni
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'Cripto1:finance_dashboard' %}">
+                                            <i class="fas fa-chart-bar me-2"></i> Finance
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'admin:index' %}">
+                                            <i class="fas fa-database me-2"></i> Django Admin
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'Cripto1:organization_management_dashboard' %}">
+                                            <i class="fas fa-building me-2"></i> Gestione Organizzazioni
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'Cripto1:blockchain_list' %}">
+                                            <i class="fas fa-link me-2"></i> Vedi Blockchain
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                            {% endif %}
+                            {% if user.is_authenticated and user.userprofile and user.userprofile|has_role:"Organization Admin" %}
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="orgAdminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-building me-2"></i> Admin Organizzazione
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="orgAdminDropdown">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'Cripto1:org_admin_dashboard' %}">
+                                            <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'Cripto1:org_user_management' %}">
+                                            <i class="fas fa-user-cog me-2"></i> Gestione Utenti
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'Cripto1:org_role_management' %}">
+                                            <i class="fas fa-user-tag me-2"></i> Ruoli
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'Cripto1:org_audit_logs' %}">
+                                            <i class="fas fa-history me-2"></i> Log Audit
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'Cripto1:org_sessions' %}">
+                                            <i class="fas fa-clock me-2"></i> Sessioni
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                            {% endif %}
                         {% endif %}
-                        {% if user.userprofile|has_role:"Organization Admin" %}
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="orgAdminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="fas fa-building me-2"></i> Admin Organizzazione
-                            </a>
-                            <ul class="dropdown-menu" aria-labelledby="orgAdminDropdown">
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'Cripto1:org_admin_dashboard' %}">
-                                        <i class="fas fa-tachometer-alt me-2"></i> Dashboard
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'Cripto1:org_user_management' %}">
-                                        <i class="fas fa-user-cog me-2"></i> Gestione Utenti
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'Cripto1:org_role_management' %}">
-                                        <i class="fas fa-user-tag me-2"></i> Ruoli
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'Cripto1:org_audit_logs' %}">
-                                        <i class="fas fa-history me-2"></i> Log Audit
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'Cripto1:org_sessions' %}">
-                                        <i class="fas fa-clock me-2"></i> Sessioni
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
-                        {% endif %}
+                        
+                        <!-- Il logout è sempre disponibile -->
                         <li class="nav-item">
                             <form action="{% url 'Cripto1:logout' %}" method="post" style="display: inline;">
                                 {% csrf_token %}
@@ -625,3 +669,4 @@
     }
 </style>
 </html>
+

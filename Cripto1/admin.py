@@ -330,5 +330,3 @@ class SmartContractAdmin(admin.ModelAdmin, ExportCsvMixin):
     fields = [field.name for field in SmartContract._meta.fields]
 
 admin.site.register(CreatedDocument)
-
-

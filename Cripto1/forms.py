@@ -53,6 +53,28 @@ class UserProfileEditForm(forms.ModelForm):
                 'class': 'form-control'
             })
     
+    def clean_organization(self):
+        organization = self.cleaned_data.get('organization')
+        
+        # Se non c'è organizzazione selezionata, va bene
+        if not organization:
+            return organization
+            
+        # Se l'utente è già in questa organizzazione, non fare controlli
+        if self.instance and self.instance.organization == organization:
+            return organization
+            
+        # Conta gli utenti attuali nell'organizzazione
+        current_users_count = organization.user_profiles.count()
+        
+        # Verifica se si supererebbe il limite
+        if current_users_count >= organization.max_users:
+            raise forms.ValidationError(
+                f'L\'organizzazione "{organization.name}" ha già raggiunto il numero massimo di utenti consentiti ({organization.max_users}).'
+            )
+            
+        return organization
+
     def save(self, commit=True):
         user_profile = super().save(commit=False)
         if commit:
@@ -261,3 +283,34 @@ class OrganizationRegistrationForm(forms.Form):
             raise forms.ValidationError('La password deve contenere almeno un numero e una lettera')
         
         return cleaned_data
+
+
+class OrganizationFileRetentionForm(forms.ModelForm):
+    class Meta:
+        model = Organization
+        fields = [
+            'auto_delete_enabled', 
+            'auto_delete_after_value',  # CORRETTO: era auto_delete_value
+            'auto_delete_after_unit',   # CORRETTO: era auto_delete_unit
+            'cleanup_check_interval'
+        ]
+        widgets = {
+            'auto_delete_after_value': forms.NumberInput(attrs={'min': 1}),
+            'cleanup_check_interval': forms.NumberInput(
+                attrs={
+                    'min': 5, 
+                    'max': 1440,  # Max 24 ore
+                    'help_text': 'Minuti tra ogni controllo (5-1440)'
+                }
+            ),
+        }
+        labels = {
+            'auto_delete_enabled': 'Abilita Auto-eliminazione',
+            'auto_delete_after_value': 'Elimina file dopo',
+            'auto_delete_after_unit': 'Unità di tempo',
+            'cleanup_check_interval': 'Controlla ogni (minuti)',
+        }
+        help_texts = {
+            'cleanup_check_interval': 'Ogni quanti minuti controllare se ci sono file da eliminare (es: 15, 30, 60)',
+            'auto_delete_after_value': 'Dopo quanto tempo eliminare i file',
+        }

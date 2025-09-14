@@ -1,8 +1,8 @@
-from django.shortcuts import redirect
 from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
-from functools import wraps  # Aggiunta questa importazione mancante
+from django.shortcuts import redirect  # AGGIUNGI QUESTA RIGA
+from functools import wraps
 from .models import UserProfile, AuditLog
 
 
@@ -339,3 +339,37 @@ def can_share_document(user, document_type, document_id):
         except CreatedDocument.DoesNotExist:
             return False
     return False
+
+
+def superuser_required(redirect_url=None):
+    """
+    Decoratore per verificare se un utente è superuser.
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return redirect('Cripto1:login')
+            
+            if not request.user.is_superuser:
+                # Log dell'accesso negato
+                AuditLog.log_action(
+                    user=request.user,
+                    action_type='SECURITY_EVENT',
+                    description=f'Tentativo di accesso negato alla vista superuser {view_func.__name__}',
+                    severity='HIGH',
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    user_agent=request.META.get('HTTP_USER_AGENT', ''),
+                    success=False,
+                    error_message='Privilegi di superuser richiesti'
+                )
+                
+                if redirect_url:
+                    messages.error(request, 'Accesso negato: privilegi di superuser richiesti.')
+                    return redirect(redirect_url)
+                else:
+                    return HttpResponseForbidden('Accesso negato: privilegi di superuser richiesti.')
+            
+            return view_func(request, *args, **kwargs)
+        return _wrapped_view
+    return decorator

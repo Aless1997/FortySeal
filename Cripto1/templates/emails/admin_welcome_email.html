@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benvenuto Amministratore - FortySeal</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 4px solid #dc3545;
+            padding-bottom: 25px;
+            margin-bottom: 35px;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            color: #dc3545;
+            margin-bottom: 15px;
+        }
+        .welcome-title {
+            color: #dc3545;
+            font-size: 28px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .admin-badge {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 25px 0;
+            text-align: center;
+        }
+        .privileges-box {
+            background: #f8f9fa;
+            border-left: 5px solid #dc3545;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 8px;
+        }
+        .credentials {
+            background: #ffeaea;
+            border: 2px solid #dc3545;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 25px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 25px;
+            border-top: 2px solid #dc3545;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">👑 FortySeal Admin</div>
+            <p style="font-size: 18px; color: #666;">Pannello di Controllo Amministrativo</p>
+        </div>
+        
+        <h2 class="welcome-title">🎖️ Benvenuto Amministratore {{ username }}!</h2>
+        
+        <div class="admin-badge">
+            <h3 style="margin-top: 0;">🛡️ Privilegi Amministrativi Attivati</h3>
+            <p style="font-size: 18px; margin-bottom: 0;">Hai ora accesso completo alla gestione di {{ organization }}</p>
+        </div>
+        
+        <div class="privileges-box">
+            <h3>⚡ I Tuoi Privilegi Amministrativi</h3>
+            <ul style="font-size: 16px; line-height: 1.8;">
+                <li>👥 <strong>Gestione Utenti:</strong> Crea, modifica ed elimina account utente</li>
+                <li>🔐 <strong>Controllo Accessi:</strong> Assegna ruoli e permessi</li>
+                <li>📊 <strong>Dashboard Avanzata:</strong> Monitora tutte le attività dell'organizzazione</li>
+                <li>🔍 <strong>Audit Completo:</strong> Visualizza log dettagliati di tutte le operazioni</li>
+                <li>⚙️ <strong>Configurazioni:</strong> Personalizza impostazioni organizzazione</li>
+                <li>🚨 <strong>Sicurezza:</strong> Gestisci alert e notifiche di sicurezza</li>
+            </ul>
+        </div>
+        
+        <div class="credentials">
+            <h3>📋 Riepilogo Account Amministratore</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #ddd; font-weight: bold;">👤 Username:</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #ddd;">{{ username }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #ddd; font-weight: bold;">📧 Email:</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #ddd;">{{ email }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #ddd; font-weight: bold;">🏢 Organizzazione:</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #ddd; font-weight: bold; color: #dc3545;">{{ organization }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #ddd; font-weight: bold;">👑 Ruolo:</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #ddd;"><span style="background: #dc3545; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">AMMINISTRATORE</span></td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; font-weight: bold;">📅 Data Attivazione:</td>
+                    <td style="padding: 12px;">{{ registration_date }}</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 20px; border-radius: 8px; margin: 25px 0;">
+            <h3 style="color: #856404;">⚠️ Responsabilità Amministrative</h3>
+            <p style="color: #856404; margin-bottom: 0;">Come amministratore, sei responsabile della sicurezza e della gestione dell'intera organizzazione. Utilizza i tuoi privilegi con saggezza e mantieni sempre la massima sicurezza.</p>
+        </div>
+        
+        <div style="text-align: center; margin: 35px 0;">
+            <a href="https://block-lxlw.onrender.com/user-management/" style="background: linear-gradient(135deg, #dc3545, #c82333); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; font-size: 16px;">Accedi al Pannello Amministrativo</a>
+        </div>
+        
+        <div class="footer">
+            <p style="font-size: 18px; color: #dc3545; font-weight: bold;">Benvenuto nel team amministrativo di FortySeal!</p>
+            <p>Per qualsiasi supporto tecnico, contatta il nostro team specializzato.</p>
+            <hr style="margin: 25px 0; border: none; border-top: 1px solid #dc3545;">
+            <p style="font-size: 12px; color: #999;">© 2024 FortySeal - Pannello Amministrativo Sicuro</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,7 +1,7 @@
-from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.conf import settings
+from django.core.mail import send_mail
 from datetime import datetime
 import logging
 
@@ -26,6 +26,9 @@ def send_welcome_email(user, user_profile, request):
         user_roles = user_profile.get_roles()
         user_role = user_roles[0].name if user_roles else 'Nessun ruolo'
         
+        # Ottieni l'organizzazione dell'utente
+        organization_name = user_profile.organization.name if user_profile.organization else 'Nessuna organizzazione'
+        
         # Prepara il contesto per il template
         context = {
             'username': user.username,
@@ -34,6 +37,7 @@ def send_welcome_email(user, user_profile, request):
             'registration_ip': registration_ip,
             'registration_date': datetime.now().strftime('%d/%m/%Y alle %H:%M'),
             'user_role': user_role,
+            'organization': organization_name,
         }
         
         # Renderizza il template HTML
@@ -256,3 +260,63 @@ def send_share_notification_email(shared_document, action_type, modifier=None):
         
     except Exception as e:
         logger.error(f"Errore nell'invio email notifica condivisione: {str(e)}")
+
+
+def send_organization_welcome_email(organization, admin_email, request):
+    """Invia email di benvenuto per registrazione organizzazione"""
+    try:
+        context = {
+            'organization_name': organization.name,
+            'registration_code': organization.registration_code,
+            'max_users': organization.max_users,
+            'registration_date': datetime.now().strftime('%d/%m/%Y alle %H:%M'),
+        }
+        
+        html_message = render_to_string('emails/organization_welcome_email.html', context)
+        plain_message = strip_tags(html_message)
+        
+        # Invia email all'admin dell'organizzazione
+        if admin_email:
+            send_mail(
+                subject='🏢 Organizzazione Registrata con Successo - FortySeal Enterprise',
+                message=plain_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[admin_email],
+                html_message=html_message,
+                fail_silently=False,
+            )
+        
+        logger.info(f"Email di benvenuto organizzazione inviata per {organization.name}")
+        return True
+    except Exception as e:
+        logger.error(f"Errore invio email organizzazione: {str(e)}")
+        return False
+
+def send_admin_welcome_email(user, user_profile, request):
+    """Invia email di benvenuto per amministratore organizzazione"""
+    try:
+        context = {
+            'username': user.username,
+            'email': user.email,
+            'organization': user_profile.organization.name if user_profile.organization else 'N/A',
+            'registration_date': datetime.now().strftime('%d/%m/%Y alle %H:%M'),
+        }
+        
+        html_message = render_to_string('emails/admin_welcome_email.html', context)
+        plain_message = strip_tags(html_message)
+        
+        send_mail(
+            subject='👑 Privilegi Amministrativi Attivati - FortySeal Admin',
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        
+        logger.info(f"Email di benvenuto admin inviata a {user.email}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Errore nell'invio email admin a {user.email}: {str(e)}")
+        return False

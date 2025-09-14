@@ -13,7 +13,7 @@ from datetime import datetime
 
 from .models import UserProfile, Role, Permission, UserRole, AuditLog, Organization, Transaction, Block
 from .decorators import organization_admin_required
-from .forms import UserProfileEditForm
+from .forms import UserProfileEditForm, OrganizationFileRetentionForm
 
 
 @organization_admin_required()
@@ -360,16 +360,14 @@ def org_admin_dashboard(request):
     total_users = org_users.count()
     active_users = org_users.filter(user__is_active=True).count()
     
-    # Statistiche transazioni e blocchi dell'organizzazione
-    org_user_ids = org_users.values_list('user_id', flat=True)
-    # Nella funzione org_admin_dashboard, alla riga 365-367:
-    total_transactions = Transaction.objects.filter(
-    Q(sender_id__in=org_user_ids) | Q(receiver_id__in=org_user_ids)
-    ).count()
+    # CORREZIONE: Usa il campo organization direttamente
+    total_transactions = Transaction.objects.filter(organization=user_org).count()
     
-    total_blocks = Block.objects.count()  # Tutti i blocchi del sistema
+    # CORREZIONE: Filtra i blocchi per organizzazione
+    total_blocks = Block.objects.filter(organization=user_org).count()
     
     # Attività recenti dell'organizzazione
+    org_user_ids = org_users.values_list('user_id', flat=True)
     recent_activities = AuditLog.objects.filter(
         user_id__in=org_user_ids
     ).select_related('user').order_by('-timestamp')[:10]
@@ -384,3 +382,34 @@ def org_admin_dashboard(request):
     }
     
     return render(request, 'Cripto1/org_admin_dashboard.html', context)
+
+
+@organization_admin_required()
+# Puoi commentare o rimuovere la funzione file_retention_settings (righe 387-414)
+def file_retention_settings(request):
+    """Gestione impostazioni retention file per l'organizzazione"""
+    user_profile = UserProfile.objects.get(user=request.user)
+    organization = user_profile.organization
+    
+    if request.method == 'POST':
+        form = OrganizationFileRetentionForm(request.POST, instance=organization)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Impostazioni di retention file aggiornate con successo!')
+            return redirect('Cripto1:file_retention_settings')
+    else:
+        form = OrganizationFileRetentionForm(instance=organization)
+    
+    # Statistiche sui file
+    total_transaction_files = Transaction.objects.filter(
+        organization=organization,
+        file__isnull=False
+    ).exclude(file='').count()
+    
+    context = {
+        'form': form,
+        'organization': organization,
+        'total_transaction_files': total_transaction_files,
+    }
+    
+    return render(request, 'Cripto1/organization_management/file_retention_settings.html', context)

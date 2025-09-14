@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Richiesta Pagamento - {{ organization.name }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #6366f1; color: white; padding: 20px; text-align: center; }
+        .content { padding: 30px; background: #f8f9fa; }
+        .invoice-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .total { font-size: 1.2em; font-weight: bold; color: #6366f1; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 0.9em; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Richiesta Pagamento</h1>
+            <p>Fattura N. {{ invoice.invoice_number }}</p>
+        </div>
+        
+        <div class="content">
+            <h2>Gentile {{ billing_config.billing_contact_name|default:"Amministratore" }},</h2>
+            
+            <p>Con la presente Le inviamo la richiesta di pagamento per i servizi erogati alla Vostra organizzazione <strong>{{ organization.name }}</strong>.</p>
+            
+            <div class="invoice-details">
+                <h3>Dettagli Fatturazione</h3>
+                
+                <table>
+                    <tr>
+                        <th>Organizzazione:</th>
+                        <td>{{ organization.name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Periodo:</th>
+                        <td>{{ invoice.billing_period_start|date:"d/m/Y" }} - {{ invoice.billing_period_end|date:"d/m/Y" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Utenti Attivi:</th>
+                        <td>{{ user_count }}</td>
+                    </tr>
+                    <tr>
+                        <th>Data Scadenza:</th>
+                        <td>{{ invoice.due_date|date:"d/m/Y" }}</td>
+                    </tr>
+                </table>
+                
+                <h4>Riepilogo Costi</h4>
+                <table>
+                    {% if invoice.base_amount > 0 %}
+                    <tr>
+                        <td>Costo Base Mensile</td>
+                        <td style="text-align: right;">€{{ invoice.base_amount|floatformat:2 }}</td>
+                    </tr>
+                    {% endif %}
+                    
+                    {% if invoice.user_amount > 0 %}
+                    <tr>
+                        <td>Costo Utenti ({{ user_count }} utenti)</td>
+                        <td style="text-align: right;">€{{ invoice.user_amount|floatformat:2 }}</td>
+                    </tr>
+                    {% endif %}
+                    
+                    {% if billing_config.additional_costs %}
+                        {% for cost_name, cost_value in billing_config.additional_costs.items %}
+                        <tr>
+                            <td>{{ cost_name }}</td>
+                            <td style="text-align: right;">€{{ cost_value|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    <tr style="border-top: 2px solid #6366f1;">
+                        <td class="total">TOTALE</td>
+                        <td class="total" style="text-align: right;">€{{ monthly_cost|floatformat:2 }}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <p>La preghiamo di effettuare il pagamento entro la data di scadenza indicata.</p>
+            
+            <p>Per qualsiasi chiarimento, non esiti a contattarci.</p>
+            
+            <p>Cordiali saluti,<br>
+            <strong>Il Team Amministrativo</strong></p>
+        </div>
+        
+        <div class="footer">
+            <p>Questa è una comunicazione automatica. Per assistenza, contattare l'amministratore di sistema.</p>
+        </div>
+    </div>
+</body>
+</html>

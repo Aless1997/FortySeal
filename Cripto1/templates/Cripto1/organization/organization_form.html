@@ -1,0 +1,321 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}
+    {% if organization %}Modifica Organizzazione{% else %}Crea Nuova Organizzazione{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        background: white;
+        border-radius: 10px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .section-title {
+        color: #6366f1;
+        border-bottom: 2px solid #e5e7eb;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .feature-checkbox {
+        margin-bottom: 0.5rem;
+    }
+    .color-input {
+        width: 60px;
+        height: 40px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-building me-2"></i>
+                    {% if organization %}Modifica Organizzazione{% else %}Crea Nuova Organizzazione{% endif %}
+                </h1>
+                <a href="{% url 'Cripto1:organization_management_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Torna alla Lista
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <!-- Informazioni Base -->
+        <div class="form-section">
+            <h4 class="section-title">
+                <i class="fas fa-info-circle me-2"></i>Informazioni Base
+            </h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Nome Organizzazione *</label>
+                        <input type="text" class="form-control" id="name" name="name" 
+                               value="{% if organization %}{{ organization.name }}{% endif %}" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="slug" class="form-label">Slug *</label>
+                        <input type="text" class="form-control" id="slug" name="slug" 
+                               value="{% if organization %}{{ organization.slug }}{% endif %}" 
+                               {% if organization %}readonly{% endif %} required>
+                        <div class="form-text">Codice univoco per l'organizzazione (solo lettere, numeri e trattini)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="domain" class="form-label">Dominio</label>
+                        <input type="text" class="form-control" id="domain" name="domain" 
+                               value="{% if organization %}{{ organization.domain }}{% endif %}">
+                        <div class="form-text">Dominio email aziendale (opzionale)</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="registration_code" class="form-label">Codice Registrazione</label>
+                        <input type="text" class="form-control" id="registration_code" 
+                               value="{% if organization %}{{ organization.registration_code }}{% endif %}" readonly>
+                        <div class="form-text">Codice per la registrazione degli utenti</div>
+                    </div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="description" class="form-label">Descrizione</label>
+                <textarea class="form-control" id="description" name="description" rows="3">{% if organization %}{{ organization.description }}{% endif %}</textarea>
+            </div>
+        </div>
+
+        <!-- Configurazioni -->
+        <div class="form-section">
+            <h4 class="section-title">
+                <i class="fas fa-cogs me-2"></i>Configurazioni
+            </h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="max_users" class="form-label">Massimo Utenti</label>
+                        <input type="number" class="form-control" id="max_users" name="max_users" 
+                               value="{% if organization %}{{ organization.max_users }}{% else %}100{% endif %}" min="1">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="max_storage_gb" class="form-label">Massimo Storage (GB)</label>
+                        <input type="number" class="form-control" id="max_storage_gb" name="max_storage_gb" 
+                               value="{% if organization %}{{ organization.max_storage_gb }}{% else %}100{% endif %}" min="1">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sicurezza -->
+        {% if organization %}
+        <div class="form-section">
+            <h4 class="section-title">
+                <i class="fas fa-shield-alt me-2"></i>Sicurezza
+            </h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is_active" name="is_active" 
+                                   {% if organization.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">
+                                <i class="fas fa-power-off me-2"></i>Organizzazione Attiva
+                            </label>
+                            <div class="form-text text-warning">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                Disattivando l'organizzazione, tutti gli utenti associati verranno automaticamente disattivati
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="require_2fa" name="require_2fa" 
+                                   {% if organization.require_2fa %}checked{% endif %}>
+                            <label class="form-check-label" for="require_2fa">
+                                Richiedi 2FA per tutti gli utenti
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="session_timeout_hours" class="form-label">Timeout Sessione (ore)</label>
+                        <input type="number" class="form-control" id="session_timeout_hours" name="session_timeout_hours" 
+                               value="{% if organization %}{{ organization.session_timeout_hours }}{% else %}24{% endif %}" min="1" max="168">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Funzionalità -->
+        <div class="form-section">
+            <h4 class="section-title">
+                <i class="fas fa-puzzle-piece me-2"></i>Funzionalità Abilitate
+            </h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="feature-checkbox">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="feature_blockchain" name="feature_blockchain" 
+                                   {% if features.blockchain %}checked{% endif %}>
+                            <label class="form-check-label" for="feature_blockchain">
+                                <i class="fas fa-link me-2"></i>Blockchain
+                            </label>
+                        </div>
+                    </div>
+                    <div class="feature-checkbox">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="feature_2fa" name="feature_2fa" 
+                                   {% if features.2fa %}checked{% endif %}>
+                            <label class="form-check-label" for="feature_2fa">
+                                <i class="fas fa-mobile-alt me-2"></i>Autenticazione a Due Fattori
+                            </label>
+                        </div>
+                    </div>
+                    <div class="feature-checkbox">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="feature_audit_logs" name="feature_audit_logs" 
+                                   {% if features.audit_logs %}checked{% endif %}>
+                            <label class="form-check-label" for="feature_audit_logs">
+                                <i class="fas fa-clipboard-list me-2"></i>Log di Audit
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="feature-checkbox">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="feature_file_sharing" name="feature_file_sharing" 
+                                   {% if features.file_sharing %}checked{% endif %}>
+                            <label class="form-check-label" for="feature_file_sharing">
+                                <i class="fas fa-share-alt me-2"></i>Condivisione File
+                            </label>
+                        </div>
+                    </div>
+                    <div class="feature-checkbox">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="feature_smart_contracts" name="feature_smart_contracts" 
+                                   {% if features.smart_contracts %}checked{% endif %}>
+                            <label class="form-check-label" for="feature_smart_contracts">
+                                <i class="fas fa-file-contract me-2"></i>Smart Contracts
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Auto-eliminazione File -->
+        <div class="form-section">
+            <h4 class="section-title">
+                <i class="fas fa-trash-alt me-2"></i>Auto-eliminazione File
+            </h4>
+            <div class="mb-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="auto_delete_enabled" name="auto_delete_enabled" 
+                           {% if organization.auto_delete_enabled %}checked{% endif %}>
+                    <label class="form-check-label" for="auto_delete_enabled">
+                        <i class="fas fa-clock me-2"></i>Abilita Auto-eliminazione
+                    </label>
+                    <div class="form-text">Elimina automaticamente i file di transazione dopo un periodo specificato</div>
+                </div>
+            </div>
+            
+            <div class="row" id="retention-settings" style="{% if not organization.auto_delete_enabled %}display: none;{% endif %}">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="auto_delete_after_value" class="form-label">Elimina file dopo</label>
+                        <input type="number" class="form-control" id="auto_delete_after_value" name="auto_delete_after_value" 
+                               value="{% if organization %}{{ organization.auto_delete_after_value }}{% else %}30{% endif %}" min="1">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="auto_delete_after_unit" class="form-label">Unità di tempo</label>
+                        <select class="form-select" id="auto_delete_after_unit" name="auto_delete_after_unit">
+                            <option value="minutes" {% if organization.auto_delete_after_unit == 'minutes' %}selected{% endif %}>Minuti</option>
+                            <option value="hours" {% if organization.auto_delete_after_unit == 'hours' %}selected{% endif %}>Ore</option>
+                            <option value="days" {% if organization.auto_delete_after_unit == 'days' %}selected{% endif %}>Giorni</option>
+                            <option value="weeks" {% if organization.auto_delete_after_unit == 'weeks' %}selected{% endif %}>Settimane</option>
+                            <option value="months" {% if organization.auto_delete_after_unit == 'months' %}selected{% endif %}>Mesi</option>
+                            <option value="years" {% if organization.auto_delete_after_unit == 'years' %}selected{% endif %}>Anni</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="cleanup_check_interval" class="form-label">Controlla ogni (minuti)</label>
+                        <input type="number" class="form-control" id="cleanup_check_interval" name="cleanup_check_interval" 
+                               value="{% if organization %}{{ organization.cleanup_check_interval }}{% else %}30{% endif %}" min="5" max="1440">
+                        <div class="form-text">Ogni quanti minuti controllare se ci sono file da eliminare (5-1440)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Pulsanti -->
+        <div class="form-section">
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'Cripto1:organization_management_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-times me-2"></i>Annulla
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-2"></i>
+                    {% if organization %}Aggiorna Organizzazione{% else %}Crea Organizzazione{% endif %}
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-genera slug dal nome (solo per nuove organizzazioni)
+    {% if not organization %}
+    const nameInput = document.getElementById('name');
+    const slugInput = document.getElementById('slug');
+    
+    nameInput.addEventListener('input', function() {
+        const slug = this.value
+            .toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
+            .trim();
+        slugInput.value = slug;
+    });
+    {% endif %}
+    
+    // Mostra/nascondi impostazioni di retention
+    document.getElementById('auto_delete_enabled').addEventListener('change', function() {
+        const retentionSettings = document.getElementById('retention-settings');
+        if (this.checked) {
+            retentionSettings.style.display = 'block';
+        } else {
+            retentionSettings.style.display = 'none';
+        }
+    });
+});
+</script>
+{% endblock %}

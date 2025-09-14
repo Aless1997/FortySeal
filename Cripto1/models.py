@@ -58,7 +58,84 @@ class Organization(models.Model):
         unique=True,
         help_text="Codice univoco per la registrazione degli utenti"
     )
-
+    
+    # Configurazioni auto-eliminazione file transazioni
+    auto_delete_enabled = models.BooleanField(default=False, help_text="Abilita l'auto-eliminazione dei file di transazione")
+    auto_delete_after_value = models.IntegerField(default=30, help_text="Valore numerico per l'auto-eliminazione")
+    auto_delete_after_unit = models.CharField(
+        max_length=10,
+        choices=[
+            ('minutes', 'Minuti'),
+            ('hours', 'Ore'),
+            ('days', 'Giorni'),
+            ('weeks', 'Settimane'),
+            ('months', 'Mesi'),
+            ('years', 'Anni'),
+        ],
+        default='days',
+        help_text="Unità di tempo per l'auto-eliminazione"
+    )
+    
+    # Configurazione intervallo controllo per auto-eliminazione
+    cleanup_check_interval = models.IntegerField(
+        default=30, 
+        help_text="Minuti tra ogni controllo per file scaduti (es: 15, 30, 60)"
+    )
+    
+    def get_auto_delete_timedelta(self):
+        """Calcola il timedelta per l'auto-eliminazione"""
+        if not self.auto_delete_enabled:
+            return None
+            
+        value = self.auto_delete_after_value
+        unit = self.auto_delete_after_unit
+        
+        if unit == 'minutes':
+            return timedelta(minutes=value)
+        elif unit == 'hours':
+            return timedelta(hours=value)
+        elif unit == 'days':
+            return timedelta(days=value)
+        elif unit == 'weeks':
+            return timedelta(weeks=value)
+        elif unit == 'months':
+            return timedelta(days=value * 30)  # Approssimazione
+        elif unit == 'years':
+            return timedelta(days=value * 365)  # Approssimazione
+        return None
+    
+    def get_cleanup_check_timedelta(self):
+        """Calcola il timedelta per l'intervallo di controllo"""
+        return timedelta(minutes=self.cleanup_check_interval)
+    
+    def deactivate_all_users(self, deactivated_by=None):
+        """Disattiva tutti gli utenti dell'organizzazione"""
+        from django.utils import timezone
+        
+        affected_users = self.user_profiles.filter(is_active=True)
+        users_count = affected_users.count()
+        
+        # Disattiva tutti gli utenti
+        affected_users.update(is_active=False)
+        
+        # Log dell'azione se specificato l'utente
+        if deactivated_by:
+            AuditLog.objects.create(
+                user=deactivated_by,
+                action='bulk_user_deactivation',
+                description=f'Disattivati {users_count} utenti dell\'organizzazione {self.name}',
+                timestamp=timezone.now()
+            )
+        
+        return users_count
+    
+    def get_inactive_users_count(self):
+        """Restituisce il numero di utenti inattivi"""
+        return self.user_profiles.filter(is_active=False).count()
+    
+    def get_active_users_count(self):
+        """Restituisce il numero di utenti attivi"""
+        return self.user_profiles.filter(is_active=True).count()
 
 class Block(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='blocks', null=True, blank=True)
@@ -986,3 +1063,159 @@ class ShareNotification(models.Model):
     
     class Meta:
         ordering = ['-created_at']
+
+class BillingPlan(models.Model):
+    """Piano di fatturazione per le organizzazioni"""
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    monthly_base_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    cost_per_user = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    max_users_included = models.IntegerField(default=0, help_text="Utenti inclusi nel costo base")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = 'Piano di Fatturazione'
+        verbose_name_plural = 'Piani di Fatturazione'
+    
+    def __str__(self):
+        return self.name
+
+class OrganizationBilling(models.Model):
+    """Configurazione di fatturazione per organizzazione"""
+    organization = models.OneToOneField(Organization, on_delete=models.CASCADE, related_name='billing_config')
+    billing_plan = models.ForeignKey(BillingPlan, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Costi personalizzati (sovrascrivono il piano se impostati)
+    custom_monthly_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    custom_cost_per_user = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    
+    # Costi aggiuntivi
+    additional_costs = models.JSONField(default=dict, help_text="Costi aggiuntivi: {'nome': importo}")
+    
+    # Gestione pagamenti
+    payment_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'In Attesa'),
+            ('paid', 'Pagato'),
+            ('overdue', 'Scaduto'),
+            ('suspended', 'Sospeso'),
+        ],
+        default='pending'
+    )
+    
+    last_payment_date = models.DateField(null=True, blank=True)
+    next_payment_due = models.DateField(null=True, blank=True)
+    
+    # Contatti fatturazione
+    billing_email = models.EmailField(blank=True)
+    billing_contact_name = models.CharField(max_length=200, blank=True)
+    
+    # Note amministrative
+    admin_notes = models.TextField(blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Configurazione Fatturazione'
+        verbose_name_plural = 'Configurazioni Fatturazione'
+    
+    def __str__(self):
+        return f"Fatturazione - {self.organization.name}"
+    
+    def get_monthly_cost(self):
+        """Calcola il costo mensile totale"""
+        # Converti tutti i valori in Decimal per evitare errori di tipo
+        from decimal import Decimal
+        
+        base_cost = Decimal(str(self.custom_monthly_cost or 0))
+        if not self.custom_monthly_cost and self.billing_plan:
+            base_cost = Decimal(str(self.billing_plan.monthly_base_cost or 0))
+        
+        # Calcola costo utenti
+        user_count = self.organization.user_profiles.filter(is_active=True).count()
+        cost_per_user = Decimal(str(self.custom_cost_per_user or 0))
+        if not self.custom_cost_per_user and self.billing_plan:
+            cost_per_user = Decimal(str(self.billing_plan.cost_per_user or 0))
+        
+        # Utenti inclusi nel piano base
+        included_users = self.billing_plan.max_users_included if self.billing_plan else 0
+        billable_users = max(0, user_count - included_users)
+        
+        user_cost = Decimal(str(billable_users)) * cost_per_user
+        
+        # Costi aggiuntivi
+        additional_total = Decimal('0')
+        for cost in self.additional_costs.values():
+            if isinstance(cost, (int, float, str)) and str(cost).replace('.', '').replace('-', '').isdigit():
+                additional_total += Decimal(str(cost))
+        
+        return float(base_cost + user_cost + additional_total)
+    
+    def mark_as_paid(self):
+        """Segna come pagato e calcola prossima scadenza"""
+        from datetime import date
+        from dateutil.relativedelta import relativedelta
+        
+        self.payment_status = 'paid'
+        self.last_payment_date = date.today()
+        self.next_payment_due = date.today() + relativedelta(months=1)
+        self.save()
+
+class Invoice(models.Model):
+    """Fattura generata per un'organizzazione"""
+    organization_billing = models.ForeignKey(OrganizationBilling, on_delete=models.CASCADE, related_name='invoices')
+    invoice_number = models.CharField(max_length=50, unique=True)
+    
+    # Periodo di fatturazione
+    billing_period_start = models.DateField()
+    billing_period_end = models.DateField()
+    
+    # Importi
+    base_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    user_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    additional_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    # Dettagli
+    user_count = models.IntegerField()
+    invoice_details = models.JSONField(default=dict)
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('draft', 'Bozza'),
+            ('sent', 'Inviata'),
+            ('paid', 'Pagata'),
+            ('overdue', 'Scaduta'),
+            ('cancelled', 'Annullata'),
+        ],
+        default='draft'
+    )
+    
+    # Date
+    issue_date = models.DateField(auto_now_add=True)
+    due_date = models.DateField()
+    sent_date = models.DateTimeField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Fattura'
+        verbose_name_plural = 'Fatture'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Fattura {self.invoice_number} - {self.organization_billing.organization.name}"
+    
+    def save(self, *args, **kwargs):
+        if not self.invoice_number:
+            from datetime import date
+            today = date.today()
+            count = Invoice.objects.filter(issue_date=today).count() + 1
+            self.invoice_number = f"INV-{today.strftime('%Y%m%d')}-{count:03d}"
+        super().save(*args, **kwargs)

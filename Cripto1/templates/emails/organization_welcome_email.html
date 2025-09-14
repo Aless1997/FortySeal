@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organizzazione Registrata con Successo - FortySeal</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 4px solid #28a745;
+            padding-bottom: 25px;
+            margin-bottom: 35px;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            color: #28a745;
+            margin-bottom: 15px;
+        }
+        .welcome-title {
+            color: #28a745;
+            font-size: 28px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .premium-box {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 25px 0;
+            text-align: center;
+        }
+        .org-info {
+            background: #f8f9fa;
+            border-left: 5px solid #28a745;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 8px;
+        }
+        .credentials {
+            background: #e8f5e8;
+            border: 2px solid #28a745;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 25px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 25px;
+            border-top: 2px solid #28a745;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🏢 FortySeal Enterprise</div>
+            <p style="font-size: 18px; color: #666;">Piattaforma Aziendale per Transazioni Sicure</p>
+        </div>
+        
+        <h2 class="welcome-title">🎊 Organizzazione Registrata con Successo!</h2>
+        
+        <div class="premium-box">
+            <h3 style="margin-top: 0;">✨ Benvenuti nel mondo Enterprise di FortySeal!</h3>
+            <p style="font-size: 18px; margin-bottom: 0;">La vostra organizzazione è ora parte dell'ecosistema sicuro FortySeal</p>
+        </div>
+        
+        <div class="org-info">
+            <h3>🏢 Dettagli Organizzazione</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #ddd; font-weight: bold;">🏢 Nome Organizzazione:</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #ddd; font-size: 18px; color: #28a745; font-weight: bold;">{{ organization_name }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #ddd; font-weight: bold;">🔐 Codice Registrazione:</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #ddd; font-family: monospace; background: #f8f9fa; font-size: 16px;">{{ registration_code }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #ddd; font-weight: bold;">👥 Limite Utenti:</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #ddd;">{{ max_users }} utenti</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; font-weight: bold;">📅 Data Registrazione:</td>
+                    <td style="padding: 12px;">{{ registration_date }}</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="credentials">
+            <h3>🚀 Prossimi Passi</h3>
+            <ol style="font-size: 16px; line-height: 1.8;">
+                <li><strong>Condividi il codice di registrazione</strong> con i membri del tuo team</li>
+                <li><strong>Configura i ruoli e permessi</strong> per i tuoi utenti</li>
+                <li><strong>Inizia a utilizzare</strong> le funzionalità enterprise di FortySeal</li>
+                <li><strong>Monitora l'attività</strong> attraverso la dashboard amministrativa</li>
+            </ol>
+        </div>
+        
+        <div style="text-align: center; margin: 35px 0;">
+            <a href="https://block-lxlw.onrender.com" style="background: linear-gradient(135deg, #28a745, #20c997); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; font-size: 16px;">Accedi alla Dashboard Enterprise</a>
+        </div>
+        
+        <div class="footer">
+            <p style="font-size: 18px; color: #28a745; font-weight: bold;">Grazie per aver scelto FortySeal Enterprise!</p>
+            <p>Il nostro team è a disposizione per qualsiasi supporto necessario.</p>
+            <hr style="margin: 25px 0; border: none; border-top: 1px solid #28a745;">
+            <p style="font-size: 12px; color: #999;">© 2024 FortySeal Enterprise - Sicurezza Aziendale di Livello Superiore</p>
+        </div>
+    </div>
+</body>
+</html>

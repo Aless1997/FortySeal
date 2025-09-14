@@ -1,0 +1,257 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Dashboard Finanziaria{% endblock %}
+
+{% block content %}
+<!-- Token CSRF necessario per le richieste AJAX -->
+{% csrf_token %}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Dashboard Finanziaria</h1>
+                <a href="{% url 'Cripto1:billing_analytics' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-chart-bar"></i> Analytics
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiche Generali -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Fatturato Mensile
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                €{{ monthly_revenue|floatformat:2 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-euro-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Pagamenti Ricevuti
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ paid_organizations }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                In Attesa
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ pending_organizations }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Scaduti
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ overdue_organizations }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista Organizzazioni -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Gestione Fatturazione Organizzazioni</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Organizzazione</th>
+                            <th>Utenti Attivi</th>
+                            <th>Costo Mensile</th>
+                            <th>Stato Pagamento</th>
+                            <th>Ultima Scadenza</th>
+                            <th>Prossima Scadenza</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for org in organizations %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if org.logo %}
+                                        <img src="{{ org.logo.url }}" class="rounded-circle me-2" width="32" height="32">
+                                    {% endif %}
+                                    <div>
+                                        <strong>{{ org.name }}</strong>
+                                        {% if org.domain %}
+                                            <br><small class="text-muted">{{ org.domain }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge badge-info">
+                                    {{ org.user_profiles.count }} utenti
+                                </span>
+                            </td>
+                            <td>
+                                {% if org.billing_config %}
+                                    <strong>€{{ org.billing_config.get_monthly_cost|floatformat:2 }}</strong>
+                                {% else %}
+                                    <span class="text-muted">Non configurato</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if org.billing_config %}
+                                    {% if org.billing_config.payment_status == 'paid' %}
+                                        <span class="badge badge-success">Pagato</span>
+                                    {% elif org.billing_config.payment_status == 'pending' %}
+                                        <span class="badge badge-warning">In Attesa</span>
+                                    {% elif org.billing_config.payment_status == 'overdue' %}
+                                        <span class="badge badge-danger">Scaduto</span>
+                                    {% else %}
+                                        <span class="badge badge-secondary">{{ org.billing_config.get_payment_status_display }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge badge-light">Non configurato</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if org.billing_config.last_payment_date %}
+                                    {{ org.billing_config.last_payment_date|date:"d/m/Y" }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if org.billing_config.next_payment_due %}
+                                    {{ org.billing_config.next_payment_due|date:"d/m/Y" }}
+                                    {% if org.billing_config.next_payment_due < today %}
+                                        <i class="fas fa-exclamation-triangle text-danger ms-1" title="Scaduto"></i>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'Cripto1:organization_billing_detail' org.id %}" 
+                                       class="btn btn-sm btn-outline-primary" title="Configura">
+                                        <i class="fas fa-cog"></i>
+                                    </a>
+                                    
+                                    {% if org.billing_config and org.billing_config.billing_email %}
+                                        <a href="{% url 'Cripto1:send_payment_request' org.id %}" 
+                                           class="btn btn-sm btn-outline-info" title="Invia Richiesta">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </a>
+                                    {% endif %}
+                                    
+                                    <!-- Pulsante sempre presente per registrare pagamento -->
+                                    <button type="button" class="btn btn-sm btn-outline-success" 
+                                            onclick="registerOrganizationPayment({{ org.id }}, '{{ org.name }}')"
+                                            title="Registra Pagamento">
+                                        <i class="fas fa-credit-card"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted">
+                                Nessuna organizzazione trovata
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('#dataTable').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Italian.json"
+        },
+        "order": [[ 4, "desc" ]],
+        "pageLength": 25
+    });
+});
+
+function registerOrganizationPayment(organizationId, organizationName) {
+    if (confirm(`Sei sicuro di voler registrare il pagamento per ${organizationName}?`)) {
+        fetch(`{% url 'Cripto1:register_organization_payment' 0 %}`.replace('0', organizationId), {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Errore: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Errore durante la registrazione del pagamento');
+        });
+    }
+}
+</script>
+{% endblock %}

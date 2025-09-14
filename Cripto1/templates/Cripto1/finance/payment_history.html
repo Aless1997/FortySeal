@@ -1,0 +1,453 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Storico Fatturato - Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .analytics-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease;
+    }
+    .analytics-card:hover {
+        transform: translateY(-2px);
+    }
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .metric-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .export-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 10px 20px;
+        color: white;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    .export-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1">Storico Fatturato</h1>
+                    <p class="text-muted mb-0">Lista completa di tutti i pagamenti ricevuti</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn export-btn" onclick="exportPaymentHistory()">
+                        <i class="fas fa-download me-2"></i>Esporta Lista
+                    </button>
+                    <a href="{% url 'Cripto1:billing_analytics' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Torna alle Analytics
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiche Generali -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card analytics-card">
+                <div class="card-body text-center">
+                    <div class="metric-value text-success">€{{ total_revenue|floatformat:2 }}</div>
+                    <div class="metric-label text-muted">Fatturato Pagato</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card analytics-card">
+                <div class="card-body text-center">
+                    <div class="metric-value text-primary">{{ total_invoices }}</div>
+                    <div class="metric-label text-muted">Fatture Pagate</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card analytics-card">
+                <div class="card-body text-center">
+                    <div class="metric-value text-info">{{ all_invoices_count }}</div>
+                    <div class="metric-label text-muted">Totale Fatture</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card analytics-card">
+                <div class="card-body text-center">
+                    <div class="metric-value text-warning">{{ status_breakdown.sent }}</div>
+                    <div class="metric-label text-muted">Fatture Inviate</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista Fatture -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card analytics-card">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Tutte le Fatture ({{ all_invoices_count }})</h6>
+                    <button class="btn btn-sm btn-outline-primary" onclick="exportAllInvoices()">
+                        <i class="fas fa-download"></i> Esporta Lista
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="allInvoicesTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Organizzazione</th>
+                                    <th>Numero Fattura</th>
+                                    <th>Data Emissione</th>
+                                    <th>Periodo Fatturazione</th>
+                                    <th>Importo</th>
+                                    <th>Status</th>
+                                    <th>Utenti</th>
+                                    <th>Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for invoice in all_invoices %}
+                                <tr>
+                                    <td><strong>{{ forloop.counter }}</strong></td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if invoice.organization_billing.organization.logo %}
+                                                <img src="{{ invoice.organization_billing.organization.logo.url }}" class="rounded-circle me-2" width="32" height="32">
+                                            {% else %}
+                                                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                                                    <i class="fas fa-building text-white"></i>
+                                                </div>
+                                            {% endif %}
+                                            <div>
+                                                <strong>{{ invoice.organization_billing.organization.name }}</strong>
+                                                {% if invoice.organization_billing.organization.domain %}
+                                                    <br><small class="text-muted">{{ invoice.organization_billing.organization.domain }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ invoice.invoice_number }}</span>
+                                    </td>
+                                    <td>
+                                        <strong>{{ invoice.issue_date|date:"d/m/Y" }}</strong>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ invoice.billing_period_start|date:"d/m/Y" }} - 
+                                            {{ invoice.billing_period_end|date:"d/m/Y" }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <strong class="text-success">€{{ invoice.total_amount|floatformat:2 }}</strong>
+                                    </td>
+                                    <td>
+                                        {% if invoice.status == 'paid' %}
+                                            <span class="badge bg-success">Pagata</span>
+                                        {% elif invoice.status == 'sent' %}
+                                            <span class="badge bg-primary">Inviata</span>
+                                        {% elif invoice.status == 'draft' %}
+                                            <span class="badge bg-secondary">Bozza</span>
+                                        {% elif invoice.status == 'overdue' %}
+                                            <span class="badge bg-danger">Scaduta</span>
+                                        {% elif invoice.status == 'cancelled' %}
+                                            <span class="badge bg-dark">Annullata</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">{{ invoice.status|title }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ invoice.user_count }} utenti</span>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'Cripto1:organization_billing_detail' invoice.organization_billing.organization.id %}" class="btn btn-sm btn-outline-primary" title="Visualizza Dettagli">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        <i class="fas fa-receipt fa-3x mb-3 opacity-25"></i>
+                                        <p>Nessuna fattura trovata</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista Pagamenti -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card analytics-card">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Pagamenti Ricevuti ({{ paid_invoices|length }})</h6>
+                    <button class="btn btn-sm btn-outline-primary" onclick="exportPaymentHistory()">
+                        <i class="fas fa-download"></i> Esporta Lista
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="paymentHistoryTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Organizzazione</th>
+                                    <th>Numero Fattura</th>
+                                    <th>Data Emissione</th>
+                                    <th>Periodo Fatturazione</th>
+                                    <th>Importo</th>
+                                    <th>Utenti</th>
+                                    <th>Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for invoice in paid_invoices %}
+                                <tr>
+                                    <td><strong>{{ forloop.counter }}</strong></td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if invoice.organization_billing.organization.logo %}
+                                                <img src="{{ invoice.organization_billing.organization.logo.url }}" class="rounded-circle me-2" width="32" height="32">
+                                            {% else %}
+                                                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                                                    <i class="fas fa-building text-white"></i>
+                                                </div>
+                                            {% endif %}
+                                            <div>
+                                                <strong>{{ invoice.organization_billing.organization.name }}</strong>
+                                                {% if invoice.organization_billing.organization.domain %}
+                                                    <br><small class="text-muted">{{ invoice.organization_billing.organization.domain }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">{{ invoice.invoice_number }}</span>
+                                    </td>
+                                    <td>
+                                        <strong>{{ invoice.issue_date|date:"d/m/Y" }}</strong>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ invoice.billing_period_start|date:"d/m/Y" }} - 
+                                            {{ invoice.billing_period_end|date:"d/m/Y" }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <strong class="text-success">€{{ invoice.total_amount|floatformat:2 }}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ invoice.user_count }} utenti</span>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'Cripto1:invoice_detail' invoice.id %}" class="btn btn-sm btn-outline-primary" title="Visualizza Dettagli">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        <i class="fas fa-receipt fa-3x mb-3 opacity-25"></i>
+                                        <p>Nessun pagamento trovato</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function exportPaymentHistory() {
+    const table = document.getElementById('paymentHistoryTable');
+    const rows = [];
+    
+    // Header con nomi più chiari
+    const headers = [
+        'Numero',
+        'Organizzazione', 
+        'Numero Fattura',
+        'Data Emissione',
+        'Periodo Fatturazione',
+        'Importo (EUR)',
+        'Numero Utenti'
+    ];
+    rows.push(headers);
+    
+    // Data rows con formattazione migliorata
+    table.querySelectorAll('tbody tr').forEach(tr => {
+        const cells = tr.querySelectorAll('td');
+        if (cells.length > 0) {
+            const row = [];
+            
+            // Numero progressivo
+            row.push(cells[0].textContent.trim());
+            
+            // Nome organizzazione (solo il nome, senza dominio)
+            const orgCell = cells[1];
+            const orgName = orgCell.querySelector('strong');
+            row.push(orgName ? orgName.textContent.trim() : orgCell.textContent.trim());
+            
+            // Numero fattura (rimuovi badge styling)
+            const invoiceNum = cells[2].textContent.trim();
+            row.push(invoiceNum);
+            
+            // Data emissione
+            row.push(cells[3].textContent.trim());
+            
+            // Periodo fatturazione
+            row.push(cells[4].textContent.trim());
+            
+            // Importo (rimuovi simbolo € e formatta)
+            const amount = cells[5].textContent.trim().replace('€', '').replace(',', '.');
+            row.push(amount);
+            
+            // Numero utenti (estrai solo il numero)
+            const usersText = cells[6].textContent.trim();
+            const usersMatch = usersText.match(/\d+/);
+            row.push(usersMatch ? usersMatch[0] : '0');
+            
+            rows.push(row);
+        }
+    });
+    
+    // Crea CSV con separatori punto e virgola per compatibilità Excel italiana
+    const csvContent = '\uFEFF' + rows.map(row => 
+        row.map(cell => {
+            // Escape delle virgolette e wrapping se necessario
+            const cellStr = String(cell).replace(/"/g, '""');
+            return cellStr.includes(';') || cellStr.includes('\n') || cellStr.includes('"') 
+                ? `"${cellStr}"` 
+                : cellStr;
+        }).join(';')
+    ).join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    
+    // Nome file con timestamp
+    const now = new Date();
+    const timestamp = now.toISOString().slice(0, 10).replace(/-/g, '');
+    a.download = `pagamenti_ricevuti_${timestamp}.csv`;
+    
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+function exportAllInvoices() {
+    const table = document.getElementById('allInvoicesTable');
+    const rows = [];
+    
+    // Header con nomi più chiari
+    const headers = [
+        'Numero',
+        'Organizzazione',
+        'Numero Fattura',
+        'Data Emissione',
+        'Periodo Fatturazione',
+        'Importo (EUR)',
+        'Status',
+        'Numero Utenti'
+    ];
+    rows.push(headers);
+    
+    // Data rows con formattazione migliorata
+    table.querySelectorAll('tbody tr').forEach(tr => {
+        const cells = tr.querySelectorAll('td');
+        if (cells.length > 0) {
+            const row = [];
+            
+            // Numero progressivo
+            row.push(cells[0].textContent.trim());
+            
+            // Nome organizzazione (solo il nome, senza dominio)
+            const orgCell = cells[1];
+            const orgName = orgCell.querySelector('strong');
+            row.push(orgName ? orgName.textContent.trim() : orgCell.textContent.trim());
+            
+            // Numero fattura (rimuovi badge styling)
+            const invoiceNum = cells[2].textContent.trim();
+            row.push(invoiceNum);
+            
+            // Data emissione
+            row.push(cells[3].textContent.trim());
+            
+            // Periodo fatturazione
+            row.push(cells[4].textContent.trim());
+            
+            // Importo (rimuovi simbolo € e formatta)
+            const amount = cells[5].textContent.trim().replace('€', '').replace(',', '.');
+            row.push(amount);
+            
+            // Status (rimuovi badge styling)
+            const status = cells[6].textContent.trim();
+            row.push(status);
+            
+            // Numero utenti (estrai solo il numero)
+            const usersText = cells[7].textContent.trim();
+            const usersMatch = usersText.match(/\d+/);
+            row.push(usersMatch ? usersMatch[0] : '0');
+            
+            rows.push(row);
+        }
+    });
+    
+    // Crea CSV con separatori punto e virgola per compatibilità Excel italiana
+    const csvContent = '\uFEFF' + rows.map(row => 
+        row.map(cell => {
+            // Escape delle virgolette e wrapping se necessario
+            const cellStr = String(cell).replace(/"/g, '""');
+            return cellStr.includes(';') || cellStr.includes('\n') || cellStr.includes('"') 
+                ? `"${cellStr}"` 
+                : cellStr;
+        }).join(';')
+    ).join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    
+    // Nome file con timestamp
+    const now = new Date();
+    const timestamp = now.toISOString().slice(0, 10).replace(/-/g, '');
+    a.download = `tutte_le_fatture_${timestamp}.csv`;
+    
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %}

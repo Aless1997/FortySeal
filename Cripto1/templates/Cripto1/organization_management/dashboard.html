@@ -1,0 +1,416 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Gestione Organizzazioni - Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        border: none;
+        border-radius: 16px;
+        color: white;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255,255,255,0.1);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .stats-card:hover::before {
+        opacity: 1;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+    }
+    
+    .stats-icon {
+        font-size: 2.5rem;
+        opacity: 0.8;
+    }
+    
+    .action-card {
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+    }
+    
+    .action-card:hover {
+        border-color: var(--primary-color);
+        box-shadow: 0 8px 16px rgba(99, 102, 241, 0.1);
+    }
+    
+    .recent-item {
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid #f3f4f6;
+        transition: all 0.2s ease;
+    }
+    
+    .recent-item:hover {
+        background-color: #f9fafb;
+        border-color: var(--primary-color);
+    }
+    
+    .org-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 1.2rem;
+    }
+    
+    .progress-modern {
+        height: 8px;
+        border-radius: 4px;
+        background-color: #f3f4f6;
+    }
+    
+    .progress-bar-modern {
+        border-radius: 4px;
+        transition: width 0.6s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-1">
+                        <i class="fas fa-building text-primary me-3"></i>
+                        Gestione Organizzazioni
+                    </h1>
+                    <p class="text-muted mb-0">Dashboard amministrativa per la gestione delle organizzazioni</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'Cripto1:organization_management_list' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-list me-2"></i>Lista Completa
+                    </a>
+                    <a href="{% url 'Cripto1:organization_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Nuova Organizzazione
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiche Principali -->
+    <div class="row g-4 mb-5">
+        <div class="col-xl-3 col-md-6">
+            <div class="card stats-card">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Organizzazioni Totali</h6>
+                            <h2 class="card-title mb-0 fw-bold">{{ total_organizations }}</h2>
+                        </div>
+                        <div class="stats-icon">
+                            <i class="fas fa-building"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card stats-card" style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Organizzazioni Attive</h6>
+                            <h2 class="card-title mb-0 fw-bold">{{ active_organizations }}</h2>
+                        </div>
+                        <div class="stats-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card stats-card" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Utenti Totali</h6>
+                            <h2 class="card-title mb-0 fw-bold">{{ total_users }}</h2>
+                        </div>
+                        <div class="stats-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card stats-card" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Transazioni Totali</h6>
+                            <h2 class="card-title mb-0 fw-bold">{{ total_transactions }}</h2>
+                        </div>
+                        <div class="stats-icon">
+                            <i class="fas fa-exchange-alt"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Azioni Rapide -->
+        <div class="col-lg-4">
+            <div class="card action-card h-100">
+                <div class="card-header bg-transparent border-0 pb-0">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bolt text-primary me-2"></i>
+                        Azioni Rapide
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-3">
+                        <a href="{% url 'Cripto1:organization_create' %}" class="btn btn-outline-primary btn-lg">
+                            <i class="fas fa-plus me-2"></i>Nuova Organizzazione
+                        </a>
+                        <a href="{% url 'Cripto1:organization_management_list' %}" class="btn btn-outline-secondary btn-lg">
+                            <i class="fas fa-list me-2"></i>Visualizza Tutte
+                        </a>
+                        <a href="{% url 'Cripto1:user_management_dashboard' %}" class="btn btn-outline-info btn-lg">
+                            <i class="fas fa-users me-2"></i>Gestione Utenti
+                        </a>
+                        <a href="{% url 'Cripto1:audit_logs' %}" class="btn btn-outline-warning btn-lg">
+                            <i class="fas fa-history me-2"></i>Log di Sistema
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Organizzazioni Recenti -->
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header bg-transparent border-0 pb-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-clock text-success me-2"></i>
+                            Organizzazioni Recenti
+                        </h5>
+                        <span class="badge bg-success">{{ recent_organizations|length }}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if recent_organizations %}
+                        <div class="d-flex flex-column gap-3">
+                            {% for org in recent_organizations %}
+                                <div class="recent-item">
+                                    <div class="d-flex align-items-center">
+                                        <div class="org-avatar bg-primary text-white me-3">
+                                            {{ org.name|first|upper }}
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1 fw-semibold">{{ org.name }}</h6>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <small class="text-muted">{{ org.created_at|date:"d/m/Y" }}</small>
+                                                <span class="badge {% if org.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                                    {% if org.is_active %}Attiva{% else %}Inattiva{% endif %}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-building fa-3x text-muted mb-3"></i>
+                            <p class="text-muted mb-0">Nessuna organizzazione recente</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiche Avanzate -->
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header bg-transparent border-0 pb-0">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar text-info me-2"></i>
+                        Statistiche Avanzate
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-semibold">Utilizzo Storage</span>
+                            <span class="text-muted">{{ storage_percentage|floatformat:1 }}%</span>
+                        </div>
+                        <div class="progress progress-modern">
+                            <div class="progress-bar progress-bar-modern bg-primary" style="width: {{ storage_percentage }}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-semibold">Organizzazioni Attive</span>
+                            <span class="text-muted">{{ active_organizations_percentage }}%</span>
+                        </div>
+                        <div class="progress progress-modern">
+                            <div class="progress-bar progress-bar-modern bg-success" style="width: {{ active_organizations_percentage }}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h4 class="text-primary mb-1">{{ avg_users_per_org }}</h4>
+                                <small class="text-muted">Media Utenti/Org</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h4 class="text-success mb-1">{{ monthly_growth }}%</h4>
+                                <small class="text-muted">Crescita Mensile</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attività Recenti -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-transparent border-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-history text-secondary me-2"></i>
+                            Attività Recenti
+                        </h5>
+                        <span class="badge bg-secondary">{{ recent_activities|length }}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if recent_activities %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="border-0">Timestamp</th>
+                                        <th class="border-0">Organizzazione</th>
+                                        <th class="border-0">Utente</th>
+                                        <th class="border-0">Azione</th>
+                                        <th class="border-0">Stato</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for activity in recent_activities %}
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex flex-column">
+                                                    <span class="fw-semibold">{{ activity.timestamp|date:"H:i" }}</span>
+                                                    <small class="text-muted">{{ activity.timestamp|date:"d/m/Y" }}</small>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                {% if activity.organization %}
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="org-avatar bg-primary text-white me-2" style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                                            {{ activity.organization.name|first|upper }}
+                                                        </div>
+                                                        <span class="fw-semibold">{{ activity.organization.name }}</span>
+                                                    </div>
+                                                {% else %}
+                                                    <span class="text-muted">Sistema</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if activity.user %}
+                                                    <span class="badge bg-primary">{{ activity.user.username }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Sistema</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ activity.description }}</td>
+                                            <td>
+                                                {% if activity.severity == 'HIGH' %}
+                                                    <span class="badge bg-danger">{{ activity.severity }}</span>
+                                                {% elif activity.severity == 'MEDIUM' %}
+                                                    <span class="badge bg-warning">{{ activity.severity }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-info">{{ activity.severity }}</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nessuna attività recente</h5>
+                            <p class="text-muted mb-0">Le attività delle organizzazioni appariranno qui</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Animazione contatori
+    $('.stats-card h2').each(function() {
+        const $this = $(this);
+        const countTo = parseInt($this.text());
+        
+        $({ countNum: 0 }).animate({
+            countNum: countTo
+        }, {
+            duration: 2000,
+            easing: 'swing',
+            step: function() {
+                $this.text(Math.floor(this.countNum));
+            },
+            complete: function() {
+                $this.text(countTo);
+            }
+        });
+    });
+    
+    // Auto-refresh ogni 5 minuti
+    setTimeout(function() {
+        location.reload();
+    }, 300000);
+});
+</script>
+{% endblock %}

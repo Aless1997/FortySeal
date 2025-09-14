@@ -1,0 +1,78 @@
+<div class="card">
+    <div class="card-header">
+        <h5>🗂️ Configurazione Auto-eliminazione File</h5>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="form-check mb-3">
+                {{ form.auto_delete_enabled }}
+                <label class="form-check-label" for="{{ form.auto_delete_enabled.id_for_label }}">
+                    {{ form.auto_delete_enabled.label }}
+                </label>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.auto_delete_after_value.id_for_label }}" class="form-label">
+                        {{ form.auto_delete_after_value.label }}
+                    </label>
+                    {{ form.auto_delete_after_value }}
+                </div>
+                <div class="col-md-6">
+                    <label for="{{ form.auto_delete_after_unit.id_for_label }}" class="form-label">
+                        {{ form.auto_delete_after_unit.label }}
+                    </label>
+                    {{ form.auto_delete_after_unit }}
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="{{ form.cleanup_check_interval.id_for_label }}" class="form-label">
+                    ⏰ {{ form.cleanup_check_interval.label }}
+                </label>
+                {{ form.cleanup_check_interval }}
+                <div class="form-text">
+                    {{ form.cleanup_check_interval.help_text }}
+                    <br><strong>Esempi:</strong> 15 min (controllo frequente), 60 min (controllo orario), 240 min (ogni 4 ore)
+                </div>
+            </div>
+            
+            <div class="alert alert-info">
+                <strong>💡 Come funziona:</strong>
+                <ul class="mb-0">
+                    <li>Il sistema controllerà ogni <strong id="interval-display">30</strong> minuti se ci sono file da eliminare</li>
+                    <li>I file più vecchi di <strong id="retention-display">24 ore</strong> verranno eliminati automaticamente</li>
+                    <li>Tutto avviene in background senza interrompere l'applicazione</li>
+                </ul>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">💾 Salva Configurazione</button>
+        </form>
+    </div>
+</div>
+
+<script>
+// Aggiorna preview in tempo reale
+document.addEventListener('DOMContentLoaded', function() {
+    const intervalInput = document.getElementById('{{ form.cleanup_check_interval.id_for_label }}');
+    const valueInput = document.getElementById('{{ form.auto_delete_after_value.id_for_label }}');
+    const unitSelect = document.getElementById('{{ form.auto_delete_after_unit.id_for_label }}');
+    
+    function updatePreview() {
+        const interval = intervalInput.value || 30;
+        const value = valueInput.value || 24;
+        const unit = unitSelect.value || 'hours';
+        
+        document.getElementById('interval-display').textContent = interval;
+        document.getElementById('retention-display').textContent = value + ' ' + unit;
+    }
+    
+    intervalInput.addEventListener('input', updatePreview);
+    valueInput.addEventListener('input', updatePreview);
+    unitSelect.addEventListener('change', updatePreview);
+    
+    updatePreview();
+});
+</script>

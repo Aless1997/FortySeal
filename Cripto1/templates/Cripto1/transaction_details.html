@@ -49,7 +49,6 @@
                             </div>
                         </div>
                     {% endif %}
-                    <!-- Modifica la sezione dei pulsanti per i file -->
                     {% if transaction.type == 'file' and transaction.file %}
                         <div class="mb-3">
                             <h5>File Information</h5>
@@ -72,6 +71,19 @@
                                         </div>
                                     {% endif %}
                                 </div>
+                                <div class="card-footer">
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'Cripto1:export_transaction_pdf' transaction.id %}" class="btn btn-danger">
+                                            <i class="fas fa-file-pdf"></i> Esporta PDF
+                                        </a>
+                                        <a href="{% url 'Cripto1:save_transaction_details_to_personal_documents' transaction.id %}" class="btn btn-success">
+                                            <i class="fas fa-save"></i> Salva nei Documenti
+                                        </a>
+                                        <a href="{% url 'Cripto1:all_transactions' %}" class="btn btn-secondary">
+                                            <i class="fas fa-arrow-left"></i> Torna alle Transazioni
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     {% endif %}
@@ -84,6 +96,25 @@
                             <p><strong>Previous Hash:</strong> <small class="text-muted">{{ transaction.block.previous_hash }}</small></p>
                         </div>
                     {% endif %}
+                    
+                    <!-- Pulsanti per tutte le transazioni -->
+                    <div class="mb-3">
+                        <div class="card">
+                            <div class="card-footer">
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'Cripto1:export_transaction_pdf' transaction.id %}" class="btn btn-danger">
+                                        <i class="fas fa-file-pdf"></i> Esporta PDF
+                                    </a>
+                                    <a href="{% url 'Cripto1:save_transaction_details_to_personal_documents' transaction.id %}" class="btn btn-success">
+                                        <i class="fas fa-save"></i> Salva nei Documenti
+                                    </a>
+                                    <a href="{% url 'Cripto1:all_transactions' %}" class="btn btn-secondary">
+                                        <i class="fas fa-arrow-left"></i> Torna alle Transazioni
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
