@@ -1,6 +1,8 @@
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 import os
+import logging
+logger = logging.getLogger('Cripto1')
 
 def validate_file_security(file):
     """Validatore per la sicurezza dei file caricati"""
@@ -14,8 +16,21 @@ def validate_file_security(file):
         )
     
     # 2. Controllo dimensione
-    if file.size > 10 * 1024 * 1024:  # 10MB
-        raise ValidationError(_('Il file è troppo grande. Dimensione massima: 10MB'))
+    def validate_file_size(file, user=None):
+        # Ottieni il limite dall'organizzazione dell'utente
+        max_size = 10 * 1024 * 1024  # Default 10 MB
+        org_limit_mb = 10  # Default per il logging
+        
+        if user and hasattr(user, 'userprofile') and user.userprofile.organization:
+            org_limit_mb = user.userprofile.organization.max_file_size_mb
+            max_size = org_limit_mb * 1024 * 1024  # Converti MB in bytes
+        
+        # Log della validazione
+        logger.debug(f"Validazione file: org_limit_mb={org_limit_mb} (tipo: {type(org_limit_mb)})")
+        
+        if file.size > max_size:
+            max_size_mb = max_size // (1024 * 1024)
+            raise ValidationError(f'Il file è troppo grande. Dimensione massima consentita: {max_size_mb} MB')
     
     # 3. Scansione antivirus
     try:

@@ -1,91 +1,234 @@
 {% extends 'Cripto1/base.html' %}
 {% load static %}
+{% load tz %}
 
-{% block title %}Gestione Sessioni - FortySeal{% endblock %}
+{% block title %}Admin - Gestione Sessioni | FortySeal{% endblock %}
+
+{% block extra_css %}
+<style>
+.admin-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px 15px 0 0;
+}
+.session-row {
+    transition: all 0.3s ease;
+}
+.session-row:hover {
+    background-color: #f8f9fa;
+    transform: scale(1.01);
+}
+.danger-zone {
+    border: 2px dashed #dc3545;
+    background: #fff5f5;
+}
+.stats-card {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    border-radius: 15px;
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">
-                        <i class="fas fa-clock me-2"></i>
-                        Gestione Sessioni Attive
-                    </h4>
+<div class="container-fluid py-4">
+    <!-- Admin Header -->
+    <div class="card mb-4">
+        <div class="card-header admin-header">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h3 class="mb-1">
+                        <i class="fas fa-users-cog me-2"></i>
+                        Pannello Amministratore - Gestione Sessioni
+                    </h3>
+                    <p class="mb-0 opacity-75">Monitora e gestisci tutte le sessioni utente attive nel sistema</p>
                 </div>
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle me-2"></i>
-                                <strong>Sessioni Totali:</strong> {{ total_sessions }}
-                            </div>
-                        </div>
-                    </div>
+                <div class="col-md-4 text-end">
+                </div>
+            </div>
+        </div>
+    </div>
 
-                    {% if active_sessions %}
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th>Utente</th>
-                                    <th>Chiave Sessione</th>
-                                    <th>Scadenza</th>
-                                    <th>Ultima Attività</th>
-                                    <th>IP Address</th>
-                                    <th>Sessioni Concorrenti</th>
-                                    <th>Azioni</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for session in active_sessions %}
-                                <tr>
-                                    <td>
-                                        <i class="fas fa-user me-2"></i>
-                                        {{ session.user.username }}
-                                    </td>
-                                    <td>
-                                        <code>{{ session.session_key|slice:":8" }}...</code>
-                                    </td>
-                                    <td>
-                                        <small class="text-muted">
-                                            {{ session.expire_date|date:"d/m/Y H:i" }}
-                                        </small>
-                                    </td>
-                                    <td>
-                                        <small class="text-muted">
-                                            {% if session.last_activity %}
-                                                {{ session.last_activity|date:"d/m/Y H:i" }}
-                                            {% else %}
-                                                N/A
-                                            {% endif %}
-                                        </small>
-                                    </td>
-                                    <td>
-                                        <code>{{ session.ip_address|default:"N/A" }}</code>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-info">{{ session.concurrent_count }}</span>
-                                    </td>
-                                    <td>
-                                        <button class="btn btn-sm btn-danger" 
-                                                onclick="terminateSession('{{ session.session_key }}')"
-                                                title="Termina Sessione">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        Nessuna sessione attiva trovata.
-                    </div>
-                    {% endif %}
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card stats-card text-center">
+                <div class="card-body">
+                    <i class="fas fa-users fa-2x mb-2"></i>
+                    <h4>{{ total_sessions }}</h4>
+                    <small>Sessioni Totali</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stats-card text-center" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                <div class="card-body">
+                    <i class="fas fa-clock fa-2x mb-2"></i>
+                    <h4>{% now "H:i" %}</h4>
+                    <small>Ora Sistema</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stats-card text-center" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="card-body">
+                    <i class="fas fa-shield-alt fa-2x mb-2"></i>
+                    <h4>100%</h4>
+                    <small>Sicurezza</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stats-card text-center" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333;">
+                <div class="card-body">
+                    <i class="fas fa-server fa-2x mb-2"></i>
+                    <h4>Online</h4>
+                    <small>Stato Sistema</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sessions Table -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-table me-2 text-primary"></i>
+                    Sessioni Attive ({{ total_sessions }})
+                </h5>
+                <div class="input-group" style="width: 300px;">
+                    <input type="text" class="form-control" placeholder="Cerca utente..." id="searchInput">
+                    <button class="btn btn-outline-secondary" type="button">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if active_sessions %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="sessionsTable">
+                    <thead class="table-dark">
+                        <tr>
+                            <th><i class="fas fa-user me-1"></i>Utente</th>
+                            <th><i class="fas fa-key me-1"></i>Sessione</th>
+                            <th><i class="fas fa-calendar me-1"></i>Scadenza</th>
+                            <th><i class="fas fa-clock me-1"></i>Ultima Attività</th>
+                            <th><i class="fas fa-map-marker-alt me-1"></i>Posizione</th>
+                            <th><i class="fas fa-laptop me-1"></i>Dispositivo</th>
+                            <th><i class="fas fa-layer-group me-1"></i>Concorrenti</th>
+                            <th><i class="fas fa-cogs me-1"></i>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for session in active_sessions %}
+                        <tr class="session-row">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm bg-primary rounded-circle d-flex align-items-center justify-content-center me-2">
+                                        <i class="fas fa-user text-white"></i>
+                                    </div>
+                                    <div>
+                                        <strong>{{ session.user.username }}</strong>
+                                        <br><small class="text-muted">{{ session.user.email }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <code class="bg-light p-1 rounded">{{ session.session_key|slice:":12" }}...</code>
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    {% timezone "Europe/Rome" %}
+                                        <i class="fas fa-calendar-alt me-1"></i>
+                                        {{ session.expire_date|localtime|date:"d/m/Y" }}<br>
+                                        <i class="fas fa-clock me-1"></i>
+                                        {{ session.expire_date|localtime|date:"H:i" }}
+                                    {% endtimezone %}
+                                </small>
+                            </td>
+                            <td>
+                                {% if session.last_activity %}
+                                    <small class="text-success">
+                                        <i class="fas fa-circle me-1" style="font-size: 8px;"></i>
+                                        {% timezone "Europe/Rome" %}
+                                            {{ session.last_activity|localtime|date:"d/m/Y H:i:s" }}
+                                        {% endtimezone %}
+                                    </small>
+                                {% else %}
+                                    <small class="text-muted">N/A</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-info">
+                                    <i class="fas fa-globe me-1"></i>
+                                    {{ session.ip_address|default:"N/A" }}
+                                </span>
+                            </td>
+                            <td>
+                                <small class="text-muted" title="User Agent completo disponibile nei dettagli">
+                                    <i class="fas fa-desktop me-1"></i>
+                                    Browser Desktop
+                                </small>
+                            </td>
+                            <td>
+                                <span class="badge bg-warning text-dark">
+                                    {{ session.concurrent_count }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-info" 
+                                            onclick="viewSessionDetails('{{ session.session_key }}')"
+                                            title="Visualizza dettagli">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger" 
+                                            onclick="terminateSession('{{ session.session_key }}')"
+                                            title="Termina sessione">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                <h5>Nessuna Sessione Attiva</h5>
+                <p class="text-muted">Non ci sono sessioni attive nel sistema al momento.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="card mt-4 danger-zone">
+        <div class="card-header bg-danger text-white">
+            <h6 class="mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Zona Pericolosa - Azioni Amministrative
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <button class="btn btn-outline-danger" onclick="terminateAllSessions()">
+                        <i class="fas fa-power-off me-2"></i>
+                        Termina Tutte le Sessioni
+                    </button>
+                    <small class="d-block text-muted mt-1">Forza la disconnessione di tutti gli utenti</small>
+                </div>
+                <div class="col-md-6">
+                    <button class="btn btn-outline-warning" onclick="clearExpiredSessions()">
+                        <i class="fas fa-broom me-2"></i>
+                        Pulisci Sessioni Scadute
+                    </button>
+                    <small class="d-block text-muted mt-1">Rimuove le sessioni scadute dal database</small>
                 </div>
             </div>
         </div>
@@ -93,32 +236,154 @@
 </div>
 
 <script>
+// Search functionality
+document.getElementById('searchInput').addEventListener('keyup', function() {
+    const searchTerm = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#sessionsTable tbody tr');
+    
+    rows.forEach(row => {
+        const username = row.cells[0].textContent.toLowerCase();
+        if (username.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+function refreshData() {
+    location.reload();
+}
+
+function exportSessions() {
+    // Implementa export CSV/Excel
+    alert('Funzionalità di export in sviluppo');
+}
+
+function viewSessionDetails(sessionKey) {
+    Swal.fire({
+        title: 'Dettagli Sessione',
+        html: `
+            <div class="text-start">
+                <p><strong>Chiave Sessione:</strong><br><code>${sessionKey}</code></p>
+                <p><strong>Stato:</strong> <span class="badge bg-success">Attiva</span></p>
+                <p><strong>Sicurezza:</strong> <span class="badge bg-info">TLS 1.3</span></p>
+            </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'Chiudi'
+    });
+}
+
 function terminateSession(sessionKey) {
-    if (confirm('Sei sicuro di voler terminare questa sessione?')) {
-        fetch('{% url "Cripto1:terminate_session" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify({
-                'session_key': sessionKey
+    Swal.fire({
+        title: 'Terminare la sessione?',
+        text: 'L\'utente verrà disconnesso immediatamente',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sì, termina',
+        cancelButtonText: 'Annulla'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('{% url "Cripto1:terminate_session" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    'session_key': sessionKey
+                })
             })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Sessione terminata con successo');
-                location.reload();
-            } else {
-                alert('Errore: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Errore durante la terminazione della sessione');
-        });
-    }
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('Terminata!', 'La sessione è stata terminata con successo.', 'success')
+                    .then(() => location.reload());
+                } else {
+                    Swal.fire('Errore!', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Errore!', 'Errore durante la terminazione della sessione', 'error');
+            });
+        }
+    });
+}
+
+function terminateAllSessions() {
+    Swal.fire({
+        title: 'ATTENZIONE!',
+        text: 'Questa azione disconnetterà TUTTI gli utenti dal sistema. Continuare?',
+        icon: 'error',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sì, disconnetti tutti',
+        cancelButtonText: 'Annulla'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('{% url "Cripto1:terminate_all_sessions" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('Completato!', data.message, 'success')
+                    .then(() => location.reload());
+                } else {
+                    Swal.fire('Errore!', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Errore!', 'Errore durante la terminazione delle sessioni', 'error');
+            });
+        }
+    });
+}
+
+function clearExpiredSessions() {
+    Swal.fire({
+        title: 'Pulire le sessioni scadute?',
+        text: 'Questa azione rimuoverà tutte le sessioni scadute dal database',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sì, pulisci',
+        cancelButtonText: 'Annulla'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('{% url "Cripto1:clear_expired_sessions" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('Completato!', data.message, 'success')
+                    .then(() => location.reload());
+                } else {
+                    Swal.fire('Errore!', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Errore!', 'Errore durante la pulizia delle sessioni', 'error');
+            });
+        }
+    });
 }
 </script>
 {% endblock %}

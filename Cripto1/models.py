@@ -8,8 +8,10 @@ import base64
 import uuid  # Aggiungi questa riga
 from encrypted_model_fields.fields import EncryptedTextField
 from django.core.validators import FileExtensionValidator
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from datetime import timedelta
+import logging
 
 # Import for cryptography
 from cryptography.hazmat.backends import default_backend
@@ -17,6 +19,8 @@ from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.padding import PSS, MGF1
 from cryptography.exceptions import InvalidSignature
+
+logger = logging.getLogger('Cripto1')
 
 
 class Organization(models.Model):
@@ -30,7 +34,8 @@ class Organization(models.Model):
     
     # Configurazioni organizzazione
     max_users = models.IntegerField(default=100)
-    max_storage_gb = models.IntegerField(default=10)
+    max_storage_gb = models.IntegerField(default=100, help_text="Massimo storage in GB")
+    max_file_size_mb = models.IntegerField(default=10, help_text="Dimensione massima file per transazione in MB (max 10240 per 10GB)")
     
     # Personalizzazione UI
     primary_color = models.CharField(max_length=7, default='#6366f1')
@@ -136,6 +141,23 @@ class Organization(models.Model):
     def get_active_users_count(self):
         """Restituisce il numero di utenti attivi"""
         return self.user_profiles.filter(is_active=True).count()
+    
+    def save(self, *args, **kwargs):
+        logger.debug(f"Salvando Organization: max_file_size_mb={self.max_file_size_mb}, tipo={type(self.max_file_size_mb)}")
+        try:
+            super().save(*args, **kwargs)
+            logger.debug(f"Organization salvata con successo: ID={self.id}")
+        except Exception as e:
+            logger.error(f"Errore nel salvare Organization: {e}")
+            logger.error(f"Valore max_file_size_mb: {self.max_file_size_mb} (tipo: {type(self.max_file_size_mb)})")
+            raise
+    
+    def clean(self):
+        logger.debug(f"Validazione Organization: max_file_size_mb={self.max_file_size_mb}")
+        super().clean()
+        if self.max_file_size_mb > 10240:  # 10 GB in MB
+            logger.warning(f"max_file_size_mb troppo grande: {self.max_file_size_mb}")
+            raise ValidationError({'max_file_size_mb': 'La dimensione massima non può superare 10 GB (10240 MB)'})
 
 class Block(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='blocks', null=True, blank=True)

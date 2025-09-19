@@ -386,8 +386,11 @@ $(document).ready(function() {
     // Validazione dimensione file
     $('input[name="profile_picture"]').on('change', function() {
         var file = this.files[0];
-        if (file && file.size > 5 * 1024 * 1024) { // 5MB
-            alert('Il file è troppo grande. La dimensione massima è 5MB.');
+        var maxSizeMB = {{ request.user.userprofile.organization.max_file_size_mb|default:"10" }};
+        var maxSizeBytes = maxSizeMB * 1024 * 1024;
+        
+        if (file && file.size > maxSizeBytes) {
+            alert('Il file è troppo grande. La dimensione massima è ' + maxSizeMB + 'MB.');
             this.value = '';
         }
     });

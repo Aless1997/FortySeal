@@ -105,18 +105,27 @@
                 <i class="fas fa-cogs me-2"></i>Configurazioni
             </h4>
             <div class="row">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="mb-3">
                         <label for="max_users" class="form-label">Massimo Utenti</label>
                         <input type="number" class="form-control" id="max_users" name="max_users" 
                                value="{% if organization %}{{ organization.max_users }}{% else %}100{% endif %}" min="1">
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="mb-3">
                         <label for="max_storage_gb" class="form-label">Massimo Storage (GB)</label>
                         <input type="number" class="form-control" id="max_storage_gb" name="max_storage_gb" 
                                value="{% if organization %}{{ organization.max_storage_gb }}{% else %}100{% endif %}" min="1">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="max_file_size_mb" class="form-label">Dimensione Max File (MB)</label>
+                        <input type="number" class="form-control" id="max_file_size_mb" name="max_file_size_mb" 
+                               value="{% if organization %}{{ organization.max_file_size_mb }}{% else %}10{% endif %}" 
+                               min="1" max="10240">
+                        <div class="form-text">Massimo 10240 MB (10 GB) per transazione</div>
                     </div>
                 </div>
             </div>

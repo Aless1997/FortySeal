@@ -5,178 +5,152 @@
 
 {% block content %}
 <style>
-:root {
-    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    --warning-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    --glass-bg: rgba(255, 255, 255, 0.1);
-    --glass-border: rgba(255, 255, 255, 0.2);
-    --shadow-light: 0 8px 32px rgba(31, 38, 135, 0.37);
-    --shadow-heavy: 0 20px 60px rgba(0, 0, 0, 0.3);
+.document-container {
+    padding: 2rem 0;
+    min-height: calc(100vh - 200px);
 }
 
-body {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%) !important;
-    min-height: 100vh;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+.document-card {
+    background: var(--card-background);
+    border-radius: 16px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    padding: 2rem;
+    margin-bottom: 2rem;
 }
 
-.modern-container {
-    min-height: 100vh;
-    padding: 40px 20px;
-    position: relative;
-}
-
-.modern-card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
-    border-radius: 24px;
-    padding: 40px;
-    box-shadow: var(--shadow-heavy);
-    color: white;
-    max-width: 1200px;
-    margin: 0 auto;
-    position: relative;
-    overflow: hidden;
-}
-
-.modern-header {
+.document-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 40px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--glass-border);
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 2px solid #f3f4f6;
 }
 
-.modern-title {
-    font-size: 2.2rem;
-    font-weight: 800;
-    background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+.document-title {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: var(--text-primary);
     margin: 0;
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 0.75rem;
 }
 
-.modern-title i {
-    background: var(--warning-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    font-size: 1.8rem;
+.document-title i {
+    color: var(--warning-color);
+    font-size: 1.5rem;
 }
 
-.modern-btn {
-    background: var(--glass-bg);
-    backdrop-filter: blur(10px);
-    border: 2px solid var(--glass-border);
-    color: white !important;
-    padding: 12px 24px;
+.back-btn {
+    background: #f3f4f6;
+    color: var(--text-secondary);
+    border: 2px solid #e5e7eb;
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    text-decoration: none;
     font-weight: 600;
-    border-radius: 50px;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    text-decoration: none !important;
+    transition: all 0.2s ease;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    position: relative;
-    overflow: hidden;
-    margin: 0 5px;
-    cursor: pointer;
+    gap: 0.5rem;
 }
 
-.modern-btn:hover {
-    background: rgba(255,255,255,0.2);
-    border-color: rgba(255,255,255,0.4);
-    color: white !important;
-    transform: translateY(-3px) scale(1.05);
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
-    text-decoration: none !important;
-}
-
-.modern-btn.primary {
-    background: var(--success-gradient);
-    border-color: transparent;
-}
-
-.modern-btn.primary:hover {
-    background: linear-gradient(135deg, #0e8a7f 0%, #32d96d 100%);
-    box-shadow: 0 15px 35px rgba(17, 153, 142, 0.4);
+.back-btn:hover {
+    background: #e5e7eb;
+    color: var(--text-primary);
+    border-color: #d1d5db;
+    transform: translateY(-1px);
 }
 
 .editor-layout {
     display: grid;
     grid-template-columns: 2fr 1fr;
-    gap: 40px;
-    margin-bottom: 40px;
+    gap: 2rem;
+    margin-bottom: 2rem;
 }
 
 .editor-main {
     display: flex;
     flex-direction: column;
-    gap: 30px;
+    gap: 1.5rem;
 }
 
-.modern-form-group {
-    margin-bottom: 30px;
+.form-group {
+    margin-bottom: 1.5rem;
 }
 
-.modern-label {
+.form-label {
     display: block;
-    margin-bottom: 10px;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
 }
 
-.modern-input, .modern-select, .modern-textarea {
+.form-label i {
+    color: var(--primary-color);
+    margin-right: 0.5rem;
+    width: 16px;
+}
+
+.form-control {
     width: 100%;
-    padding: 15px 20px;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border: 2px solid var(--glass-border);
-    border-radius: 16px;
-    color: white;
-    font-size: 1rem;
-    transition: all 0.3s ease;
-    font-family: inherit;
+    padding: 0.875rem 1rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    background: #ffffff;
+    color: var(--text-primary);
 }
 
-.modern-textarea {
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-control::placeholder {
+    color: #9ca3af;
+}
+
+.form-select {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    background: #ffffff;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.form-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-textarea {
     min-height: 400px;
     resize: vertical;
     line-height: 1.6;
-}
-
-.modern-input:focus, .modern-select:focus, .modern-textarea:focus {
-    outline: none;
-    border-color: rgba(255, 255, 255, 0.4);
-    background: rgba(255, 255, 255, 0.15);
-    box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
-}
-
-.modern-input::placeholder, .modern-textarea::placeholder {
-    color: rgba(255, 255, 255, 0.6);
+    font-family: inherit;
 }
 
 .info-sidebar {
     display: flex;
     flex-direction: column;
-    gap: 30px;
+    gap: 1.5rem;
 }
 
 .info-card {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--glass-border);
-    border-radius: 20px;
-    padding: 25px;
+    background: var(--card-background);
+    border: 2px solid #f3f4f6;
+    border-radius: 12px;
+    padding: 1.5rem;
     position: relative;
     overflow: hidden;
 }
@@ -188,70 +162,146 @@ body {
     left: 0;
     right: 0;
     height: 3px;
-    background: var(--success-gradient);
+    background: var(--success-color);
 }
 
 .info-card h5 {
-    margin: 0 0 20px 0;
-    font-size: 1.3rem;
+    margin: 0 0 1.25rem 0;
+    font-size: 1.125rem;
     font-weight: 700;
-    color: white;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.info-card h5 i {
+    color: var(--primary-color);
 }
 
 .checkbox-group {
     display: flex;
     align-items: center;
-    margin-bottom: 20px;
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-    transition: all 0.3s ease;
+    margin-bottom: 1rem;
+    padding: 0.875rem;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    transition: all 0.2s ease;
 }
 
 .checkbox-group:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: #f3f4f6;
+    border-color: #d1d5db;
 }
 
 .modern-checkbox {
-    width: 20px;
-    height: 20px;
-    accent-color: #38ef7d;
-    margin-right: 12px;
-}
-
-.checkbox-label {
-    color: rgba(255, 255, 255, 0.9);
-    font-weight: 500;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--success-color);
+    margin-right: 0.75rem;
     cursor: pointer;
 }
 
+.checkbox-label {
+    color: var(--text-primary);
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.checkbox-label i {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
 .document-stats {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-    padding: 20px;
-    margin-top: 20px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
 }
 
 .stat-item {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 10px;
-    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.stat-item:last-child {
+    margin-bottom: 0;
 }
 
 .stat-value {
     font-weight: 600;
-    color: white;
+    color: var(--text-primary);
 }
 
 .form-actions {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-top: 30px;
-    border-top: 1px solid var(--glass-border);
+    padding-top: 1.5rem;
+    border-top: 2px solid #f3f4f6;
     flex-wrap: wrap;
-    gap: 15px;
+    gap: 1rem;
+}
+
+.modern-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.save-btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.875rem 2rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.save-btn:hover {
+    background: var(--secondary-color);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.auto-save-btn {
+    background: #f3f4f6;
+    color: var(--text-secondary);
+    border: 2px solid #e5e7eb;
+    padding: 0.875rem 1.5rem;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.auto-save-btn:hover {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+}
+
+.auto-save-btn.active {
+    background: var(--success-color);
+    color: white;
+    border-color: var(--success-color);
 }
 
 @media (max-width: 768px) {
@@ -259,35 +309,45 @@ body {
         grid-template-columns: 1fr;
     }
     
-    .modern-header {
+    .document-header {
         flex-direction: column;
-        gap: 20px;
+        gap: 1rem;
         text-align: center;
     }
     
-    .modern-title {
-        font-size: 1.8rem;
+    .document-title {
+        font-size: 1.5rem;
+    }
+    
+    .document-container {
+        padding: 1rem 0;
+    }
+    
+    .document-card {
+        padding: 1.5rem;
+        margin: 0 1rem 2rem;
     }
     
     .form-actions {
+        flex-direction: column;
         align-items: stretch;
     }
     
-    .modern-btn {
+    .modern-actions {
         justify-content: center;
     }
 }
 </style>
 
-<div class="modern-container">
-    <div class="modern-card">
-        <div class="modern-header">
-            <h1 class="modern-title">
+<div class="container document-container">
+    <div class="document-card">
+        <div class="document-header">
+            <h1 class="document-title">
                 <i class="fas fa-edit"></i>
                 Modifica: {{ document.title }}
             </h1>
             <div>
-                <a href="{% url 'Cripto1:created_documents_list' %}" class="modern-btn">
+                <a href="{% url 'Cripto1:created_documents_list' %}" class="back-btn">
                     <i class="fas fa-arrow-left"></i>
                     Torna alla Lista
                 </a>
@@ -299,18 +359,18 @@ body {
             
             <div class="editor-layout">
                 <div class="editor-main">
-                    <div class="modern-form-group">
-                        <label for="id_title" class="modern-label">
+                    <div class="form-group">
+                        <label for="id_title" class="form-label">
                             <i class="fas fa-heading"></i> Titolo Documento
                         </label>
-                        <input type="text" class="modern-input" id="id_title" name="title" value="{{ document.title }}" required>
+                        <input type="text" class="form-control" id="id_title" name="title" value="{{ document.title }}" required>
                     </div>
                     
-                    <div class="modern-form-group">
-                        <label for="id_content" class="modern-label">
+                    <div class="form-group">
+                        <label for="id_content" class="form-label">
                             <i class="fas fa-file-text"></i> Contenuto
                         </label>
-                        <textarea class="modern-textarea" id="id_content" name="content" placeholder="Scrivi qui il contenuto del tuo documento...">{{ content }}</textarea>
+                        <textarea class="form-control form-textarea" id="id_content" name="content" placeholder="Scrivi qui il contenuto del tuo documento...">{{ content }}</textarea>
                     </div>
                 </div>
                 
@@ -318,9 +378,9 @@ body {
                     <div class="info-card">
                         <h5><i class="fas fa-cog"></i> Impostazioni</h5>
                         
-                        <div class="modern-form-group">
-                            <label for="id_document_type" class="modern-label">Tipo Documento</label>
-                            <select class="modern-select" id="id_document_type" name="document_type">
+                        <div class="form-group">
+                            <label for="id_document_type" class="form-label">Tipo Documento</label>
+                            <select class="form-select" id="id_document_type" name="document_type">
                                 <option value="letter" {% if document.document_type == 'letter' %}selected{% endif %}>✉️ Lettera</option>
                                 <option value="report" {% if document.document_type == 'report' %}selected{% endif %}>📊 Report</option>
                                 <option value="memo" {% if document.document_type == 'memo' %}selected{% endif %}>📝 Memo</option>
@@ -365,10 +425,10 @@ body {
             
             <div class="form-actions">
                 <div class="modern-actions">
-                    <button type="submit" class="modern-btn modern-btn-primary">
+                    <button type="submit" class="save-btn">
                         <i class="fas fa-save"></i> Salva Documento
                     </button>
-                    <button type="button" id="autoSaveBtn" class="modern-btn modern-btn-secondary">
+                    <button type="button" id="autoSaveBtn" class="auto-save-btn">
                         <i class="fas fa-clock"></i> Salvataggio Automatico: <span id="autoSaveStatus">Attivo</span>
                     </button>
                 </div>
@@ -390,5 +450,16 @@ document.getElementById('id_content').addEventListener('input', updateWordCount)
 
 // Conteggio iniziale
 updateWordCount();
+
+// Toggle auto-save
+document.getElementById('autoSaveBtn').addEventListener('click', function() {
+    this.classList.toggle('active');
+    const status = document.getElementById('autoSaveStatus');
+    if (this.classList.contains('active')) {
+        status.textContent = 'Attivo';
+    } else {
+        status.textContent = 'Disattivo';
+    }
+});
 </script>
 {% endblock %}

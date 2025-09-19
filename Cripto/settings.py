@@ -35,7 +35,8 @@ MIDDLEWARE = [
     'Cripto1.middleware.MultiTenantMiddleware',
     'Cripto1.middleware.AuditLogMiddleware',
     'Cripto1.middleware.SecurityMiddleware',
-    'Cripto1.middleware.SmartAutoCleanupMiddleware',  # RIATTIVATO
+    'Cripto1.middleware.FileSizeMiddleware',  # ← AGGIUNGI QUESTA RIGA
+    'Cripto1.middleware.SmartAutoCleanupMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'Cripto1.middleware.RoleExpirationMiddleware',
 ]
@@ -151,8 +152,8 @@ DEFAULT_FROM_EMAIL = 'FortySeal <sealforty@gmail.com>'
 SERVER_EMAIL = 'sealforty@gmail.com'
 
 # URL del sito per le email
-#SITE_URL = 'http://127.0.0.1:8000'  # Per sviluppo locale
-SITE_URL = 'https://fortyseal-1.onrender.com'  # Per produzione
+SITE_URL = 'http://127.0.0.1:8000'  # Per sviluppo locale
+#SITE_URL = 'https://fortyseal-1.onrender.com'  # Per produzione
 
 
 # Ottimizzazioni PostgreSQL per applicazioni blockchain
@@ -180,3 +181,47 @@ CACHES = {
         'LOCATION': 'unique-snowflake',
     }
 }
+
+# Configurazione Logging per Debug
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': 'debug.log',
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'loggers': {
+        'django.db.backends': {
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'Cripto1': {
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
+# Per vedere tutte le query SQL
+if DEBUG:
+    LOGGING['loggers']['django.db.backends']['level'] = 'DEBUG'

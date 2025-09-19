@@ -89,7 +89,7 @@ def send_immediate_transaction_notification(transaction, user, request, directio
             'transaction_direction': direction,
             'other_user': other_user,
             'user_ip': user_ip,
-            'timestamp': datetime.fromtimestamp(transaction.timestamp).strftime('%d/%m/%Y alle %H:%M:%S'),
+            'timestamp': timezone.datetime.fromtimestamp(transaction.timestamp, tz=timezone.get_current_timezone()).strftime('%d/%m/%Y alle %H:%M:%S'),
             'is_encrypted': transaction.is_encrypted,
             'filename': transaction.original_filename if transaction.type == 'file' else None,
         }
@@ -169,7 +169,7 @@ def send_block_confirmation_emails(block, transactions):
                 'block_index': block.index,
                 'block_hash': block.hash,
                 'merkle_root': block.merkle_root,
-                'block_timestamp': datetime.fromtimestamp(block.timestamp).strftime('%d/%m/%Y alle %H:%M:%S'),
+                'block_timestamp': timezone.datetime.fromtimestamp(block.timestamp, tz=timezone.get_current_timezone()).strftime('%d/%m/%Y alle %H:%M:%S'),
                 'nonce': block.nonce,
                 'difficulty': int(block.difficulty),
                 'total_transactions': transactions.count(),

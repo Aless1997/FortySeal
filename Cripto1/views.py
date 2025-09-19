@@ -1540,7 +1540,7 @@ def export_csv(request, model):
         # Dati personalizzati per le transazioni
         for transaction in queryset.select_related('sender', 'receiver', 'organization', 'block'):
             from datetime import datetime
-            readable_date = datetime.fromtimestamp(transaction.timestamp).strftime('%Y-%m-%d %H:%M:%S') if transaction.timestamp else ''
+            readable_date = datetime.fromtimestamp(transaction.timestamp, tz=timezone.get_current_timezone()).strftime('%Y-%m-%d %H:%M:%S') if transaction.timestamp else ''
             
             row = [
                 transaction.id,
@@ -2730,7 +2730,7 @@ def backup_management(request):
                                     'filename': file,
                                     'path': file_path,
                                     'size': file_stats.st_size,
-                                    'created': datetime.fromtimestamp(file_stats.st_mtime),
+                                    'created': datetime.fromtimestamp(file_stats.st_mtime, tz=timezone.get_current_timezone()),
                                     'organization_name': metadata.get('organization_name', 'N/A'),
                                     'download_url': reverse('Cripto1:download_backup', args=[file])
                                 })
@@ -3423,9 +3423,22 @@ def upload_personal_document(request):
             messages.error(request, f'Estensione file non consentita. Estensioni permesse: {", ".join(allowed_extensions)}')
             return redirect('Cripto1:personal_documents')
         
-        # 2. Controllo dimensione file (max 10MB)
-        if file.size > 10 * 1024 * 1024:  # 10MB in bytes
-            messages.error(request, 'Il file è troppo grande. Dimensione massima: 10MB')
+        # 2. Controllo dimensione file (usa limite organizzazione)
+        org_limit_mb = request.user.userprofile.organization.max_file_size_mb if hasattr(request.user, 'userprofile') and request.user.userprofile.organization else 10
+        max_file_size = org_limit_mb * 1024 * 1024  # Converti MB in bytes
+
+        if file.size > max_file_size:
+            messages.error(request, f'Il file è troppo grande. Dimensione massima: {org_limit_mb}MB')
+            return redirect('Cripto1:personal_documents')
+        
+        # 2.1 Controllo quota storage utente
+        user_profile = UserProfile.objects.get(user=request.user)
+        user_profile.update_storage_usage()
+        
+        if user_profile.storage_used_bytes + file.size > user_profile.storage_quota_bytes:
+            remaining_mb = (user_profile.storage_quota_bytes - user_profile.storage_used_bytes) / (1024 * 1024)
+            file_size_mb = file.size / (1024 * 1024)
+            messages.error(request, f'Spazio insufficiente. Spazio rimanente: {remaining_mb:.1f}MB, dimensione file: {file_size_mb:.1f}MB')
             return redirect('Cripto1:personal_documents')
         
         # 3. Scansione antivirus con ClamAV
@@ -3540,6 +3553,9 @@ def upload_personal_document(request):
             original_filename=original_filename,
             encrypted_symmetric_key=encrypted_symmetric_key
         )
+        
+        # Aggiorna l'utilizzo dello storage dopo il caricamento
+        user_profile.update_storage_usage()
         
         messages.success(request, 'Documento caricato con successo.')
         return redirect('Cripto1:personal_documents')
@@ -4330,7 +4346,7 @@ def file_manager(request):
                         'path': os.path.join(rel_path, dir_name),
                         'is_dir': True,
                         'size': '',
-                        'modified': datetime.fromtimestamp(os.path.getmtime(os.path.join(root, dir_name))).strftime('%d/%m/%Y %H:%M')
+                        'modified': datetime.fromtimestamp(os.path.getmtime(os.path.join(root, dir_name)), tz=timezone.get_current_timezone()).strftime('%d/%m/%Y %H:%M')
                     }
                     
                     # Filtra in base alla ricerca
@@ -4364,7 +4380,7 @@ def file_manager(request):
                         'path': file_path_debug,
                         'is_dir': False,
                         'size': format_file_size(file_size),
-                        'modified': datetime.fromtimestamp(os.path.getmtime(file_path)).strftime('%d/%m/%Y %H:%M'),
+                        'modified': datetime.fromtimestamp(os.path.getmtime(file_path), tz=timezone.get_current_timezone()).strftime('%d/%m/%Y %H:%M'),
                         'url': os.path.join(settings.MEDIA_URL, rel_path_debug, file_name)
                     }
                     
@@ -4636,7 +4652,7 @@ def session_management(request):
                     'session_key': session.session_key,
                     'user': user,
                     'expire_date': session.expire_date,
-                    'last_activity': session_data.get('_last_activity'),
+                    'last_activity': datetime.fromtimestamp(session_data['last_activity'], tz=timezone.get_current_timezone()) if session_data.get('last_activity') else None,
                     'ip_address': session_data.get('_session_ip'),
                     'concurrent_count': len(user_sessions)
                 })
@@ -6366,23 +6382,46 @@ def add_collaborator(request, document_id):
                     'users': User.objects.exclude(id=request.user.id)
                 })
             
-            # Verifica che non sia già un collaboratore
+            # Verifica che non sia già un collaboratore (incluse condivisioni inattive)
             existing_share = SharedDocument.objects.filter(
                 owner=request.user,
                 shared_with=collaborator,
                 share_type='created_document',
-                object_id=document.id,
-                is_active=True
+                object_id=document.id
             ).first()
             
             if existing_share:
-                messages.warning(request, f"{collaborator.username} è già un collaboratore di questo documento.")
-                return render(request, 'Cripto1/add_collaborator.html', {
-                    'document': document,
-                    'users': User.objects.exclude(id=request.user.id)
-                })
+                if existing_share.is_active:
+                    messages.warning(request, f"{collaborator.username} è già un collaboratore attivo di questo documento.")
+                    return render(request, 'Cripto1/add_collaborator.html', {
+                        'document': document,
+                        'users': User.objects.exclude(id=request.user.id)
+                    })
+                else:
+                    # Riattiva la condivisione esistente invece di crearne una nuova
+                    existing_share.is_active = True
+                    existing_share.permission_level = permission_level
+                    existing_share.share_message = collaboration_message
+                    existing_share.notify_on_access = True
+                    existing_share.expires_at = None  # Reset scadenza se presente
+                    existing_share.created_at = timezone.now()  # Aggiorna data creazione
+                    existing_share.save()
+                    
+                    # Crea notifica per la riattivazione
+                    ShareNotification.objects.create(
+                        user=collaborator,
+                        shared_document=existing_share,
+                        notification_type='share_created',
+                        message=f"{request.user.username} ti ha nuovamente invitato a collaborare sul documento '{document.title}'"
+                    )
+                    
+                    # Invia email di notifica
+                    send_share_notification_email(existing_share, 'created')
+                    
+                    messages.success(request, f"Collaborazione con {collaborator.username} riattivata con successo!")
+                    return redirect('Cripto1:created_documents_list')
             
-            # Crea la condivisione per collaborazione
+            # Crea la condivisione per collaborazione (solo se non esiste)
             shared_document = SharedDocument.objects.create(
                 share_id=uuid.uuid4(),
                 owner=request.user,
@@ -7218,3 +7257,57 @@ def generate_invoice_pdf_view(request, invoice_id):
     except Exception as e:
         messages.error(request, f'Errore nella generazione del PDF: {str(e)}')
         return redirect('Cripto1:billing_analytics')
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def terminate_all_sessions(request):
+    """Termina tutte le sessioni attive (solo per admin)"""
+    if request.method == 'POST':
+        try:
+            # Ottieni tutte le sessioni attive
+            all_sessions = Session.objects.filter(expire_date__gte=timezone.now())
+            current_session_key = request.session.session_key
+            
+            # Conta le sessioni da terminare (esclusa quella corrente)
+            sessions_to_terminate = all_sessions.exclude(session_key=current_session_key)
+            terminated_count = sessions_to_terminate.count()
+            
+            # Termina tutte le sessioni tranne quella corrente
+            sessions_to_terminate.delete()
+            
+            # Pulisci anche la cache delle sessioni
+            session_cache = caches['sessions'] if 'sessions' in settings.CACHES else caches['default']
+            session_cache.clear()
+            
+            return JsonResponse({
+                'success': True, 
+                'message': f'{terminated_count} sessioni terminate con successo'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False, 
+                'message': f'Errore durante la terminazione: {str(e)}'
+            })
+    return JsonResponse({'success': False, 'message': 'Metodo non consentito'})
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def clear_expired_sessions(request):
+    """Pulisce le sessioni scadute dal database"""
+    if request.method == 'POST':
+        try:
+            # Trova e elimina le sessioni scadute
+            expired_sessions = Session.objects.filter(expire_date__lt=timezone.now())
+            expired_count = expired_sessions.count()
+            expired_sessions.delete()
+            
+            return JsonResponse({
+                'success': True, 
+                'message': f'{expired_count} sessioni scadute rimosse dal database'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False, 
+                'message': f'Errore durante la pulizia: {str(e)}'
+            })
+    return JsonResponse({'success': False, 'message': 'Metodo non consentito'})

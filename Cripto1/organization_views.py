@@ -134,6 +134,17 @@ def organization_edit(request, org_id):
                 organization.domain = request.POST.get('domain', '')
                 organization.max_users = int(request.POST.get('max_users', 100))
                 organization.max_storage_gb = int(request.POST.get('max_storage_gb', 100))
+                organization.max_file_size_mb = int(request.POST.get('max_file_size_mb', 10))
+                
+                # Validazione dimensione file
+                if organization.max_file_size_mb > 10240:  # 10 GB in MB
+                    messages.error(request, 'La dimensione massima dei file non può superare 10 GB (10240 MB)')
+                    context = {
+                        'organization': organization,
+                        'features': organization.features_enabled or {}
+                    }
+                    return render(request, 'Cripto1/organization/organization_form.html', context)
+                
                 organization.require_2fa = request.POST.get('require_2fa') == 'on'
                 organization.session_timeout_hours = int(request.POST.get('session_timeout_hours', 24))
                 
@@ -527,3 +538,22 @@ def organization_management_detail(request, org_id):
     }
     
     return render(request, 'Cripto1/organization_management/detail.html', context)
+
+import logging
+
+logger = logging.getLogger('Cripto1')
+
+# Nella funzione dove gestisci max_file_size_mb
+def your_view_function(request):
+    raw_value = request.POST.get('max_file_size_mb', 10)
+    logger.debug(f"Valore raw da POST: {raw_value} (tipo: {type(raw_value)})")
+    
+    try:
+        converted_value = int(raw_value)
+        logger.debug(f"Valore convertito: {converted_value} (tipo: {type(converted_value)})")
+        organization.max_file_size_mb = converted_value
+    except ValueError as e:
+        logger.error(f"Errore conversione max_file_size_mb: {e}")
+        logger.error(f"Valore problematico: '{raw_value}'")
+    
+    # ... existing code ...

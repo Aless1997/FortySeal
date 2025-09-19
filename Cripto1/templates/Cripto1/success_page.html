@@ -5,147 +5,168 @@
 
 {% block content %}
 <style>
-:root {
-    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    --glass-bg: rgba(255, 255, 255, 0.1);
-    --glass-border: rgba(255, 255, 255, 0.2);
-    --shadow-light: 0 8px 32px rgba(31, 38, 135, 0.37);
-    --shadow-heavy: 0 20px 60px rgba(0, 0, 0, 0.3);
-}
-
-body {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-    min-height: 100vh;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-}
-
 .success-container {
-    min-height: 100vh;
+    min-height: calc(100vh - 200px);
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
-    position: relative;
-    overflow: hidden;
+    padding: 2rem;
 }
 
 .success-card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
-    border-radius: 24px;
-    padding: 60px 50px;
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    padding: 3rem 2.5rem;
     text-align: center;
-    color: white;
-    box-shadow: var(--shadow-heavy);
     max-width: 500px;
     width: 100%;
-    position: relative;
-    z-index: 10;
-    transform: translateY(0);
-    transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: 1px solid var(--border-color);
 }
 
 .success-icon {
-    font-size: 5rem;
-    margin-bottom: 30px;
-    background: var(--success-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: pulse-glow 2s ease-in-out infinite;
+    font-size: 4rem;
+    color: var(--success-color);
+    margin-bottom: 1.5rem;
+    animation: success-bounce 0.6s ease-out;
 }
 
-@keyframes pulse-glow {
-    0%, 100% { transform: scale(1); }
+@keyframes success-bounce {
+    0% { transform: scale(0); }
     50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
 }
 
 .success-title {
-    font-size: 3rem;
-    font-weight: 800;
-    margin-bottom: 20px;
-    background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    letter-spacing: -0.02em;
-    line-height: 1.1;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    font-family: var(--font-primary);
 }
 
 .success-message {
-    font-size: 1.3rem;
-    margin-bottom: 40px;
-    opacity: 0.9;
-    font-weight: 400;
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
     line-height: 1.6;
-    color: white;
 }
 
 .document-info {
-    background: var(--glass-bg);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    padding: 25px;
-    margin: 30px 0;
-    border: 1px solid var(--glass-border);
-    color: white;
+    background: var(--bg-light);
+    border-radius: var(--border-radius-sm);
+    padding: 1.5rem;
+    margin: 2rem 0;
+    border-left: 4px solid var(--success-color);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.document-info i {
+    color: var(--success-color);
+    font-size: 1.2rem;
+}
+
+.document-info strong {
+    color: var(--text-primary);
+    font-weight: 600;
 }
 
 .home-btn {
-    background: var(--glass-bg);
-    backdrop-filter: blur(10px);
-    border: 2px solid var(--glass-border);
-    color: white !important;
-    padding: 18px 45px;
-    font-size: 1.2rem;
+    background: var(--primary-color);
+    color: white;
+    padding: 0.875rem 2rem;
+    font-size: 1rem;
     font-weight: 600;
-    border-radius: 50px;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    text-decoration: none !important;
+    border-radius: var(--border-radius-sm);
+    text-decoration: none;
     display: inline-flex;
     align-items: center;
-    gap: 12px;
+    gap: 0.5rem;
+    transition: var(--transition);
+    border: none;
+    box-shadow: var(--shadow-sm);
 }
 
 .home-btn:hover {
-    background: rgba(255,255,255,0.2);
-    border-color: rgba(255,255,255,0.4);
-    color: white !important;
-    transform: translateY(-3px) scale(1.05);
-    text-decoration: none !important;
+    background: var(--primary-hover);
+    color: white;
+    text-decoration: none;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.home-btn:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.home-btn i {
+    font-size: 0.9rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .success-container {
+        padding: 1rem;
+        min-height: calc(100vh - 150px);
+    }
+    
+    .success-card {
+        padding: 2rem 1.5rem;
+    }
+    
+    .success-title {
+        font-size: 2rem;
+    }
+    
+    .success-icon {
+        font-size: 3rem;
+    }
+    
+    .success-message {
+        font-size: 1rem;
+    }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+    .success-icon {
+        animation: none;
+    }
+    
+    .home-btn:hover {
+        transform: none;
+    }
 }
 </style>
 
-<div class="container-fluid p-0">
-    <div class="success-container">
-        <div class="success-card">
-            <div class="success-icon">
-                <i class="fas fa-check-circle"></i>
-            </div>
-            
-            <h1 class="success-title">Perfetto!</h1>
-            
-            <p class="success-message">
-                {{ success_message|default:"Operazione completata con successo!" }}
-            </p>
-            
-            {% if document_title %}
-            <div class="document-info">
-                <i class="fas fa-file-alt"></i>
-                <strong>{{ document_title }}</strong>
-            </div>
-            {% endif %}
-            
-            {% if show_home_button %}
-            <a href="{% url 'Cripto1:dashboard' %}" class="home-btn">
-                <i class="fas fa-home"></i>
-                <span>Home</span>
-            </a>
-            {% endif %}
+<div class="success-container">
+    <div class="success-card">
+        <div class="success-icon">
+            <i class="fas fa-check-circle"></i>
         </div>
+        
+        <h1 class="success-title">Perfetto!</h1>
+        
+        <p class="success-message">
+            {{ success_message|default:"Operazione completata con successo!" }}
+        </p>
+        
+        {% if document_title %}
+        <div class="document-info">
+            <i class="fas fa-file-alt"></i>
+            <strong>{{ document_title }}</strong>
+        </div>
+        {% endif %}
+        
+        {% if show_home_button %}
+        <a href="{% url 'Cripto1:dashboard' %}" class="home-btn">
+            <i class="fas fa-home"></i>
+            <span>Torna alla Dashboard</span>
+        </a>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -153,45 +174,24 @@ body {
 {% block extra_js %}
 <script>
 $(document).ready(function() {
-    // Particle animation
-    function createParticle() {
-        const particle = $('<div class="confetti"></div>');
-        particle.css({
-            'left': Math.random() * 100 + '%',
-            'animation-delay': Math.random() * 3 + 's',
-            'background': ['#38ef7d', '#667eea', '#f093fb', '#764ba2'][Math.floor(Math.random() * 4)]
-        });
-        $('.success-container').append(particle);
-        
-        setTimeout(() => {
-            particle.remove();
-        }, 3000);
-    }
-    
-    // Create particles periodically
-    setInterval(createParticle, 300);
-    
-    // Sound effect (optional - requires audio file)
-    // const audio = new Audio('/static/sounds/success.mp3');
-    // audio.play().catch(e => console.log('Audio play failed:', e));
-    
-    // Haptic feedback for mobile
-    if ('vibrate' in navigator) {
-        navigator.vibrate([100, 50, 100]);
-    }
-    
-    // Auto-focus on home button for keyboard navigation
+    // Auto-focus sul bottone home per la navigazione da tastiera
     $('.home-btn').focus();
     
-    // Add keyboard shortcut (Enter or Space to go home)
+    // Scorciatoia da tastiera (Enter o Spazio per tornare alla dashboard)
     $(document).keydown(function(e) {
-        if (e.keyCode === 13 || e.keyCode === 32) { // Enter or Space
+        if (e.keyCode === 13 || e.keyCode === 32) { // Enter o Spazio
+            e.preventDefault();
             window.location.href = "{% url 'Cripto1:dashboard' %}";
         }
     });
     
-    // Smooth scroll to top on load
+    // Scroll automatico in cima alla pagina
     $('html, body').animate({ scrollTop: 0 }, 'fast');
+    
+    // Feedback aptico per dispositivi mobili
+    if ('vibrate' in navigator) {
+        navigator.vibrate([100, 50, 100]);
+    }
 });
 </script>
 {% endblock %}

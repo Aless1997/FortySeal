@@ -115,6 +115,8 @@ urlpatterns = [
     # Aggiungi queste righe nelle URL patterns esistenti, prima della chiusura della lista
     # Sostituisci la riga esistente con queste due righe complete
     path('admdashboard/sessions/', views.session_management, name='session_management'),
+    path('terminate-all-sessions/', views.terminate_all_sessions, name='terminate_all_sessions'),
+    path('clear-expired-sessions/', views.clear_expired_sessions, name='clear_expired_sessions'),
     path('admdashboard/my-sessions/', views.my_sessions, name='my_sessions'),
     path('admdashboard/terminate-session/', views.terminate_session, name='terminate_session'),
     # Sharing URLs

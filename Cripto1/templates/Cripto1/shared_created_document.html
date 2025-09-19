@@ -117,6 +117,11 @@
                         </a>
                         
                         <div class="btn-group">
+                            {% if can_write and is_collaboration %}
+                            <a href="{% url 'Cripto1:edit_shared_document' shared_document.share_id %}" class="btn btn-primary">
+                                <i class="fas fa-edit me-2"></i>Modifica Documento
+                            </a>
+                            {% endif %}
                             {% if document.content or document.decrypted_content %}
                             <button class="btn btn-outline-primary" onclick="window.print()">
                                 <i class="fas fa-print me-2"></i>Stampa

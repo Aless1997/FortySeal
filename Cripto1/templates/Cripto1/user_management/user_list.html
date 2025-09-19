@@ -299,14 +299,17 @@
                                                 <a href="{% url 'Cripto1:edit_user' user_profile.user.id %}" class="btn btn-sm btn-outline-success">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
+                                                <!--    DI SEGUITO PULSANTI PER DISATTIVAZIONE RAPIDA UTENTI    
+                                                        DISATTIVATI IL 18/09/2025     
+                                                -->
                                                 {% if user_profile.is_active %}
-                                                    <a href="{% url 'Cripto1:toggle_user_status' user_profile.user.id %}" class="btn btn-sm btn-outline-warning">
+                                                    <!--<a href="{% url 'Cripto1:toggle_user_status' user_profile.user.id %}" class="btn btn-sm btn-outline-warning">
                                                         <i class="fas fa-user-slash"></i>
-                                                    </a>
+                                                    </a>-->
                                                 {% else %}
-                                                    <a href="{% url 'Cripto1:toggle_user_status' user_profile.user.id %}" class="btn btn-sm btn-outline-success">
+                                                    <!--<a href="{% url 'Cripto1:toggle_user_status' user_profile.user.id %}" class="btn btn-sm btn-outline-success">
                                                         <i class="fas fa-user-check"></i>
-                                                    </a>
+                                                    </a>-->
                                                 {% endif %}
                                             </div>
                                             

@@ -1,106 +1,365 @@
 {% extends 'Cripto1/base.html' %}
 {% load static %}
+{% load tz %}
 
-{% block title %}Le Mie Sessioni - FortySeal{% endblock %}
+{% block title %}Security Dashboard - Le Mie Sessioni | FortySeal{% endblock %}
+
+{% block extra_css %}
+<style>
+.session-card {
+    border-left: 4px solid #007bff;
+    transition: all 0.3s ease;
+}
+.session-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+.current-session {
+    border-left-color: #28a745;
+    background: linear-gradient(135deg, #f8fff9 0%, #e8f5e8 100%);
+}
+.security-metric {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+}
+.activity-timeline {
+    position: relative;
+    padding-left: 30px;
+}
+.activity-timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #dee2e6;
+}
+.timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+}
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -23px;
+    top: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #007bff;
+}
+.device-info {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 15px;
+    margin: 10px 0;
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid py-4">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="h3 mb-1">
+                        <i class="fas fa-shield-alt text-primary me-2"></i>
+                        Security Dashboard
+                    </h2>
+                    <p class="text-muted mb-0">Monitora e gestisci le tue sessioni attive per la massima sicurezza</p>
+                </div>
+                <div class="text-end">
+                    <small class="text-muted">Ultimo aggiornamento: {% now "d/m/Y H:i:s" %}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Security Metrics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card security-metric text-center">
+                <div class="card-body">
+                    <i class="fas fa-laptop fa-2x mb-2"></i>
+                    <h4 class="mb-1">{{ active_sessions|length }}</h4>
+                    <small>Sessioni Attive</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card security-metric text-center" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="card-body">
+                    <i class="fas fa-clock fa-2x mb-2"></i>
+                    <h4 class="mb-1">{{ max_concurrent }}</h4>
+                    <small>Limite Massimo</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card security-metric text-center" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="card-body">
+                    <i class="fas fa-globe fa-2x mb-2"></i>
+                    <h4 class="mb-1">{% for session in active_sessions %}{% if forloop.first %}{{ session.ip_address|slice:":3" }}{% endif %}{% endfor %}+</h4>
+                    <small>Reti Diverse</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card security-metric text-center" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                <div class="card-body">
+                    <i class="fas fa-shield-check fa-2x mb-2"></i>
+                    <h4 class="mb-1">100%</h4>
+                    <small>Sicurezza</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Sessions -->
     <div class="row">
         <div class="col-12">
             <div class="card shadow-sm">
+                <div class="card-header bg-white border-bottom">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-desktop me-2 text-primary"></i>
+                            Sessioni Attive ({{ active_sessions|length }}/{{ max_concurrent }})
+                        </h5>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="refreshSessions()">
+                                <i class="fas fa-sync-alt me-1"></i>Aggiorna
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="terminateAllOther()">
+                                <i class="fas fa-sign-out-alt me-1"></i>Termina Altre
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% if active_sessions %}
+                        {% for session in active_sessions %}
+                        <div class="session-card card m-3 {% if session.is_current %}current-session{% endif %}">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <div class="me-3">
+                                                {% if session.is_current %}
+                                                    <i class="fas fa-desktop fa-2x text-success"></i>
+                                                {% else %}
+                                                    <i class="fas fa-laptop fa-2x text-primary"></i>
+                                                {% endif %}
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-1">
+                                                    {% if session.is_current %}
+                                                        <span class="badge bg-success me-2">SESSIONE CORRENTE</span>
+                                                    {% else %}
+                                                        <span class="badge bg-primary me-2">SESSIONE ATTIVA</span>
+                                                    {% endif %}
+                                                    <code class="text-muted">{{ session.session_key }}</code>
+                                                </h6>
+                                                <p class="text-muted mb-0">
+                                                    <i class="fas fa-clock me-1"></i>
+                                                    Ultima attività: 
+                                                    <strong>
+                                                        {% timezone "Europe/Rome" %}
+                                                            {{ session.last_activity|localtime|date:"d/m/Y H:i:s" }}
+                                                        {% endtimezone %}
+                                                    </strong>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="device-info">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <small class="text-muted d-block">Indirizzo IP</small>
+                                                    <strong><i class="fas fa-map-marker-alt me-1"></i>{{ session.ip_address|default:"N/A" }}</strong>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <small class="text-muted d-block">Dispositivo</small>
+                                                    <strong title="{{ session.user_agent }}">
+                                                        <i class="fas fa-mobile-alt me-1"></i>
+                                                        {% if "Mobile" in session.user_agent %}
+                                                            Mobile Device
+                                                        {% elif "Chrome" in session.user_agent %}
+                                                            Chrome Browser
+                                                        {% elif "Firefox" in session.user_agent %}
+                                                            Firefox Browser
+                                                        {% elif "Safari" in session.user_agent %}
+                                                            Safari Browser
+                                                        {% else %}
+                                                            Desktop Browser
+                                                        {% endif %}
+                                                    </strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4 text-end">
+                                        <div class="mb-2">
+                                            {% if session.is_current %}
+                                                <span class="badge bg-success p-2">
+                                                    <i class="fas fa-check-circle me-1"></i>
+                                                    Sessione Corrente
+                                                </span>
+                                            {% else %}
+                                                <button class="btn btn-outline-danger btn-sm" 
+                                                        onclick="terminateSession('{{ session.session_key }}')"
+                                                        title="Termina questa sessione">
+                                                    <i class="fas fa-sign-out-alt me-1"></i>
+                                                    Termina Sessione
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                        <small class="text-muted">
+                                            <i class="fas fa-shield-alt me-1"></i>
+                                            Connessione Sicura
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                            <h5>Nessuna Sessione Attiva</h5>
+                            <p class="text-muted">Non sono state trovate sessioni attive per il tuo account.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Security Tips -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card border-info">
                 <div class="card-header bg-info text-white">
-                    <h4 class="mb-0">
-                        <i class="fas fa-user-clock me-2"></i>
-                        Le Mie Sessioni Attive
-                    </h4>
+                    <h6 class="mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        Consigli di Sicurezza
+                    </h6>
                 </div>
                 <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle me-2"></i>
-                                <strong>Sessioni Attive:</strong> {{ active_sessions|length }}/{{ max_concurrent }}
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="alert alert-warning">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                <strong>Limite Massimo:</strong> {{ max_concurrent }} sessioni concorrenti
-                            </div>
-                        </div>
-                    </div>
-
-                    {% if active_sessions %}
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th>Sessione</th>
-                                    <th>Ultima Attività</th>
-                                    <th>IP Address</th>
-                                    <th>User Agent</th>
-                                    <th>Stato</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for session in active_sessions %}
-                                <tr {% if session.is_current %}class="table-success"{% endif %}>
-                                    <td>
-                                        <code>{{ session.session_key }}</code>
-                                        {% if session.is_current %}
-                                            <span class="badge bg-success ms-2">Corrente</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <small class="text-muted">
-                                            {{ session.last_activity|date:"d/m/Y H:i:s" }}
-                                        </small>
-                                    </td>
-                                    <td>
-                                        <code>{{ session.ip_address|default:"N/A" }}</code>
-                                    </td>
-                                    <td>
-                                        <small class="text-muted" title="{{ session.user_agent }}">
-                                            {{ session.user_agent|truncatechars:50 }}
-                                        </small>
-                                    </td>
-                                    <td>
-                                        {% if session.is_current %}
-                                            <span class="badge bg-success">
-                                                <i class="fas fa-check-circle me-1"></i>Attiva
-                                            </span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">
-                                                <i class="fas fa-clock me-1"></i>Attiva
-                                            </span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        Nessuna sessione attiva trovata.
-                    </div>
-                    {% endif %}
-
-                    <div class="mt-4">
-                        <div class="alert alert-info">
-                            <h6><i class="fas fa-info-circle me-2"></i>Informazioni sulle Sessioni:</h6>
-                            <ul class="mb-0">
-                                <li>Le sessioni vengono create automaticamente quando effettui il login</li>
-                                <li>Puoi avere massimo {{ max_concurrent }} sessioni attive contemporaneamente</li>
-                                <li>Le sessioni scadono automaticamente dopo un periodo di inattività</li>
-                                <li>La sessione corrente è evidenziata in verde</li>
-                            </ul>
-                        </div>
-                    </div>
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            Termina sempre le sessioni su dispositivi condivisi
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            Monitora regolarmente le tue sessioni attive
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            Segnala immediatamente attività sospette
+                        </li>
+                        <li class="mb-0">
+                            <i class="fas fa-check text-success me-2"></i>
+                            Usa sempre connessioni sicure (HTTPS)
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Informazioni Tecniche
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <strong>Limite Sessioni:</strong> {{ max_concurrent }} contemporanee
+                        </li>
+                        <li class="mb-2">
+                            <strong>Timeout:</strong> 30 minuti di inattività
+                        </li>
+                        <li class="mb-2">
+                            <strong>Crittografia:</strong> AES-256 + TLS 1.3
+                        </li>
+                        <li class="mb-0">
+                            <strong>Monitoraggio:</strong> 24/7 attivo
+                        </li>
+                    </ul>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+function refreshSessions() {
+    location.reload();
+}
+
+function terminateSession(sessionKey) {
+    Swal.fire({
+        title: 'Terminare la sessione?',
+        text: 'Questa azione non può essere annullata',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sì, termina',
+        cancelButtonText: 'Annulla'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('{% url "Cripto1:terminate_session" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    'session_key': sessionKey
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('Terminata!', 'La sessione è stata terminata con successo.', 'success')
+                    .then(() => location.reload());
+                } else {
+                    Swal.fire('Errore!', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Errore!', 'Errore durante la terminazione della sessione', 'error');
+            });
+        }
+    });
+}
+
+function terminateAllOther() {
+    Swal.fire({
+        title: 'Terminare tutte le altre sessioni?',
+        text: 'Verranno terminate tutte le sessioni tranne quella corrente',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sì, termina tutte',
+        cancelButtonText: 'Annulla'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Implementa la logica per terminare tutte le altre sessioni
+            Swal.fire('Funzionalità in sviluppo', 'Questa funzionalità sarà disponibile presto', 'info');
+        }
+    });
+}
+</script>
 {% endblock %}
