@@ -152,8 +152,8 @@ DEFAULT_FROM_EMAIL = 'FortySeal <sealforty@gmail.com>'
 SERVER_EMAIL = 'sealforty@gmail.com'
 
 # URL del sito per le email
-SITE_URL = 'http://127.0.0.1:8000'  # Per sviluppo locale
-#SITE_URL = 'https://fortyseal-1.onrender.com'  # Per produzione
+#SITE_URL = 'http://127.0.0.1:8000'  # Per sviluppo locale
+SITE_URL = 'https://fortyseal-1.onrender.com'  # Per produzione
 
 
 # Ottimizzazioni PostgreSQL per applicazioni blockchain
