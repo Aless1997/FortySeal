@@ -50,6 +50,7 @@ MIDDLEWARE = [
     'Cripto1.middleware.SmartAutoCleanupMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'Cripto1.middleware.RoleExpirationMiddleware',
+    'yourapp.middleware.Log500Middleware', 
 ]
 
 ROOT_URLCONF = 'Cripto.urls'
@@ -214,6 +215,23 @@ LOGGING = {
         'Cripto1': {
             'handlers': ['console'],
             'level': 'INFO',
+            'propagate': True,
+        },
+    },
+    {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'errors.log'),
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'ERROR',
             'propagate': True,
         },
     },

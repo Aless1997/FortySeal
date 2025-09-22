@@ -500,3 +500,21 @@ class RateLimitMiddleware:
         
         cache.set(cache_key, requests_count + 1, timeout=60)
         return self.get_response(request)
+
+
+
+import logging
+logger = logging.getLogger(__name__)
+
+class Log500Middleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        try:
+            response = self.get_response(request)
+        except Exception:
+            # Logga l'intero traceback
+            logger.exception(f"Errore 500 su path: {request.path}")
+            raise  # rilancia l'eccezione per mantenere l'HTTP 500
+        return response
