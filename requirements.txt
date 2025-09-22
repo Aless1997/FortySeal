@@ -29,5 +29,5 @@ reportlab
 faker
 python-dateutil
 python-dotenv
-python magic
+python-magic
 agora-token-builder
