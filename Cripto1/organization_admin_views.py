@@ -385,7 +385,7 @@ def org_admin_dashboard(request):
 
 
 @organization_admin_required()
-# Puoi commentare o rimuovere la funzione file_retention_settings (righe 387-414)
+# Rimuovi tutti i log DEBUG ORG ADMIN
 def file_retention_settings(request):
     """Gestione impostazioni retention file per l'organizzazione"""
     user_profile = UserProfile.objects.get(user=request.user)

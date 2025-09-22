@@ -3,121 +3,296 @@
 
 {% block title %}Statistiche Personali - Blockchain App{% endblock %}
 
-{% block content %}
+{% block extra_css %}
 <style>
     .stats-card {
         border: none;
-        border-radius: 15px;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        position: relative;
         overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
     
     .stats-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 35px rgba(0,0,0,0.15);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
     }
     
-    .stats-number {
+    .stats-icon {
         font-size: 2.5rem;
-        font-weight: bold;
-        color: #007bff;
+        opacity: 0.8;
     }
     
-    .stats-label {
-        font-size: 0.9rem;
-        color: #6c757d;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+    .section-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        background: white;
+    }
+    
+    .section-card:hover {
+        border-color: #d1d5db;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    
+    .progress-modern {
+        height: 12px;
+        border-radius: 6px;
+        background-color: #f3f4f6;
+        overflow: hidden;
+    }
+    
+    .progress-bar-modern {
+        border-radius: 6px;
+        transition: width 0.8s ease;
+        position: relative;
+    }
+    
+    .storage-indicator {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 1.5rem;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .storage-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: white;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    }
+    
+    .metric-item {
+        padding: 1rem;
+        border-radius: 8px;
+        background: #f9fafb;
+        border: 1px solid #f3f4f6;
+        transition: all 0.2s ease;
+    }
+    
+    .metric-item:hover {
+        background: #f3f4f6;
+        border-color: #e5e7eb;
+    }
+    
+    .file-item {
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        border: 1px solid #f3f4f6;
+        transition: all 0.2s ease;
+        margin-bottom: 0.5rem;
+    }
+    
+    .file-item:hover {
+        background-color: #f9fafb;
+        border-color: #d1d5db;
     }
     
     .chart-container {
         position: relative;
-        height: 300px;
+        height: 280px;
         margin: 20px 0;
     }
     
-    .gradient-bg-1 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-    .gradient-bg-2 { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-    .gradient-bg-3 { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
-    .gradient-bg-4 { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
-    .gradient-bg-5 { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
-    .gradient-bg-6 { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); }
+    .text-primary { color: #3b82f6 !important; }
+    .text-success { color: #10b981 !important; }
+    .text-info { color: #06b6d4 !important; }
+    .text-warning { color: #f59e0b !important; }
+    .text-danger { color: #ef4444 !important; }
+    .text-secondary { color: #6b7280 !important; }
+    .text-muted { color: #9ca3af !important; }
     
-    .text-white .stats-number,
-    .text-white .stats-label {
-        color: white !important;
-    }
+    .bg-primary { background-color: #3b82f6 !important; }
+    .bg-success { background-color: #10b981 !important; }
+    .bg-info { background-color: #06b6d4 !important; }
+    .bg-warning { background-color: #f59e0b !important; }
+    .bg-danger { background-color: #ef4444 !important; }
 </style>
+{% endblock %}
 
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="fas fa-chart-line me-2"></i>Statistiche Personali</h2>
-        <a href="{% url 'Cripto1:personal_profile' %}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-1"></i>Torna al Profilo
-        </a>
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="h3 mb-1 text-gray-800">Statistiche Personali</h2>
+                    <p class="text-muted mb-0">Panoramica completa della tua attività</p>
+                </div>
+                <a href="{% url 'Cripto1:personal_profile' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Torna al Profilo
+                </a>
+            </div>
+        </div>
     </div>
 
     <!-- Statistiche Generali -->
     <div class="row mb-4">
-        <div class="col-md-2 col-sm-4 col-6 mb-3">
-            <div class="card stats-card gradient-bg-1 text-white text-center p-3">
-                <div class="stats-number">{{ total_transactions }}</div>
-                <div class="stats-label">Transazioni Totali</div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-exchange-alt stats-icon text-primary mb-3"></i>
+                    <h4 class="mb-1">{{ total_transactions }}</h4>
+                    <p class="text-muted mb-0 small">Transazioni Totali</p>
+                </div>
             </div>
         </div>
-        <div class="col-md-2 col-sm-4 col-6 mb-3">
-            <div class="card stats-card gradient-bg-2 text-white text-center p-3">
-                <div class="stats-number">{{ sent_transactions }}</div>
-                <div class="stats-label">Inviate</div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-paper-plane stats-icon text-success mb-3"></i>
+                    <h4 class="mb-1">{{ sent_transactions }}</h4>
+                    <p class="text-muted mb-0 small">Inviate</p>
+                </div>
             </div>
         </div>
-        <div class="col-md-2 col-sm-4 col-6 mb-3">
-            <div class="card stats-card gradient-bg-3 text-white text-center p-3">
-                <div class="stats-number">{{ received_transactions }}</div>
-                <div class="stats-label">Ricevute</div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-inbox stats-icon text-info mb-3"></i>
+                    <h4 class="mb-1">{{ received_transactions }}</h4>
+                    <p class="text-muted mb-0 small">Ricevute</p>
+                </div>
             </div>
         </div>
-        <div class="col-md-2 col-sm-4 col-6 mb-3">
-            <div class="card stats-card gradient-bg-4 text-white text-center p-3">
-                <div class="stats-number">{{ encrypted_transactions }}</div>
-                <div class="stats-label">Crittografate</div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-lock stats-icon text-warning mb-3"></i>
+                    <h4 class="mb-1">{{ encrypted_transactions }}</h4>
+                    <p class="text-muted mb-0 small">Crittografate</p>
+                </div>
             </div>
         </div>
-        <div class="col-md-2 col-sm-4 col-6 mb-3">
-            <div class="card stats-card gradient-bg-5 text-white text-center p-3">
-                <div class="stats-number">{{ personal_documents_count }}</div>
-                <div class="stats-label">Documenti</div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-file-alt stats-icon text-secondary mb-3"></i>
+                    <h4 class="mb-1">{{ personal_documents_count }}</h4>
+                    <p class="text-muted mb-0 small">Documenti Personali</p>
+                </div>
             </div>
         </div>
-        <div class="col-md-2 col-sm-4 col-6 mb-3">
-            <div class="card stats-card gradient-bg-6 text-white text-center p-3">
-                <div class="stats-number">{{ total_file_size_mb }}</div>
-                <div class="stats-label">MB Totali</div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stats-card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-database stats-icon text-danger mb-3"></i>
+                    <h4 class="mb-1">{{ total_storage_mb|floatformat:1 }}</h4>
+                    <p class="text-muted mb-0 small">MB Totali</p>
+                </div>
             </div>
         </div>
     </div>
 
     <div class="row">
-        <!-- Grafico Tipi di Transazioni -->
-        <div class="col-md-6 mb-4">
-            <div class="card stats-card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fas fa-pie-chart me-2"></i>Tipi di Transazioni</h5>
+        <!-- Storage Section -->
+        <div class="col-lg-6 mb-4">
+            <div class="card section-card h-100">
+                <div class="card-header bg-white border-0 pb-0">
+                    <h5 class="card-title mb-0">Utilizzo Storage</h5>
                 </div>
                 <div class="card-body">
-                    <div class="chart-container">
-                        <canvas id="transactionTypeChart"></canvas>
+                    <div class="storage-indicator mb-4">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="storage-icon me-3">
+                                <i class="fas fa-hdd"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-medium">{{ used_storage_mb|floatformat:1 }} MB utilizzati</span>
+                                    <span class="text-muted small">{{ storage_percentage|floatformat:1 }}%</span>
+                                </div>
+                                <div class="progress-modern">
+                                    <div class="progress-bar-modern {% if storage_percentage > 90 %}bg-danger{% elif storage_percentage > 80 %}bg-warning{% else %}bg-primary{% endif %}" 
+                                         style="width: {{ storage_percentage }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="metric-item">
+                                    <div class="small text-muted">Limite</div>
+                                    <div class="fw-medium">{{ storage_limit_mb }} MB</div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="metric-item">
+                                    <div class="small text-muted">Utilizzato</div>
+                                    <div class="fw-medium">{{ used_storage_mb|floatformat:1 }} MB</div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="metric-item">
+                                    <div class="small text-muted">Disponibile</div>
+                                    <div class="fw-medium">{{ available_storage_mb|floatformat:1 }} MB</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if storage_percentage > 90 %}
+                        <div class="alert alert-danger" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Attenzione!</strong> Hai superato il 90% del limite di storage.
+                        </div>
+                    {% elif storage_percentage > 80 %}
+                        <div class="alert alert-warning" role="alert">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            <strong>Avviso:</strong> Hai superato l'80% del limite di storage.
+                        </div>
+                    {% endif %}
+
+                    <!-- Distribuzione Storage -->
+                    <div class="mt-4">
+                        <h6 class="mb-3">Distribuzione per Categoria</h6>
+                        <div class="chart-container">
+                            <canvas id="storageDistributionChart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Grafico Attività Mensile -->
-        <div class="col-md-6 mb-4">
-            <div class="card stats-card">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Attività Mensile</h5>
+        <!-- Grafici Attività -->
+        <div class="col-lg-6 mb-4">
+            <div class="card section-card h-100">
+                <div class="card-header bg-white border-0 pb-0">
+                    <h5 class="card-title mb-0">Analisi Attività</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Tipi di Transazioni -->
+                    <div class="mb-4">
+                        <h6 class="mb-3">Tipi di Transazioni</h6>
+                        <div class="chart-container" style="height: 200px;">
+                            <canvas id="transactionTypeChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Attività Settimanale -->
+                    <div class="mt-4">
+                        <h6 class="mb-3">Attività Settimanale</h6>
+                        <div class="chart-container" style="height: 200px;">
+                            <canvas id="weeklyTimelineChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attività Mensile -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card section-card">
+                <div class="card-header bg-white border-0 pb-0">
+                    <h5 class="card-title mb-0">Attività Mensile</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container">
@@ -128,317 +303,61 @@
         </div>
     </div>
 
-    <!-- Top Contatti -->
+    <!-- File Management -->
     <div class="row">
-        <div class="col-md-6 mb-4">
-            <div class="card stats-card">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="fas fa-paper-plane me-2"></i>Top Destinatari</h5>
-                </div>
-                <div class="card-body">
-                    {% if sent_to %}
-                        {% for contact in sent_to %}
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span><i class="fas fa-user me-2"></i>{{ contact.receiver__username }}</span>
-                            <span class="badge bg-primary">{{ contact.count }} transazioni</span>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <p class="text-muted">Nessuna transazione inviata ancora.</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-6 mb-4">
-            <div class="card stats-card">
-                <div class="card-header bg-warning text-white">
-                    <h5 class="mb-0"><i class="fas fa-inbox me-2"></i>Top Mittenti</h5>
-                </div>
-                <div class="card-body">
-                    {% if received_from %}
-                        {% for contact in received_from %}
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span><i class="fas fa-user me-2"></i>{{ contact.sender__username }}</span>
-                            <span class="badge bg-warning">{{ contact.count }} transazioni</span>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <p class="text-muted">Nessuna transazione ricevuta ancora.</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Statistiche Recenti -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card stats-card">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Attività Recente (Ultimo Mese)</h5>
-                </div>
-                <div class="card-body text-center">
-                    <div class="stats-number text-primary">{{ recent_transactions }}</div>
-                    <div class="stats-label">Transazioni negli ultimi 30 giorni</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Nuova Sezione: Analisi Sicurezza -->
-    <div class="row mt-4">
-        <div class="col-md-4 mb-4">
-            <div class="card stats-card">
-                <div class="card-header bg-danger text-white">
-                    <h5 class="mb-0"><i class="fas fa-shield-alt me-2"></i>Sicurezza</h5>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="fas fa-lock me-2"></i>Transazioni Crittografate</span>
-                        <span class="badge bg-success">{{ encrypted_percentage }}%</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="fas fa-key me-2"></i>Chiavi Attive</span>
-                        <span class="badge bg-info">RSA 2048</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span><i class="fas fa-download me-2"></i>Download Sicuri</span>
-                        <span class="badge bg-primary">{{ secure_downloads }}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4 mb-4">
-            <div class="card stats-card">
-                <div class="card-header bg-purple text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;">
-                    <h5 class="mb-0"><i class="fas fa-chart-area me-2"></i>Tendenze</h5>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="fas fa-arrow-up me-2 text-success"></i>Crescita Mensile</span>
-                        <span class="badge bg-success">+{{ growth_percentage }}%</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="fas fa-calendar-day me-2"></i>Media Giornaliera</span>
-                        <span class="badge bg-info">{{ daily_average }}</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span><i class="fas fa-fire me-2 text-warning"></i>Giorno più Attivo</span>
-                        <span class="badge bg-warning">{{ most_active_day }}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4 mb-4">
-            <!--<div class="card stats-card">
-                <div class="card-header text-white" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%) !important;">
-                    <h5 class="mb-0"><i class="fas fa-trophy me-2"></i>Achievements</h5>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="fas fa-medal me-2 text-warning"></i>Prima Transazione</span>
-                        <span class="badge bg-secondary">{{ first_transaction_date }}</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="fas fa-star me-2 text-warning"></i>Milestone 100</span>
-                        <span class="badge {% if total_transactions >= 100 %}bg-success{% else %}bg-secondary{% endif %}">
-                            {% if total_transactions >= 100 %}Raggiunto!{% else %}{{ total_transactions }}/100{% endif %}
-                        </span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span><i class="fas fa-crown me-2 text-warning"></i>Utente Attivo</span>
-                        <span class="badge {% if recent_transactions > 10 %}bg-success{% else %}bg-secondary{% endif %}">
-                            {% if recent_transactions > 10 %}Sì{% else %}No{% endif %}
-                        </span>
-                    </div>
-                </div>
-            </div>-->
-        </div>
-    </div>
-
-    <!-- Grafico Timeline Attività -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card stats-card">
-                <div class="card-header bg-gradient text-white" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;">
-                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Timeline Attività (Ultimi 7 Giorni)</h5>
-                </div>
-                <div class="card-body">
-                    <div class="chart-container">
-                        <canvas id="weeklyTimelineChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Statistiche Storage -->
-    <div class="row mt-4">
-        <div class="col-12 mb-3">
-            <h4><i class="fas fa-hdd me-2"></i>Statistiche Storage</h4>
-        </div>
-    </div>
-    
-    <div class="row">
-        <div class="col-md-3 col-sm-6 mb-4">
-            <div class="card stats-card gradient-bg-1 text-white text-center p-3">
-                <div class="stats-number">{{ total_storage_mb }}</div>
-                <div class="stats-label">MB Utilizzati</div>
-            </div>
-        </div>
-        <div class="col-md-3 col-sm-6 mb-4">
-            <div class="card stats-card gradient-bg-2 text-white text-center p-3">
-                <div class="stats-number">{{ storage_limit_mb }}</div>
-                <div class="stats-label">MB Limite</div>
-            </div>
-        </div>
-        <div class="col-md-3 col-sm-6 mb-4">
-            <div class="card stats-card gradient-bg-3 text-white text-center p-3">
-                <div class="stats-number">{{ storage_percentage }}%</div>
-                <div class="stats-label">Storage Usato</div>
-            </div>
-        </div>
-        <div class="col-md-3 col-sm-6 mb-4">
-            <div class="card stats-card gradient-bg-4 text-white text-center p-3">
-                <div class="stats-number">{{ remaining_storage_mb }}</div>
-                <div class="stats-label">MB Disponibili</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Dettagli Storage per Tipo -->
-    <div class="row">
-        <div class="col-md-6 mb-4">
-            <div class="card stats-card">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Distribuzione Storage</h5>
-                </div>
-                <div class="card-body">
-                    <div class="chart-container">
-                        <canvas id="storageDistributionChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-6 mb-4">
-            <div class="card stats-card">
-                <div class="card-header bg-warning text-white">
-                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Dettagli per Categoria</h5>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="fas fa-file-alt me-2"></i>Documenti Personali</span>
-                        <span class="badge bg-primary">{{ personal_docs_storage_mb }} MB</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="fas fa-paper-plane me-2"></i>File Transazioni</span>
-                        <span class="badge bg-success">{{ transaction_files_storage_mb }} MB</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="fas fa-image me-2"></i>Immagini</span>
-                        <span class="badge bg-info">{{ images_storage_mb }} MB</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="fas fa-file-pdf me-2"></i>PDF</span>
-                        <span class="badge bg-danger">{{ pdf_storage_mb }} MB</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span><i class="fas fa-file me-2"></i>Altri File</span>
-                        <span class="badge bg-secondary">{{ other_files_storage_mb }} MB</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Barra di Progresso Storage -->
-    <div class="row">
-        <div class="col-12 mb-4">
-            <div class="card stats-card">
-                <div class="card-header text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;">
-                    <h5 class="mb-0"><i class="fas fa-battery-three-quarters me-2"></i>Utilizzo Storage</h5>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Spazio Utilizzato</span>
-                            <span><strong>{{ total_storage_mb }} MB / {{ storage_limit_mb }} MB</strong></span>
-                        </div>
-                        <div class="progress" style="height: 20px;">
-                            <div class="progress-bar {% if storage_percentage > 80 %}bg-danger{% elif storage_percentage > 60 %}bg-warning{% else %}bg-success{% endif %}" 
-                                 role="progressbar" 
-                                 style="width: {{ storage_percentage }}%" 
-                                 aria-valuenow="{{ storage_percentage }}" 
-                                 aria-valuemin="0" 
-                                 aria-valuemax="100">
-                                {{ storage_percentage }}%
-                            </div>
-                        </div>
-                    </div>
-                    
-                    {% if storage_percentage > 80 %}
-                    <div class="alert alert-warning mb-0">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        <strong>Attenzione:</strong> Stai utilizzando oltre l'80% dello spazio disponibile. Considera di eliminare alcuni file non necessari.
-                    </div>
-                    {% elif storage_percentage > 90 %}
-                    <div class="alert alert-danger mb-0">
-                        <i class="fas fa-exclamation-circle me-2"></i>
-                        <strong>Spazio quasi esaurito:</strong> Hai utilizzato oltre il 90% dello spazio. Elimina alcuni file per continuare a caricare nuovi contenuti.
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Top File più Grandi -->
-    <div class="row">
-        <div class="col-md-6 mb-4">
-            <div class="card stats-card">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0"><i class="fas fa-weight-hanging me-2"></i>File più Grandi</h5>
+        <div class="col-lg-6 mb-4">
+            <div class="card section-card h-100">
+                <div class="card-header bg-white border-0 pb-0">
+                    <h5 class="card-title mb-0">File Più Grandi</h5>
                 </div>
                 <div class="card-body">
                     {% if largest_files %}
                         {% for file in largest_files %}
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <div>
-                                <i class="fas fa-file me-2"></i>
-                                <span class="text-truncate" style="max-width: 200px;">{{ file.name }}</span>
+                            <div class="file-item d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-file me-3 text-muted"></i>
+                                    <div>
+                                        <div class="fw-medium">{{ file.name|truncatechars:30 }}</div>
+                                        <small class="text-muted">{{ file.upload_date|date:"d M Y" }}</small>
+                                    </div>
+                                </div>
+                                <span class="badge bg-light text-dark">{{ file.size_mb|floatformat:2 }} MB</span>
                             </div>
-                            <span class="badge bg-primary">{{ file.size_mb }} MB</span>
-                        </div>
                         {% endfor %}
                     {% else %}
-                        <p class="text-muted">Nessun file caricato ancora.</p>
+                        <div class="text-center py-4">
+                            <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                            <p class="text-muted mb-0">Nessun file trovato.</p>
+                        </div>
                     {% endif %}
                 </div>
             </div>
         </div>
-        
-        <div class="col-md-6 mb-4">
-            <div class="card stats-card">
-                <div class="card-header text-white" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%) !important;">
-                    <h5 class="mb-0"><i class="fas fa-clock me-2"></i>File Recenti</h5>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card section-card h-100">
+                <div class="card-header bg-white border-0 pb-0">
+                    <h5 class="card-title mb-0">File Recenti</h5>
                 </div>
                 <div class="card-body">
                     {% if recent_files %}
                         {% for file in recent_files %}
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <div>
-                                <i class="fas fa-file me-2"></i>
-                                <span class="text-truncate" style="max-width: 200px;">{{ file.name }}</span>
+                            <div class="file-item d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-file me-3 text-muted"></i>
+                                    <div>
+                                        <div class="fw-medium">{{ file.name|truncatechars:30 }}</div>
+                                        <small class="text-muted">{{ file.upload_date|date:"d M Y H:i" }}</small>
+                                    </div>
+                                </div>
+                                <span class="badge bg-light text-dark">{{ file.size_mb|floatformat:2 }} MB</span>
                             </div>
-                            <small class="text-muted">{{ file.upload_date|date:"d/m/Y" }}</small>
-                        </div>
                         {% endfor %}
                     {% else %}
-                        <p class="text-muted">Nessun file caricato di recente.</p>
+                        <div class="text-center py-4">
+                            <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                            <p class="text-muted mb-0">Nessun file caricato di recente.</p>
+                        </div>
                     {% endif %}
                 </div>
             </div>
@@ -451,135 +370,203 @@
 {{ block.super }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    // Definizione colori
+    const colors = {
+        primary: '#3b82f6',
+        success: '#10b981',
+        info: '#06b6d4',
+        warning: '#f59e0b',
+        danger: '#ef4444',
+        secondary: '#6b7280',
+        light: '#f8fafc',
+        dark: '#1f2937'
+    };
+
     // Grafico a torta per i tipi di transazioni
-    const typeCtx = document.getElementById('transactionTypeChart').getContext('2d');
-    new Chart(typeCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Messaggi di Testo', 'File'],
-            datasets: [{
-                data: [{{ text_transactions }}, {{ file_transactions }}],
-                backgroundColor: ['#36A2EB', '#FF6384'],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                }
+    const typeCtx = document.getElementById('transactionTypeChart');
+    if (typeCtx) {
+        new Chart(typeCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Messaggi di Testo', 'File'],
+                datasets: [{
+                    data: [{{ text_transactions }}, {{ file_transactions }}],
+                    backgroundColor: [colors.primary, colors.success],
+                    borderWidth: 0,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            font: { size: 11 }
+                        }
+                    }
+                },
+                cutout: '65%'
             }
-        }
-    });
+        });
+    }
 
     // Grafico a barre per l'attività mensile
-    const monthlyCtx = document.getElementById('monthlyActivityChart').getContext('2d');
-    new Chart(monthlyCtx, {
-        type: 'bar',
-        data: {
-            labels: [{% for stat in monthly_stats %}'{{ stat.month }}'{% if not forloop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                label: 'Transazioni',
-                data: [{% for stat in monthly_stats %}{{ stat.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                backgroundColor: 'rgba(54, 162, 235, 0.8)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        stepSize: 1
-                    }
-                }
+    const monthlyCtx = document.getElementById('monthlyActivityChart');
+    if (monthlyCtx) {
+        new Chart(monthlyCtx, {
+            type: 'bar',
+            data: {
+                labels: [{% for stat in monthly_stats %}'{{ stat.month }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+                datasets: [{
+                    label: 'Transazioni',
+                    data: [{% for stat in monthly_stats %}{{ stat.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                    backgroundColor: colors.success + '20',
+                    borderColor: colors.success,
+                    borderWidth: 2,
+                    borderRadius: 6,
+                    borderSkipped: false
+                }]
             },
-            plugins: {
-                legend: {
-                    display: false
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 },
+                        grid: { color: '#f3f4f6' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
                 }
             }
-        }
-    });
+        });
+    }
 
-    // Nuovo grafico timeline settimanale
-    const weeklyCtx = document.getElementById('weeklyTimelineChart').getContext('2d');
-    new Chart(weeklyCtx, {
-        type: 'line',
-        data: {
-            labels: ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'],
-            datasets: [{
-                label: 'Transazioni Inviate',
-                data: [{{ weekly_sent.0 }}, {{ weekly_sent.1 }}, {{ weekly_sent.2 }}, {{ weekly_sent.3 }}, {{ weekly_sent.4 }}, {{ weekly_sent.5 }}, {{ weekly_sent.6 }}],
-                borderColor: 'rgba(75, 192, 192, 1)',
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                tension: 0.4,
-                fill: true
-            }, {
-                label: 'Transazioni Ricevute',
-                data: [{{ weekly_received.0 }}, {{ weekly_received.1 }}, {{ weekly_received.2 }}, {{ weekly_received.3 }}, {{ weekly_received.4 }}, {{ weekly_received.5 }}, {{ weekly_received.6 }}],
-                borderColor: 'rgba(255, 99, 132, 1)',
-                backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        stepSize: 1
-                    }
-                }
+    // Grafico timeline settimanale
+    const weeklyCtx = document.getElementById('weeklyTimelineChart');
+    if (weeklyCtx) {
+        new Chart(weeklyCtx, {
+            type: 'line',
+            data: {
+                labels: ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'],
+                datasets: [{
+                    label: 'Inviate',
+                    data: [{{ weekly_sent.0 }}, {{ weekly_sent.1 }}, {{ weekly_sent.2 }}, {{ weekly_sent.3 }}, {{ weekly_sent.4 }}, {{ weekly_sent.5 }}, {{ weekly_sent.6 }}],
+                    borderColor: colors.primary,
+                    backgroundColor: colors.primary + '10',
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: colors.primary,
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4
+                }, {
+                    label: 'Ricevute',
+                    data: [{{ weekly_received.0 }}, {{ weekly_received.1 }}, {{ weekly_received.2 }}, {{ weekly_received.3 }}, {{ weekly_received.4 }}, {{ weekly_received.5 }}, {{ weekly_received.6 }}],
+                    borderColor: colors.info,
+                    backgroundColor: colors.info + '10',
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: colors.info,
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4
+                }]
             },
-            plugins: {
-                legend: {
-                    position: 'top'
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 },
+                        grid: { color: '#f3f4f6' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            font: { size: 11 }
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
                 }
             }
-        }
-    });
+        });
+    }
 
     // Grafico distribuzione storage
-    const storageCtx = document.getElementById('storageDistributionChart').getContext('2d');
-    new Chart(storageCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Documenti Personali', 'File Transazioni', 'Immagini', 'PDF', 'Altri File'],
-            datasets: [{
-                data: [
-                    {{ personal_docs_storage_mb }}, 
-                    {{ transaction_files_storage_mb }}, 
-                    {{ images_storage_mb }}, 
-                    {{ pdf_storage_mb }}, 
-                    {{ other_files_storage_mb }}
-                ],
-                backgroundColor: [
-                    '#36A2EB',
-                    '#4BC0C0', 
-                    '#FF6384',
-                    '#FF9F40',
-                    '#9966FF'
-                ],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                }
+    const storageCtx = document.getElementById('storageDistributionChart');
+    if (storageCtx) {
+        new Chart(storageCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Documenti Personali', 'File Transazioni', 'Immagini', 'PDF', 'Altri'],
+                datasets: [{
+                    data: [
+                        {{ storage_by_category.personal_documents|default:0 }},
+                        {{ storage_by_category.transaction_files|default:0 }},
+                        {{ storage_by_category.images|default:0 }},
+                        {{ storage_by_category.pdf|default:0 }},
+                        {{ storage_by_category.others|default:0 }}
+                    ],
+                    backgroundColor: [
+                        colors.primary,
+                        colors.success,
+                        colors.info,
+                        colors.warning,
+                        colors.secondary
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            usePointStyle: true,
+                            font: { size: 10 }
+                        }
+                    }
+                },
+                cutout: '60%'
             }
+        });
+    }
+
+    // Animazione progress bar
+    document.addEventListener('DOMContentLoaded', function() {
+        const progressBar = document.querySelector('.progress-bar-modern');
+        if (progressBar) {
+            const targetWidth = progressBar.style.width;
+            progressBar.style.width = '0%';
+            
+            setTimeout(() => {
+                progressBar.style.width = targetWidth;
+            }, 300);
         }
     });
 </script>

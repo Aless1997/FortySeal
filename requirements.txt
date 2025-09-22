@@ -28,3 +28,6 @@ sentry-sdk[django]
 reportlab
 faker
 python-dateutil
+python-dotenv
+python magic
+agora-token-builder

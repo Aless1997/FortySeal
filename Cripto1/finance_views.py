@@ -23,16 +23,42 @@ def finance_dashboard(request):
     
     # Statistiche generali
     total_organizations = organizations.count()
-    paid_organizations = OrganizationBilling.objects.filter(payment_status='paid').count()
-    pending_organizations = OrganizationBilling.objects.filter(payment_status='pending').count()
-    overdue_organizations = OrganizationBilling.objects.filter(payment_status='overdue').count()
     
-    # Calcolo fatturato mensile CORRETTO - somma solo le fatture pagate
-    current_month = date.today().replace(day=1)
+    # Conteggi corretti basati sulle organizzazioni attive
+    paid_organizations = organizations.filter(
+        billing_config__payment_status='paid'
+    ).count()
+    
+    pending_organizations = organizations.filter(
+        billing_config__payment_status='pending'
+    ).count()
+    
+    overdue_organizations = organizations.filter(
+        billing_config__payment_status='overdue'
+    ).count()
+    
+    # Organizzazioni senza configurazione di fatturazione (da considerare come pending)
+    organizations_without_billing = organizations.filter(
+        billing_config__isnull=True
+    ).count()
+    
+    # Aggiungi le organizzazioni senza billing al pending
+    pending_organizations += organizations_without_billing
+    
+    # Calcolo fatturato mensile CORRETTO - considera il periodo di fatturazione
+    from datetime import date
+    current_month_start = date.today().replace(day=1)
+    
+    # Calcola la fine del mese corrente
+    if current_month_start.month == 12:
+        next_month = current_month_start.replace(year=current_month_start.year + 1, month=1)
+    else:
+        next_month = current_month_start.replace(month=current_month_start.month + 1)
     
     monthly_revenue = Invoice.objects.filter(
         status='paid',
-        created_at__gte=current_month
+        billing_period_start__gte=current_month_start,
+        billing_period_start__lt=next_month
     ).aggregate(total=models.Sum('total_amount'))['total'] or 0
     
     context = {
@@ -47,7 +73,6 @@ def finance_dashboard(request):
     
     return render(request, 'Cripto1/finance/dashboard.html', context)
 
-@superuser_required()  # AGGIUNGI LE PARENTESI
 @superuser_required()
 def organization_billing_detail(request, org_id):
     """Dettaglio fatturazione organizzazione"""

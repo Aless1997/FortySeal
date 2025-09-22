@@ -556,4 +556,4 @@ def your_view_function(request):
         logger.error(f"Errore conversione max_file_size_mb: {e}")
         logger.error(f"Valore problematico: '{raw_value}'")
     
-    # ... existing code ...
+    # Rimuovi i logger.debug per i valori POST

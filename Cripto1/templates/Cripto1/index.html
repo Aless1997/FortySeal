@@ -71,11 +71,20 @@
 
 <!-- Features Section -->
 <section class="features-section py-6">
+    <!--
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
             <h2 class="display-4 fw-bold">Come Funziona</h2>
             <p class="lead text-muted">Scopri la potenza della blockchain in pochi semplici passi</p>
+      
+            <div class="mt-4">
+                <a href="{% url 'Cripto1:workflow' %}" class="btn btn-outline-primary btn-lg rounded-pill px-4 workflow-arrow-btn">
+                    <i class="fas fa-arrow-right me-2"></i>Scopri di più sul nostro Workflow
+                    <i class="fas fa-external-link-alt ms-2"></i>
+                </a>
+            </div>
         </div>
+        -->
         
         <div class="row g-4">
             <!-- Blockchain Card -->
@@ -483,3 +492,30 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+
+.workflow-arrow-btn {
+    transition: all 0.3s ease;
+    border: 2px solid var(--bs-primary);
+    position: relative;
+    overflow: hidden;
+}
+
+.workflow-arrow-btn:hover {
+    transform: translateX(5px);
+    box-shadow: 0 5px 15px rgba(var(--bs-primary-rgb), 0.3);
+}
+
+.workflow-arrow-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.workflow-arrow-btn:hover::before {
+    left: 100%;
+}

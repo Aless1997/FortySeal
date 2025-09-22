@@ -87,16 +87,12 @@ class SmartAutoCleanupMiddleware:
                         transaction.save()
                         deleted_count += 1
                 except Exception as e:
-                    logger.error(f'Errore cleanup transazione {transaction.id}: {e}')
+                    pass  # Rimuovi il log di errore
             
-            if deleted_count > 0:
-                logger.info(
-                    f'Org {org.name}: {deleted_count} file eliminati '
-                    f'(controllo ogni {org.cleanup_check_interval} min)'
-                )
+            # Rimuovi il log di info
                 
         except Exception as e:
-            logger.error(f'Errore cleanup org {org.id}: {e}')
+            pass  # Rimuovi il log di errore
 
 
 class AuditLogMiddleware(MiddlewareMixin):
@@ -486,3 +482,21 @@ class Require2FAMiddleware:
         
         response = self.get_response(request)
         return response
+
+
+# Aggiungere rate limiting
+class RateLimitMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+    
+    def __call__(self, request):
+        # Implementare rate limiting per API
+        client_ip = self.get_client_ip(request)
+        cache_key = f'rate_limit_{client_ip}'
+        
+        requests_count = cache.get(cache_key, 0)
+        if requests_count > 100:  # 100 richieste per minuto
+            return HttpResponse('Rate limit exceeded', status=429)
+        
+        cache.set(cache_key, requests_count + 1, timeout=60)
+        return self.get_response(request)

@@ -1,0 +1,81 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Invita Utenti - Riunione {{ meeting_id }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="fas fa-user-plus"></i> Invita Utenti alla Riunione</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Email degli invitati:</label>
+                            <div id="email-inputs">
+                                <div class="input-group mb-2">
+                                    <input type="email" name="emails" class="form-control" placeholder="email@esempio.com" required>
+                                    <button type="button" class="btn btn-outline-danger" onclick="removeEmail(this)">
+                                        <i class="fas fa-minus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="addEmail()">
+                                <i class="fas fa-plus"></i> Aggiungi Email
+                            </button>
+                        </div>
+                        
+                        {% if organization_users %}
+                        <div class="mb-3">
+                            <label class="form-label">Utenti dell'organizzazione:</label>
+                            {% for user_profile in organization_users %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="emails" value="{{ user_profile.user.email }}" id="user_{{ user_profile.user.id }}">
+                                <label class="form-check-label" for="user_{{ user_profile.user.id }}">
+                                    {{ user_profile.user.get_full_name|default:user_profile.user.username }} ({{ user_profile.user.email }})
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'Cripto1:meeting_detail' meeting_id %}" class="btn btn-secondary me-md-2">Annulla</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> Invia Inviti
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function addEmail() {
+    const container = document.getElementById('email-inputs');
+    const div = document.createElement('div');
+    div.className = 'input-group mb-2';
+    div.innerHTML = `
+        <input type="email" name="emails" class="form-control" placeholder="email@esempio.com">
+        <button type="button" class="btn btn-outline-danger" onclick="removeEmail(this)">
+            <i class="fas fa-minus"></i>
+        </button>
+    `;
+    container.appendChild(div);
+}
+
+function removeEmail(button) {
+    const container = document.getElementById('email-inputs');
+    if (container.children.length > 1) {
+        button.parentElement.remove();
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,1334 @@
+{% extends 'Cripto1/base.html' %}
+{% load static %}
+
+{% block title %}Piattaforma Completa - Gestione Aziendale{% endblock %}
+
+{% block content %}
+<div class="platform-container">
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-6">
+                    <h1 class="hero-title">Piattaforma Aziendale Completa</h1>
+                    <p class="hero-subtitle">Gestione documenti, transazioni finanziarie, blockchain e collaborazione aziendale in un'unica soluzione integrata e sicura.</p>
+                    <div class="hero-features">
+                        <div class="feature-badge">📄 Documenti</div>
+                        <div class="feature-badge">💰 Finanza</div>
+                        <div class="feature-badge">🔗 Blockchain</div>
+                        <div class="feature-badge">👥 Collaborazione</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Platform Overview -->
+    <section class="platform-overview">
+        <div class="container">
+            <div class="section-header">
+                <h2>Cosa Fa la Nostra Piattaforma</h2>
+                <p>Una soluzione completa per digitalizzare e automatizzare tutti i processi aziendali</p>
+            </div>
+            <div class="overview-grid">
+                <div class="overview-card" data-aos="fade-up" data-aos-delay="100">
+                    <div class="card-icon">📋</div>
+                    <h3>Gestione Documenti</h3>
+                    <p>Archiviazione sicura, organizzazione intelligente e condivisione controllata di tutti i documenti aziendali con crittografia avanzata.</p>
+                    <ul class="feature-points">
+                        <li>Upload e organizzazione file</li>
+                        <li>Controllo versioni automatico</li>
+                        <li>Ricerca full-text nei contenuti</li>
+                        <li>Backup automatici giornalieri</li>
+                    </ul>
+                </div>
+
+                <div class="overview-card" data-aos="fade-up" data-aos-delay="300">
+                    <div class="card-icon">🔗</div>
+                    <h3>Tecnologia Blockchain</h3>
+                    <p>Registrazione immutabile delle transazioni, smart contracts per automazione e tracciabilità completa delle operazioni.</p>
+                    <ul class="feature-points">
+                        <li>Registro transazioni immutabile</li>
+                        <li>Smart contracts automatici</li>
+                        <li>Tracciabilità end-to-end</li>
+                        <li>Verifiche di integrità</li>
+                    </ul>
+                </div>
+                <div class="overview-card" data-aos="fade-up" data-aos-delay="400">
+                    <div class="card-icon">👥</div>
+                    <h3>Collaborazione Aziendale</h3>
+                    <p>Workspace condivisi, gestione progetti, comunicazione interna e workflow automatizzati per team distribuiti.</p>
+                    <ul class="feature-points">
+                        <li>Workspace collaborativi</li>
+                        <li>Gestione progetti e task</li>
+                        <li>Chat e videochiamate integrate</li>
+                        <li>Workflow personalizzabili</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Complete Features List -->
+    <section class="complete-features">
+        <div class="container">
+            <div class="section-header">
+                <h2>Tutte le Funzionalità Disponibili</h2>
+                <p>Un elenco completo di tutto quello che puoi fare con la piattaforma</p>
+            </div>
+            <div class="features-tabs">
+                <div class="tab-navigation">
+                    <button class="tab-btn active" data-tab="documents">📄 Documenti</button>
+                    <button class="tab-btn" data-tab="finance">💰 Finanza</button>
+                    <button class="tab-btn" data-tab="blockchain">🔗 Blockchain</button>
+                    <button class="tab-btn" data-tab="collaboration">👥 Collaborazione</button>
+                    <button class="tab-btn" data-tab="admin">⚙️ Amministrazione</button>
+                </div>
+                
+                <div class="tab-content active" id="documents">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4>Gestione File</h4>
+                            <ul class="feature-list">
+                                <li>✓ Upload singolo e multiplo (drag & drop)</li>
+                                <li>✓ Supporto tutti i formati (PDF, DOC, XLS, IMG)</li>
+                                <li>✓ Anteprima documenti online</li>
+                                <li>✓ Download e condivisione link</li>
+                                <li>✓ Controllo versioni automatico</li>
+                                <li>✓ Cronologia modifiche dettagliata</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h4>Organizzazione</h4>
+                            <ul class="feature-list">
+                                <li>✓ Cartelle illimitate e sottocartelle</li>
+                                <li>✓ Tag personalizzati e categorie</li>
+                                <li>✓ Ricerca avanzata per contenuto</li>
+                                <li>✓ Filtri per data, tipo, dimensione</li>
+                                <li>✓ Ordinamento personalizzabile</li>
+                                <li>✓ Archiviazione automatica</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="finance">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4>Fatturazione</h4>
+                            <ul class="feature-list">
+                                <li>✓ Creazione fatture personalizzate</li>
+                                <li>✓ Template fatture aziendali</li>
+                                <li>✓ Invio automatico via email</li>
+                                <li>✓ Tracking stato pagamenti</li>
+                                <li>✓ Promemoria scadenze automatici</li>
+                                <li>✓ Generazione PDF professionale</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h4>Transazioni</h4>
+                            <ul class="feature-list">
+                                <li>✓ Registro completo transazioni</li>
+                                <li>✓ Categorizzazione spese/entrate</li>
+                                <li>✓ Riconciliazione bancaria</li>
+                                <li>✓ Report finanziari mensili/annuali</li>
+                                <li>✓ Dashboard analytics in tempo reale</li>
+                                <li>✓ Export dati per commercialista</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="blockchain">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4>Registro Distribuito</h4>
+                            <ul class="feature-list">
+                                <li>✓ Hash crittografici per ogni transazione</li>
+                                <li>✓ Timestamp immutabili</li>
+                                <li>✓ Verifica integrità documenti</li>
+                                <li>✓ Audit trail completo</li>
+                                <li>✓ Backup distribuito</li>
+                                <li>✓ Certificazione digitale</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h4>Smart Contracts</h4>
+                            <ul class="feature-list">
+                                <li>✓ Automazione pagamenti</li>
+                                <li>✓ Contratti auto-esecutivi</li>
+                                <li>✓ Condizioni programmabili</li>
+                                <li>✓ Escrow automatico</li>
+                                <li>✓ Notifiche eventi blockchain</li>
+                                <li>✓ Integrazione wallet esterni</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="collaboration">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4>Team & Progetti</h4>
+                            <ul class="feature-list">
+                                <li>✓ Workspace condivisi per team</li>
+                                <li>✓ Gestione progetti e milestone</li>
+                                <li>✓ Assegnazione task e deadline</li>
+                                <li>✓ Kanban board interattive</li>
+                                <li>✓ Timeline progetti visuali</li>
+                                <li>✓ Report avanzamento lavori</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h4>Comunicazione</h4>
+                            <ul class="feature-list">
+                                <li>✓ Chat interna per team</li>
+                                <li>✓ Videochiamate integrate</li>
+                                <li>✓ Commenti su documenti</li>
+                                <li>✓ Notifiche push personalizzabili</li>
+                                <li>✓ Calendario condiviso</li>
+                                <li>✓ Meeting scheduler automatico</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="admin">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4>Gestione Utenti</h4>
+                            <ul class="feature-list">
+                                <li>✓ Inviti utenti via email</li>
+                                <li>✓ Ruoli e permessi granulari</li>
+                                <li>✓ Gruppi di lavoro personalizzati</li>
+                                <li>✓ Single Sign-On (SSO)</li>
+                                <li>✓ Autenticazione a due fattori</li>
+                                <li>✓ Log accessi e attività</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h4>Sistema</h4>
+                            <ul class="feature-list">
+                                <li>✓ Dashboard amministratore</li>
+                                <li>✓ Backup automatici programmati</li>
+                                <li>✓ Monitoraggio performance</li>
+                                <li>✓ API REST complete</li>
+                                <li>✓ Integrazioni terze parti</li>
+                                <li>✓ Supporto tecnico dedicato</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Technology & Security -->
+    <section class="tech-security">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-6">
+                    <h2>Stack Tecnologico</h2>
+                    <div class="tech-stack">
+                        <div class="tech-item">
+                            <div class="tech-icon">🐍</div>
+                            <div class="tech-info">
+                                <h4>Python/Django</h4>
+                                <p>Framework backend robusto per applicazioni enterprise</p>
+                            </div>
+                        </div>
+                        <div class="tech-item">
+                            <div class="tech-icon">🗄️</div>
+                            <div class="tech-info">
+                                <h4>PostgreSQL</h4>
+                                <p>Database relazionale per gestione dati complessi</p>
+                            </div>
+                        </div>
+                        <div class="tech-item">
+                            <div class="tech-icon">⚡</div>
+                            <div class="tech-info">
+                                <h4>Redis/Celery</h4>
+                                <p>Cache e task asincroni per performance ottimali</p>
+                            </div>
+                        </div>
+                        <div class="tech-item">
+                            <div class="tech-icon">🔗</div>
+                            <div class="tech-info">
+                                <h4>Blockchain Custom</h4>
+                                <p>Implementazione proprietaria per tracciabilità</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <h2>Sicurezza & Compliance</h2>
+                    <div class="security-features">
+                        <div class="security-item">
+                            <div class="security-icon">🔐</div>
+                            <div class="security-info">
+                                <h4>Crittografia AES-256</h4>
+                                <p>Tutti i dati sono crittografati con standard bancario</p>
+                            </div>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-icon">🛡️</div>
+                            <div class="security-info">
+                                <h4>Backup Ridondanti</h4>
+                                <p>Backup automatici su multiple location geografiche</p>
+                            </div>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-icon">📊</div>
+                            <div class="security-info">
+                                <h4>Audit Completo</h4>
+                                <p>Log dettagliati di ogni azione per compliance</p>
+                            </div>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-icon">🔒</div>
+                            <div class="security-info">
+                                <h4>Accesso Controllato</h4>
+                                <p>Autenticazione multi-fattore e permessi granulari</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Blockchain Transaction Flow -->
+    <section class="blockchain-flow">
+        <div class="container">
+            <div class="section-header">
+                <h2>Flusso Blockchain: Come Funzionano le Transazioni</h2>
+                <p>Processo completo dalla creazione all'invio di una transazione sicura tra utenti</p>
+            </div>
+            <div class="blockchain-steps">
+                <div class="blockchain-step" data-aos="fade-up" data-aos-delay="100">
+                    <div class="step-visual">
+                        <div class="step-number">1</div>
+                        <div class="step-icon">📝</div>
+                    </div>
+                    <div class="step-content">
+                        <h3>Creazione Transazione</h3>
+                        <p>L'utente seleziona il documento o i dati da inviare, specifica il destinatario e definisce le condizioni della transazione. Il sistema genera automaticamente un ID univoco.</p>
+                        <div class="step-details">
+                            <span class="detail-item">🔍 Selezione contenuto</span>
+                            <span class="detail-item">👤 Scelta destinatario</span>
+                            <span class="detail-item">⚙️ Configurazione parametri</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="blockchain-step" data-aos="fade-up" data-aos-delay="200">
+                    <div class="step-visual">
+                        <div class="step-number">2</div>
+                        <div class="step-icon">🔐</div>
+                    </div>
+                    <div class="step-content">
+                        <h3>Crittografia & Hash</h3>
+                        <p>I dati vengono crittografati con AES-256, viene generato l'hash SHA-256 del contenuto e creata la firma digitale dell'utente mittente per garantire autenticità e integrità.</p>
+                        <div class="step-details">
+                            <span class="detail-item">🔒 Crittografia AES-256</span>
+                            <span class="detail-item">🔗 Hash SHA-256</span>
+                            <span class="detail-item">✍️ Firma digitale</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="blockchain-step" data-aos="fade-up" data-aos-delay="300">
+                    <div class="step-visual">
+                        <div class="step-number">3</div>
+                        <div class="step-icon">⛓️</div>
+                    </div>
+                    <div class="step-content">
+                        <h3>Registrazione Blockchain</h3>
+                        <p>La transazione viene registrata nel blocco blockchain con timestamp immutabile, collegata al blocco precedente e distribuita sui nodi della rete per garantire immutabilità.</p>
+                        <div class="step-details">
+                            <span class="detail-item">📅 Timestamp immutabile</span>
+                            <span class="detail-item">🔗 Collegamento blocchi</span>
+                            <span class="detail-item">🌐 Distribuzione nodi</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="blockchain-step" data-aos="fade-up" data-aos-delay="400">
+                    <div class="step-visual">
+                        <div class="step-number">4</div>
+                        <div class="step-icon">📤</div>
+                    </div>
+                    <div class="step-content">
+                        <h3>Invio & Notifica</h3>
+                        <p>Il destinatario riceve notifica della transazione, può verificare l'autenticità tramite blockchain, accedere ai dati crittografati con le sue chiavi e confermare la ricezione.</p>
+                        <div class="step-details">
+                            <span class="detail-item">📧 Notifica automatica</span>
+                            <span class="detail-item">✅ Verifica autenticità</span>
+                            <span class="detail-item">🔓 Decrittografia sicura</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="blockchain-step" data-aos="fade-up" data-aos-delay="500">
+                    <div class="step-visual">
+                        <div class="step-number">5</div>
+                        <div class="step-icon">✅</div>
+                    </div>
+                    <div class="step-content">
+                        <h3>Conferma & Tracciabilità</h3>
+                        <p>La transazione viene marcata come completata, registrata nell'audit trail permanente e rimane tracciabile per sempre. Entrambi gli utenti possono verificare lo stato in qualsiasi momento.</p>
+                        <div class="step-details">
+                            <span class="detail-item">✔️ Conferma completamento</span>
+                            <span class="detail-item">📋 Audit trail permanente</span>
+                            <span class="detail-item">🔍 Tracciabilità infinita</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Blockchain Benefits -->
+            <div class="blockchain-benefits">
+                <h3>Vantaggi della Tecnologia Blockchain</h3>
+                <div class="benefits-grid">
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🛡️</div>
+                        <h4>Immutabilità</h4>
+                        <p>Una volta registrata, nessuna transazione può essere modificata o cancellata</p>
+                    </div>
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🔍</div>
+                        <h4>Trasparenza</h4>
+                        <p>Ogni transazione è verificabile e tracciabile da tutti gli utenti autorizzati</p>
+                    </div>
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🔐</div>
+                        <h4>Sicurezza</h4>
+                        <p>Crittografia avanzata e distribuzione su più nodi garantiscono massima sicurezza</p>
+                    </div>
+                    <div class="benefit-item">
+                        <div class="benefit-icon">⚡</div>
+                        <h4>Efficienza</h4>
+                        <p>Automazione dei processi e riduzione dei tempi di verifica e conferma</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<style>
+:root {
+    --primary-color: #2563eb;
+    --secondary-color: #64748b;
+    --accent-color: #f59e0b;
+    --success-color: #10b981;
+    --blockchain-color: #8b5cf6;
+    --background-light: #f8fafc;
+    --background-dark: #1e293b;
+    --text-dark: #1e293b;
+    --text-light: #64748b;
+    --border-color: #e2e8f0;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --gradient-blockchain: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
+}
+
+.platform-container {
+    min-height: 100vh;
+}
+
+/* Hero Section - Centered Text */
+.hero-section {
+    padding: 100px 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    text-align: center;
+}
+
+.hero-section .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.hero-section .row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 3rem;
+}
+
+.hero-section .col-lg-6 {
+    flex: 1;
+    min-width: 300px;
+    text-align: center;
+}
+
+.hero-title {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.hero-subtitle {
+    font-size: 1.2rem;
+    margin-bottom: 2rem;
+    opacity: 0.9;
+    text-align: center;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
+}
+
+.hero-features {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.feature-badge {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.5rem 1rem;
+    border-radius: 25px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-align: center;
+}
+
+/* Dashboard Animations - Centered */
+.hero-dashboard {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+
+.dashboard-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
+    color: white;
+    position: relative;
+    overflow: hidden;
+    animation: cardFloat 6s ease-in-out infinite;
+    width: 100%;
+    max-width: 500px;
+    text-align: center;
+}
+
+.dashboard-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+    transform: rotate(45deg);
+    animation: shimmer 3s linear infinite;
+}
+
+@keyframes cardFloat {
+    0%, 100% { transform: translateY(0px) rotateX(0deg); }
+    50% { transform: translateY(-10px) rotateX(2deg); }
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+    100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+.card-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    position: relative;
+    z-index: 2;
+    text-align: center;
+}
+
+/* Animated Cube */
+.animated-cube {
+    width: 40px;
+    height: 40px;
+    position: relative;
+    transform-style: preserve-3d;
+    animation: rotateCube 8s infinite linear;
+}
+
+.cube {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+}
+
+.face {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    backdrop-filter: blur(10px);
+}
+
+.face.front  { transform: rotateY(0deg) translateZ(20px); }
+.face.back   { transform: rotateY(180deg) translateZ(20px); }
+.face.right  { transform: rotateY(90deg) translateZ(20px); }
+.face.left   { transform: rotateY(-90deg) translateZ(20px); }
+.face.top    { transform: rotateX(90deg) translateZ(20px); }
+.face.bottom { transform: rotateX(-90deg) translateZ(20px); }
+
+@keyframes rotateCube {
+    0% { transform: rotateX(0deg) rotateY(0deg); }
+    25% { transform: rotateX(90deg) rotateY(0deg); }
+    50% { transform: rotateX(90deg) rotateY(90deg); }
+    75% { transform: rotateX(0deg) rotateY(90deg); }
+    100% { transform: rotateX(0deg) rotateY(0deg); }
+}
+
+/* Animated Metrics */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    position: relative;
+    z-index: 2;
+    justify-items: center;
+}
+
+.metric {
+    text-align: center;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    transition: transform 0.3s ease;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.metric:hover {
+    transform: scale(1.05);
+}
+
+.metric-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-10px); }
+    60% { transform: translateY(-5px); }
+}
+
+.metric .value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fbbf24;
+    margin-bottom: 0.25rem;
+}
+
+.metric .label {
+    font-size: 0.8rem;
+    opacity: 0.9;
+}
+
+/* Progress Rings */
+.progress-ring {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 60px;
+    height: 60px;
+}
+
+.progress-ring-svg {
+    transform: rotate(-90deg);
+}
+
+.progress-ring-circle {
+    stroke-dasharray: 157;
+    stroke-dashoffset: 157;
+    animation: progressRing 3s ease-in-out infinite;
+}
+
+@keyframes progressRing {
+    0% { stroke-dashoffset: 157; }
+    50% { stroke-dashoffset: 39; }
+    100% { stroke-dashoffset: 157; }
+}
+
+/* Dashboard Pulse */
+.dashboard-pulse {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    position: relative;
+    z-index: 2;
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: #10b981;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+    }
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+.pulse-text {
+    font-size: 0.8rem;
+    opacity: 0.9;
+}
+
+/* Platform Overview */
+.platform-overview {
+    padding: 100px 0;
+    background: var(--background-light);
+}
+
+.section-header {
+    text-align: center;
+    margin-bottom: 4rem;
+}
+
+.section-header h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 1rem;
+}
+
+.section-header p {
+    font-size: 1.2rem;
+    color: var(--text-light);
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    margin-top: 3rem;
+}
+
+.overview-card {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 20px;
+    box-shadow: var(--shadow-lg);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid var(--border-color);
+}
+
+.overview-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+}
+
+.card-icon {
+    font-size: 3.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.overview-card h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 1rem;
+}
+
+.overview-card p {
+    color: var(--text-light);
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+}
+
+.feature-points {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.feature-points li {
+    padding: 0.5rem 0;
+    color: var(--text-light);
+    font-size: 0.9rem;
+    position: relative;
+    padding-left: 1.5rem;
+}
+
+.feature-points li::before {
+    content: '•';
+    color: var(--primary-color);
+    font-weight: 700;
+    position: absolute;
+    left: 0;
+}
+
+/* Features Tabs */
+.complete-features {
+    padding: 100px 0;
+    background: white;
+}
+
+.features-tabs {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.tab-navigation {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 3rem;
+}
+
+.tab-btn {
+    background: var(--background-light);
+    border: 2px solid transparent;
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    font-weight: 600;
+    color: var(--text-light);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tab-btn.active,
+.tab-btn:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.tab-content {
+    display: none;
+    background: var(--background-light);
+    padding: 3rem;
+    border-radius: 20px;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.tab-content h4 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--primary-color);
+}
+
+.feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.feature-list li {
+    padding: 0.75rem 0;
+    color: var(--text-light);
+    border-bottom: 1px solid var(--border-color);
+    transition: color 0.3s ease;
+}
+
+.feature-list li:hover {
+    color: var(--primary-color);
+}
+
+.feature-list li:last-child {
+    border-bottom: none;
+}
+
+/* Technology & Security */
+.tech-security {
+    padding: 100px 0;
+    background: var(--background-dark);
+    color: white;
+}
+
+.tech-security h2 {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 2rem;
+    color: white;
+}
+
+.tech-stack,
+.security-features {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.tech-item,
+.security-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 1.5rem;
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+}
+
+.tech-icon,
+.security-icon {
+    font-size: 2.5rem;
+    flex-shrink: 0;
+}
+
+.tech-info h4,
+.security-info h4 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--accent-color);
+}
+
+.tech-info p,
+.security-info p {
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+/* Blockchain Flow */
+.blockchain-flow {
+    padding: 100px 0;
+    background: var(--background-light);
+}
+
+.blockchain-steps {
+    max-width: 900px;
+    margin: 0 auto 4rem auto;
+}
+
+.blockchain-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 2rem;
+    margin-bottom: 3rem;
+    background: white;
+    padding: 2.5rem;
+    border-radius: 20px;
+    box-shadow: var(--shadow-md);
+    border-left: 4px solid var(--blockchain-color);
+    position: relative;
+}
+
+.blockchain-step::before {
+    content: '';
+    position: absolute;
+    left: 50px;
+    top: 100%;
+    width: 2px;
+    height: 50px;
+    background: linear-gradient(to bottom, var(--blockchain-color), transparent);
+}
+
+.blockchain-step:last-child::before {
+    display: none;
+}
+
+.step-visual {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    flex-shrink: 0;
+}
+
+.step-number {
+    width: 70px;
+    height: 70px;
+    background: var(--gradient-blockchain);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.8rem;
+    box-shadow: var(--shadow-md);
+}
+
+.step-icon {
+    font-size: 2.5rem;
+}
+
+.step-content h3 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 1rem;
+    color: var(--blockchain-color);
+}
+
+.step-content p {
+    color: var(--text-light);
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+}
+
+.step-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.detail-item {
+    background: var(--background-light);
+    color: var(--blockchain-color);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+/* Blockchain Benefits */
+.blockchain-benefits {
+    margin-top: 4rem;
+    text-align: center;
+}
+
+.blockchain-benefits h3 {
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 2rem;
+}
+
+.benefits-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.benefit-item {
+    background: white;
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: var(--shadow-md);
+    transition: transform 0.3s ease;
+}
+
+.benefit-item:hover {
+    transform: translateY(-5px);
+}
+
+.benefit-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.benefit-item h4 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--blockchain-color);
+    margin-bottom: 0.5rem;
+}
+
+.benefit-item p {
+    color: var(--text-light);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* CTA Section */
+.cta-section {
+    padding: 100px 0;
+    background: var(--gradient-blockchain);
+    color: white;
+    text-align: center;
+}
+
+.cta-content h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.cta-content p {
+    font-size: 1.2rem;
+    margin-bottom: 2rem;
+    opacity: 0.9;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.cta-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+}
+
+.btn {
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    display: inline-block;
+    border: 2px solid transparent;
+}
+
+.btn-primary {
+    background: white;
+    color: var(--blockchain-color);
+}
+
+.btn-primary:hover {
+    background: var(--background-light);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+}
+
+.btn-outline {
+    background: transparent;
+    color: white;
+    border-color: white;
+}
+
+.btn-outline:hover {
+    background: white;
+    color: var(--blockchain-color);
+}
+
+.cta-features {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.cta-feature {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .hero-title {
+        font-size: 2.5rem;
+    }
+    
+    .hero-subtitle {
+        font-size: 1.1rem;
+    }
+    
+    .hero-section .row {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .hero-features {
+        justify-content: center;
+    }
+    
+    .metrics-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .overview-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .tab-navigation {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .blockchain-step {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .blockchain-step::before {
+        display: none;
+    }
+    
+    .tech-item,
+    .security-item {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .cta-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .cta-features {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .benefits-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .animated-cube {
+        width: 30px;
+        height: 30px;
+    }
+    
+    .face {
+        width: 30px;
+        height: 30px;
+        font-size: 1rem;
+    }
+    
+    .face.front, .face.back, .face.right, .face.left { transform: translateZ(15px); }
+    .face.top, .face.bottom { transform: translateZ(15px); }
+}
+
+@media (max-width: 480px) {
+    .hero-title {
+        font-size: 2rem;
+    }
+    
+    .hero-subtitle {
+        font-size: 1rem;
+    }
+    
+    .dashboard-card {
+        padding: 1.5rem;
+    }
+}
+</style>
+
+<script>
+// Tab functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetTab = btn.getAttribute('data-tab');
+            
+            // Remove active class from all tabs and contents
+            tabBtns.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+            
+            // Add active class to clicked tab and corresponding content
+            btn.classList.add('active');
+            document.getElementById(targetTab).classList.add('active');
+        });
+    });
+    
+    // Simple AOS animation
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+    
+    const observer = new IntersectionObserver(function(entries) {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, observerOptions);
+    
+    // Apply animation to AOS elements
+    document.querySelectorAll('[data-aos]').forEach(el => {
+        el.style.opacity = '0';
+        el.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
+        el.style.transform = 'translateY(30px)';
+        observer.observe(el);
+    });
+    
+    // Animated Counter for Dashboard Metrics
+    function animateCounters() {
+        const metrics = document.querySelectorAll('.animated-metric');
+        
+        metrics.forEach(metric => {
+            const target = parseInt(metric.dataset.target);
+            const valueElement = metric.querySelector('.value');
+            const isEuro = valueElement.textContent.includes('€');
+            
+            let current = 0;
+            const increment = target / 100;
+            const timer = setInterval(() => {
+                current += increment;
+                if (current >= target) {
+                    current = target;
+                    clearInterval(timer);
+                }
+                
+                if (isEuro) {
+                    valueElement.textContent = `€${Math.floor(current).toLocaleString()}`;
+                } else {
+                    valueElement.textContent = Math.floor(current).toLocaleString();
+                }
+            }, 20);
+        });
+    }
+    
+    // Initialize animations when page loads
+    // Start counter animation after a short delay
+    setTimeout(animateCounters, 1000);
+});
+</script>
+
+{% endblock %}

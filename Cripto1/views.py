@@ -8,6 +8,7 @@ from django.db import transaction, models
 import hashlib
 import json
 import time
+import logging
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.models import User
 import datetime
@@ -32,7 +33,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 import base64
 import os
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from django.urls import reverse
+
 from datetime import datetime, timedelta
 from django.core.exceptions import PermissionDenied
 from django.views.decorators.http import require_POST
@@ -45,7 +46,7 @@ import subprocess
 import sys
 from .decorators import permission_required, role_required, admin_required, active_user_required, external_forbidden, user_manager_forbidden
 from .email_utils import send_welcome_email, send_transaction_notification, send_block_confirmation_emails, send_admin_welcome_email
-from django.core.cache import caches
+from django.core.cache import caches, cache
 from django.contrib.sessions.models import Session
 from django.contrib.auth.decorators import user_passes_test
 from django.db.models import Count
@@ -60,11 +61,17 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib import colors
 from io import BytesIO
 from .tasks import cleanup_expired_files, trigger_cleanup_if_needed
+from django.urls import reverse
 
 cipher_suite = Fernet(settings.FERNET_KEY)
+logger = logging.getLogger(__name__)
 
 def homepage(request):
     return render(request, 'Cripto1/index.html')
+
+def workflow(request):
+    """Pagina workflow dettagliata"""
+    return render(request, 'Cripto1/workflow.html')
 
 def register_organization(request):
     """Registrazione di una nuova organizzazione con amministratore"""
@@ -209,7 +216,7 @@ def register(request):
             user_profile.assign_role(external_role)
         except Role.DoesNotExist:
             # Se il ruolo non esiste, log dell'errore
-            print(f"ERRORE: Ruolo 'external' non trovato durante la registrazione dell'utente {username}")
+            logger.error(f"Ruolo 'external' non trovato durante la registrazione dell'utente {username}")
         
         # Invia email di benvenuto
         email_sent = send_welcome_email(user, user_profile, request)
@@ -508,6 +515,9 @@ def dashboard(request):
     # Aggiungi questa verifica
     is_external_user = user_profile.has_role('external')
     
+    # Metriche avanzate per il dashboard
+    analytics = get_dashboard_analytics(request.user, user_org)
+    
     context = {
         'user_profile': user_profile,
         'blockchain_state': blockchain_state,
@@ -523,6 +533,7 @@ def dashboard(request):
         'file_transactions_count': file_transactions_count,
         'block_data': json.dumps(blocks_with_tx_count),
         'is_external_user': is_external_user,
+        'analytics': analytics,
     }
     return render(request, 'Cripto1/dashboard.html', context)
 
@@ -583,7 +594,7 @@ def create_transaction(request):
             encrypted_content = content
             sender_encrypted_content = None
             if is_encrypted and transaction_type == 'text' and content:
-                print(f"DEBUG: Original content length before encryption: {len(content.encode())} bytes")
+                logger.debug(f"Original content length before encryption: {len(content.encode())} bytes")
                 # Crittografia per il destinatario
                 receiver_public_key = serialization.load_pem_public_key(
                     receiver_profile.public_key.encode(),
@@ -635,10 +646,15 @@ def create_transaction(request):
             if transaction_type == 'file' and request.FILES.get('file'):
                 file = request.FILES['file']
                 
+                # Controllo limite storage
+                has_space, error_msg = check_organization_storage_limit(request.user, file.size)
+                if not has_space:
+                    return JsonResponse({'success': False, 'message': error_msg})
+                
                 # Controllo sicurezza del file
                 try:
                     from .validators import validate_file_security
-                    validate_file_security(file)
+                    validate_file_security(file, request.user)
                 except ValidationError as e:
                     # Registra l'evento di sicurezza
                     AuditLog.log_action(
@@ -659,18 +675,18 @@ def create_transaction(request):
                     try:
                         # Generate a symmetric key for file encryption
                         symmetric_key = Fernet.generate_key()
-                        print(f"DEBUG: Generated symmetric_key type: {type(symmetric_key)}, value: {symmetric_key[:5]}...") # print first few bytes
+                        logger.debug(f"Generated symmetric_key type: {type(symmetric_key)}, value: {symmetric_key[:5]}...")
                         f = Fernet(symmetric_key)
                         encrypted_file_content = f.encrypt(file_content)
-                        print(f"DEBUG: File content encrypted with symmetric key. Encrypted length: {len(encrypted_file_content)}")
+                        logger.debug(f"File content encrypted with symmetric key. Encrypted length: {len(encrypted_file_content)}")
 
                         # Encrypt the symmetric key with the receiver's public RSA key
-                        print(f"DEBUG: Receiver public key (from DB): {receiver_profile.public_key[:50]}...") # print first 50 chars
+                        logger.debug(f"Receiver public key (from DB): {receiver_profile.public_key[:50]}...")
                         receiver_public_key = serialization.load_pem_public_key(
                             receiver_profile.public_key.encode(),
                             backend=default_backend()
                         )
-                        print(f"DEBUG: Receiver public key loaded successfully.")
+                        logger.debug("Receiver public key loaded successfully.")
                         encrypted_symmetric_key_for_db = receiver_public_key.encrypt(
                             symmetric_key,
                             padding.OAEP(
@@ -694,7 +710,7 @@ def create_transaction(request):
                             )
                         )
                         
-                        print(f"DEBUG: Symmetric key encrypted with RSA. Encrypted length: {len(encrypted_symmetric_key_for_db)}")
+                        logger.debug(f"Symmetric key encrypted with RSA. Encrypted length: {len(encrypted_symmetric_key_for_db)}")
                         filename = f"{uuid.uuid4().hex}.encrypted"
                         file_to_save = ContentFile(encrypted_file_content)
                         transaction_data['original_filename'] = file.name # Store original filename for encrypted files
@@ -703,7 +719,7 @@ def create_transaction(request):
                         transaction_data['receiver_public_key_at_encryption'] = receiver_profile.public_key # Store receiver's public key at time of encryption
 
                     except Exception as e:
-                        print(f"ERROR: Exception during file encryption: {e}") # More detailed error logging
+                        logger.error(f"Exception during file encryption: {e}")
                         return JsonResponse({'success': False, 'message': f'Errore durante la cifratura del file: {str(e)}'})
                 else:
                     filename = f"{time.time()}_{file.name}"
@@ -714,8 +730,8 @@ def create_transaction(request):
 
             # Calculate transaction hash
             transaction_string_for_signing = json.dumps(transaction_data, sort_keys=True).encode()
-            print(f"[DEBUG SIGNING] transaction_data: {transaction_data}")
-            print(f"[DEBUG SIGNING] transaction_string_for_signing: {transaction_string_for_signing}")
+            logger.debug(f"Transaction data: {transaction_data}")
+            logger.debug(f"Transaction string for signing: {transaction_string_for_signing}")
             transaction_hash = hashlib.sha256(transaction_string_for_signing).hexdigest()
             
             # Sign the transaction
@@ -767,7 +783,7 @@ def create_transaction(request):
                 # Email al destinatario
                 send_transaction_notification(new_tx, receiver, request, direction='received')
             except Exception as e:
-                print(f"Errore nell'invio delle notifiche email per la transazione {new_tx.id}: {str(e)}")
+                logger.error(f"Errore nell'invio delle notifiche email per la transazione {new_tx.id}: {str(e)}")
 
             # Add to pending transactions
             pending_transactions_ids = request.session.get('pending_transactions_ids', [])
@@ -852,7 +868,7 @@ def mine_block(request):
         try:
             send_block_confirmation_emails(new_block, block_transactions)
         except Exception as e:
-            print(f"Errore nell'invio delle email di conferma blocco #{index}: {str(e)}")
+            logger.error(f"Errore nell'invio delle email di conferma blocco #{index}: {str(e)}")
 
         return JsonResponse({
             'success': True, 
@@ -1064,15 +1080,24 @@ def download_file(request, transaction_id):
     user_profile = request.user.userprofile
 
     if tx.is_encrypted:
-        # Ensure only the receiver can download encrypted files
-        if request.user != tx.receiver:
+        # Permetti sia al destinatario che al mittente di decrittare
+        if request.user != tx.receiver and request.user != tx.sender:
             messages.error(request, 'Non sei autorizzato a decifrare e scaricare questo file.')
             return redirect('Cripto1:dashboard')
 
-        # Check if the receiver's current public key matches the one used for encryption
-        if user_profile.public_key != tx.receiver_public_key_at_encryption:
-            messages.error(request, 'Impossibile decifrare il file. La chiave pubblica del destinatario è cambiata dopo la cifratura della transazione.')
-            return render(request, 'Cripto1/download_encrypted_file.html', {'transaction': tx})
+        # Determina quale chiave simmetrica usare e verifica la compatibilità
+        if request.user == tx.receiver:
+            # Logica per il destinatario (esistente)
+            if user_profile.public_key != tx.receiver_public_key_at_encryption:
+                messages.error(request, 'Impossibile decifrare il file. La chiave pubblica del destinatario è cambiata dopo la cifratura della transazione.')
+                return render(request, 'Cripto1/download_encrypted_file.html', {'transaction': tx})
+            encrypted_symmetric_key_to_use = tx.encrypted_symmetric_key
+        elif request.user == tx.sender:
+            # Nuova logica per il mittente
+            if not tx.sender_encrypted_symmetric_key:
+                messages.error(request, 'Chiave simmetrica del mittente non disponibile per questa transazione.')
+                return render(request, 'Cripto1/download_encrypted_file.html', {'transaction': tx})
+            encrypted_symmetric_key_to_use = tx.sender_encrypted_symmetric_key
 
         if request.method == 'POST':
             private_key_password = request.POST.get('private_key_password')
@@ -1084,7 +1109,7 @@ def download_file(request, transaction_id):
                 # Read the encrypted file content
                 with default_storage.open(tx.file.name, 'rb') as f:
                     encrypted_file_content = f.read()
-                print(f"DEBUG: Encrypted file content length: {len(encrypted_file_content)}")
+                logger.debug(f"Encrypted file content length: {len(encrypted_file_content)}")
                 
                 # Decrypt the symmetric key with the user's private RSA key
                 decrypted_private_key = user_profile.decrypt_private_key(password=private_key_password.encode())
@@ -1092,26 +1117,26 @@ def download_file(request, transaction_id):
                     messages.error(request, 'Password della chiave privata errata.')
                     return render(request, 'Cripto1/download_encrypted_file.html', {'transaction': tx})
                 
-                print(f"DEBUG: Encrypted symmetric key (from DB): {tx.encrypted_symmetric_key[:10]}...") # First 10 bytes
+                logger.debug(f"Using encrypted symmetric key: {encrypted_symmetric_key_to_use[:10] if encrypted_symmetric_key_to_use else 'None'}...")
                 
                 # Converti memoryview in bytes prima della decifratura RSA
-                encrypted_symmetric_key_bytes = bytes(tx.encrypted_symmetric_key) if isinstance(tx.encrypted_symmetric_key, memoryview) else tx.encrypted_symmetric_key
+                encrypted_symmetric_key_bytes = bytes(encrypted_symmetric_key_to_use) if isinstance(encrypted_symmetric_key_to_use, memoryview) else encrypted_symmetric_key_to_use
                 
                 # Use the RSA private key to decrypt the symmetric key
                 symmetric_key = decrypted_private_key.decrypt(
-                    encrypted_symmetric_key_bytes,  # Usa la versione convertita in bytes
+                    encrypted_symmetric_key_bytes,
                     padding.OAEP(
                         mgf=padding.MGF1(algorithm=hashes.SHA256()),
                         algorithm=hashes.SHA256(),
                         label=None
                     )
                 )
-                print(f"DEBUG: Symmetric key decrypted. Length: {len(symmetric_key)}, value: {symmetric_key[:10]}...") # First 10 bytes
+                logger.debug(f"Symmetric key decrypted. Length: {len(symmetric_key)}, value: {symmetric_key[:10]}...")
                 
                 # Decrypt the file content with the symmetric key
                 f = Fernet(symmetric_key)
                 decrypted_content = f.decrypt(encrypted_file_content)
-                print(f"DEBUG: File content decrypted successfully. Length: {len(decrypted_content)}")
+                logger.debug(f"File content decrypted successfully. Length: {len(decrypted_content)}")
 
                 if decrypted_content is None:
                     messages.error(request, 'Errore di decifratura del contenuto del file.')
@@ -1129,8 +1154,8 @@ def download_file(request, transaction_id):
                 return response
 
             except Exception as e:
-                print(f"ERROR: Exception type during decryption/download: {type(e).__name__}") # Added for more specific error
-                print(f"ERROR: Exception during decryption/download: {e}") # More detailed error logging
+                logger.error(f"Exception type during decryption/download: {type(e).__name__}")
+                logger.error(f"Exception during decryption/download: {e}")
                 messages.error(request, f'Errore durante la decifratura o il download del file: {str(e)}')
                 return render(request, 'Cripto1/download_encrypted_file.html', {'transaction': tx})
         else:
@@ -1185,15 +1210,24 @@ def view_transaction_file(request, transaction_id):
     user_profile = request.user.userprofile
 
     if tx.is_encrypted:
-        # Ensure only the receiver can view encrypted files
-        if request.user != tx.receiver:
+        # Permetti sia al destinatario che al mittente di visualizzare
+        if request.user != tx.receiver and request.user != tx.sender:
             messages.error(request, 'Non sei autorizzato a decifrare e visualizzare questo file.')
             return redirect('Cripto1:dashboard')
 
-        # Check if the receiver's current public key matches the one used for encryption
-        if user_profile.public_key != tx.receiver_public_key_at_encryption:
-            messages.error(request, 'Impossibile decifrare il file. La chiave pubblica del destinatario è cambiata dopo la cifratura della transazione.')
-            return render(request, 'Cripto1/view_transaction_file.html', {'transaction': tx})
+        # Determina quale chiave simmetrica usare e verifica la compatibilità
+        if request.user == tx.receiver:
+            # Logica per il destinatario (esistente)
+            if user_profile.public_key != tx.receiver_public_key_at_encryption:
+                messages.error(request, 'Impossibile decifrare il file. La chiave pubblica del destinatario è cambiata dopo la cifratura della transazione.')
+                return render(request, 'Cripto1/view_transaction_file.html', {'transaction': tx})
+            encrypted_symmetric_key_to_use = tx.encrypted_symmetric_key
+        elif request.user == tx.sender:
+            # Nuova logica per il mittente
+            if not tx.sender_encrypted_symmetric_key:
+                messages.error(request, 'Chiave simmetrica del mittente non disponibile per questa transazione.')
+                return render(request, 'Cripto1/view_transaction_file.html', {'transaction': tx})
+            encrypted_symmetric_key_to_use = tx.sender_encrypted_symmetric_key
 
         if request.method == 'POST':
             private_key_password = request.POST.get('private_key_password')
@@ -1213,11 +1247,11 @@ def view_transaction_file(request, transaction_id):
                     return render(request, 'Cripto1/view_transaction_file.html', {'transaction': tx})
                 
                 # Converti memoryview in bytes prima della decifratura RSA
-                encrypted_symmetric_key_bytes = bytes(tx.encrypted_symmetric_key) if isinstance(tx.encrypted_symmetric_key, memoryview) else tx.encrypted_symmetric_key
+                encrypted_symmetric_key_bytes = bytes(encrypted_symmetric_key_to_use) if isinstance(encrypted_symmetric_key_to_use, memoryview) else encrypted_symmetric_key_to_use
                 
                 # Use the RSA private key to decrypt the symmetric key
                 symmetric_key = decrypted_private_key.decrypt(
-                    encrypted_symmetric_key_bytes,  # Usa la versione convertita in bytes
+                    encrypted_symmetric_key_bytes,
                     padding.OAEP(
                         mgf=padding.MGF1(algorithm=hashes.SHA256()),
                         algorithm=hashes.SHA256(),
@@ -1288,9 +1322,9 @@ def edit_profile(request):
     user_profile = UserProfile.objects.get(user=request.user)
     if request.method == 'POST':
         form = UserProfileEditForm(request.POST, request.FILES, instance=user_profile)
-        print("Form is valid:", form.is_valid())
+        logger.debug(f"Form is valid: {form.is_valid()}")
         if not form.is_valid():
-            print("Form errors:", form.errors)
+            logger.debug(f"Form errors: {form.errors}")
         if form.is_valid():
             form.save()
             messages.success(request, 'Profilo aggiornato con successo')
@@ -1481,10 +1515,10 @@ def verify_blockchain(request):
         recalculated_hash = calculate_hash(previous_block_data)
 
         # Debug per verificare il calcolo dell'hash
-        print(f"DEBUG - Blocco {previous_block.index}:")
-        print(f"  Hash memorizzato: {previous_block.hash}")
-        print(f"  Hash ricalcolato: {recalculated_hash}")
-        print(f"  Dati usati: {previous_block_data}")
+        logger.debug(f"Blocco {previous_block.index}:")
+        logger.debug(f"  Hash memorizzato: {previous_block.hash}")
+        logger.debug(f"  Hash ricalcolato: {recalculated_hash}")
+        logger.debug(f"  Dati usati: {previous_block_data}")
         
         if recalculated_hash != previous_block.hash:
              return JsonResponse({
@@ -2267,10 +2301,10 @@ def create_user(request):
 
         except Exception as e:
             messages.error(request, f'Errore durante la creazione: {str(e)}')
-            print(f"Errore creazione utente: {e}")
+            logger.error(f"Errore creazione utente: {e}")
 
     context = {
-        'roles': Role.objects.filter(is_active=True)
+        'roles': Role.objects.filter(is_active=True).exclude(name='Super Admin')
     }
     return render(request, 'Cripto1/user_management/create_user.html', context)
 
@@ -2470,7 +2504,7 @@ def assign_role(request, user_id):
         messages.error(request, 'Ruolo non trovato o non attivo')
     except Exception as e:
         messages.error(request, f'Errore durante l\'assegnazione del ruolo: {str(e)}')
-        print(f"Errore assegnazione ruolo: {e}")
+        logger.error(f"Errore assegnazione ruolo: {e}")
     
     return redirect('Cripto1:user_detail', user_id=user_id)
 
@@ -2482,7 +2516,7 @@ def remove_role(request, user_id, role_id):
     user = get_object_or_404(User, id=user_id)
     role = get_object_or_404(Role, id=role_id)
     
-    print(f"DEBUG: Tentativo di rimozione ruolo {role.name} da utente {user.username}")
+    logger.debug(f"Tentativo di rimozione ruolo {role.name} da utente {user.username}")
     
     try:
         # Trova l'assegnazione ruolo attiva
@@ -2492,13 +2526,13 @@ def remove_role(request, user_id, role_id):
             is_active=True
         )
         
-        print(f"DEBUG: Trovata assegnazione ruolo: {user_role}")
+        logger.debug(f"Trovata assegnazione ruolo: {user_role}")
         
         # Disattiva l'assegnazione
         user_role.is_active = False
         user_role.save()
         
-        print(f"DEBUG: Ruolo disattivato con successo")
+        logger.debug("Ruolo disattivato con successo")
         
         # Aggiorna il profilo utente per riflettere i cambiamenti
         try:
@@ -2526,12 +2560,12 @@ def remove_role(request, user_id, role_id):
         messages.success(request, f'Ruolo {role.name} rimosso con successo')
         
     except UserRole.DoesNotExist:
-        print(f"DEBUG: Assegnazione ruolo non trovata")
+        logger.debug("Assegnazione ruolo non trovata")
         messages.error(request, f'Assegnazione ruolo {role.name} non trovata o già rimossa')
     except Exception as e:
-        print(f"DEBUG: Errore durante la rimozione: {e}")
+        logger.error(f"Errore durante la rimozione: {e}")
         messages.error(request, f'Errore durante la rimozione del ruolo: {str(e)}')
-        print(f"Errore rimozione ruolo: {e}")
+        logger.error(f"Errore rimozione ruolo: {e}")
     
     return redirect('Cripto1:user_detail', user_id=user_id)
 
@@ -2645,7 +2679,7 @@ def create_role(request):
                 
         except Exception as e:
             messages.error(request, f'Errore durante la creazione: {str(e)}')
-            print(f"Errore creazione ruolo: {e}")
+            logger.error(f"Errore creazione ruolo: {e}")
     
     context = {
         'permissions': Permission.objects.filter(is_active=True).order_by('category', 'name')
@@ -3405,7 +3439,7 @@ def upload_personal_document(request):
             return redirect('Cripto1:personal_documents')
         
         file = request.FILES['file']
-        print(f"DEBUG: Dimensione originale del file: {file.size} bytes")
+        logger.debug(f"Dimensione originale del file: {file.size} bytes")
         
         # Salva temporaneamente una copia del file per debug
         with open('debug_file_copy.bin', 'wb') as debug_file:
@@ -3483,23 +3517,23 @@ def upload_personal_document(request):
             except Exception as e:
                 os.unlink(temp_file_path)  # Assicurati di eliminare il file temporaneo
                 # Gestisci l'errore di scansione (opzionale: blocca il file se CLAMD_FAIL_BY_DEFAULT è True)
-                print(f"Errore durante la scansione antivirus: {str(e)}")
+                logger.error(f"Errore durante la scansione antivirus: {str(e)}")
                 # Se vuoi bloccare il file in caso di errore di scansione, decommentare:
                 # messages.error(request, 'Impossibile verificare la sicurezza del file. Riprova più tardi.')
                 # return redirect('Cripto1:personal_documents')
         except ImportError:
             # Se django-clamd non è installato, registra un avviso
-            print("django-clamd non è installato. La scansione antivirus è disabilitata.")
+                logger.warning("django-clamd non è installato. La scansione antivirus è disabilitata.")
         
         # Continua con il codice esistente per la lettura e la crittografia del file
         file.seek(0)  # Reset del puntatore del file
         file_content = file.read()  # Rileggi il contenuto
-        print(f"DEBUG: Tipo di file_content: {type(file_content)}")
-        print(f"DEBUG: Primi 20 bytes: {file_content[:20].hex() if file_content else 'VUOTO'}")
-        print(f"DEBUG: Estensione file: {file_extension}")
-        print(f"DEBUG: MIME type: {file.content_type}")
-        print(f"DEBUG: Dimensione file: {len(file_content)} bytes")
-        print(f"DEBUG: Dimensione originale: {file.size} bytes")
+        logger.debug(f"Tipo di file_content: {type(file_content)}")
+        logger.debug(f"Primi 20 bytes: {file_content[:20].hex() if file_content else 'VUOTO'}")
+        logger.debug(f"Estensione file: {file_extension}")
+        logger.debug(f"MIME type: {file.content_type}")
+        logger.debug(f"Dimensione file: {len(file_content)} bytes")
+        logger.debug(f"Dimensione originale: {file.size} bytes")
         
         user_profile = UserProfile.objects.get(user=request.user)
         
@@ -3510,8 +3544,8 @@ def upload_personal_document(request):
                 f = Fernet(symmetric_key)
                 encrypted_file_content = f.encrypt(file_content)  # Questo mantiene il formato binario
                 
-                print(f"DEBUG: Tipo di encrypted_file_content: {type(encrypted_file_content)}")
-                print(f"DEBUG: Primi 20 bytes cifrati: {encrypted_file_content[:20]}")
+                logger.debug(f"Tipo di encrypted_file_content: {type(encrypted_file_content)}")
+                logger.debug(f"Primi 20 bytes cifrati: {encrypted_file_content[:20]}")
                 
                 # Cifra la chiave simmetrica con la chiave pubblica dell'utente
                 user_public_key = serialization.load_pem_public_key(
@@ -3539,9 +3573,9 @@ def upload_personal_document(request):
             original_filename = None
             encrypted_symmetric_key = None
         
-        print(f"DEBUG: Prima di salvare il file con default_storage")
+        logger.debug("Prima di salvare il file con default_storage")
         file_path = default_storage.save(f'personal_documents/{filename}', file_to_save)
-        print(f"DEBUG: Dopo il salvataggio, file_path: {file_path}")
+        logger.debug(f"Dopo il salvataggio, file_path: {file_path}")
         
         # Crea il documento personale
         PersonalDocument.objects.create(
@@ -3692,7 +3726,7 @@ def view_personal_document(request, document_id):
                 decrypted_content = f.decrypt(encrypted_file_content)
                 
                 # Debug: stampa i primi byte per verificare che sia un PDF valido
-                print(f"DEBUG: Primi 20 bytes: {decrypted_content[:20]}")
+                logger.debug(f"Primi 20 bytes: {decrypted_content[:20]}")
                 
                 # Restituisci il contenuto esattamente come fa view_transaction_file
                 response = HttpResponse(decrypted_content, content_type=content_type)
@@ -3701,8 +3735,8 @@ def view_personal_document(request, document_id):
             
             except Exception as e:
                 import traceback
-                print(f"ERROR: Errore durante la decifratura: {str(e)}")
-                print(traceback.format_exc())
+                logger.error(f"Errore durante la decifratura: {str(e)}")
+                logger.error(traceback.format_exc())
                 messages.error(request, f'Errore durante la decifratura del file: {str(e)}')
                 return render(request, 'Cripto1/view_personal_document.html', {'document': document})
         else:
@@ -3722,9 +3756,9 @@ def view_personal_document(request, document_id):
                 file_content = f.read()
                 
                 # Debug: stampa i primi byte per verificare che sia un file valido
-                print(f"DEBUG: Primi 20 bytes: {file_content[:20].hex()}")
-                print(f"DEBUG: Content-type: {content_type}")
-                print(f"DEBUG: Dimensione file: {len(file_content)} bytes")
+                logger.debug(f"Primi 20 bytes: {file_content[:20].hex()}")
+                logger.debug(f"Content-type: {content_type}")
+                logger.debug(f"Dimensione file: {len(file_content)} bytes")
                 
                 response = HttpResponse(file_content, content_type=content_type)
                 response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
@@ -3732,8 +3766,8 @@ def view_personal_document(request, document_id):
                 
         except Exception as e:
             import traceback
-            print(f"ERROR: Errore durante la lettura del file: {str(e)}")
-            print(traceback.format_exc())
+            logger.error(f"Errore durante la lettura del file: {str(e)}")
+            logger.error(traceback.format_exc())
             messages.error(request, f'Errore durante la lettura del file: {str(e)}')
             return redirect('Cripto1:personal_documents')
 
@@ -3891,6 +3925,18 @@ def send_document_as_transaction(request, document_id):
                 filename = f"{time.time()}_{original_filename}"
                 file_to_save = ContentFile(file_content)
 
+            # Controllo limite storage
+            has_space, error_msg = check_organization_storage_limit(request.user, len(file_content))
+            if not has_space:
+                messages.error(request, error_msg)
+                return redirect('Cripto1:send_document_as_transaction', document_id=document_id)
+            
+                # Controllo limite storage
+                has_space, error_msg = check_organization_storage_limit(request.user, len(new_encrypted_file_content))
+                if not has_space:
+                    messages.error(request, error_msg)
+                    return render(request, 'Cripto1/add_transaction_file_to_personal_documents.html', {'transaction': tx})
+            
             file_path = default_storage.save(f'transaction_files/{filename}', file_to_save)
             transaction_data['file'] = file_path
 
@@ -4017,6 +4063,12 @@ def add_transaction_file_to_personal_documents(request, transaction_id):
                     )
                 )
                 
+                # Controllo limite storage
+                has_space, error_msg = check_organization_storage_limit(request.user, len(new_encrypted_file_content))
+                if not has_space:
+                    messages.error(request, error_msg)
+                    return render(request, 'Cripto1/add_transaction_file_to_personal_documents.html', {'transaction': tx})
+                
                 # Salva il file cifrato
                 filename = f"{uuid.uuid4().hex}.encrypted"
                 file_to_save = ContentFile(new_encrypted_file_content)
@@ -4047,6 +4099,12 @@ def add_transaction_file_to_personal_documents(request, transaction_id):
             # Leggi il contenuto del file
             with open(tx.file.path, 'rb') as f:
                 file_content = f.read()
+            
+            # Controllo limite storage
+            has_space, error_msg = check_organization_storage_limit(request.user, len(file_content))
+            if not has_space:
+                messages.error(request, error_msg)
+                return redirect('Cripto1:transaction_details', transaction_id=transaction_id)
             
             # Salva il file nei documenti personali
             filename = os.path.basename(tx.file.path)
@@ -4166,16 +4224,16 @@ def clean_file_path(file_path):
     if not file_path:
         return None
     
-    print(f"clean_file_path - input: {file_path}")
-    print(f"clean_file_path - caratteri: {[ord(c) for c in file_path]}")
+    logger.debug(f"clean_file_path - input: {file_path}")
+    logger.debug(f"clean_file_path - caratteri: {[ord(c) for c in file_path]}")
     
     # Decodifica le sequenze Unicode (come u005C -> \)
     try:
         # Gestisci le sequenze Unicode come u005C
         file_path = file_path.encode('utf-8').decode('unicode_escape')
-        print(f"clean_file_path - dopo decodifica Unicode: {file_path}")
+        logger.debug(f"clean_file_path - dopo decodifica Unicode: {file_path}")
     except Exception as e:
-        print(f"clean_file_path - errore nella decodifica Unicode: {e}")
+        logger.debug(f"clean_file_path - errore nella decodifica Unicode: {e}")
     
     # Rimuovi caratteri non validi che potrebbero essere stati aggiunti durante la trasmissione
     # Rimuovi caratteri non ASCII che potrebbero essere stati aggiunti erroneamente
@@ -4183,7 +4241,7 @@ def clean_file_path(file_path):
     file_path = re.sub(r'[^\x00-\x7F]+', '', file_path)
     
     if original_path != file_path:
-        print(f"clean_file_path - pulito: {original_path} -> {file_path}")
+        logger.debug(f"clean_file_path - pulito: {original_path} -> {file_path}")
     
     # Normalizza i separatori di percorso
     file_path = file_path.replace('\\', '/').replace('//', '/')
@@ -4191,7 +4249,7 @@ def clean_file_path(file_path):
     # Rimuovi slash iniziali e finali
     file_path = file_path.strip('/')
     
-    print(f"clean_file_path - output: {file_path}")
+    logger.debug(f"clean_file_path - output: {file_path}")
     return file_path
 
 @staff_member_required
@@ -4263,13 +4321,13 @@ def file_manager(request):
             full_path = os.path.join(settings.MEDIA_ROOT, file_path)
             
             # Log per debug
-            print(f"Tentativo di eliminare il file: {full_path}")
-            print(f"Il file esiste: {os.path.exists(full_path)}")
-            print(f"È un file: {os.path.isfile(full_path) if os.path.exists(full_path) else 'N/A'}")
-            print(f"È una directory: {os.path.isdir(full_path) if os.path.exists(full_path) else 'N/A'}")
-            print(f"MEDIA_ROOT: {settings.MEDIA_ROOT}")
-            print(f"Percorso ricevuto originale: {request.POST.get('file_path')}")
-            print(f"Percorso pulito: {file_path}")
+            logger.debug(f"Tentativo di eliminare il file: {full_path}")
+            logger.debug(f"Il file esiste: {os.path.exists(full_path)}")
+            logger.debug(f"È un file: {os.path.isfile(full_path) if os.path.exists(full_path) else 'N/A'}")
+            logger.debug(f"È una directory: {os.path.isdir(full_path) if os.path.exists(full_path) else 'N/A'}")
+            logger.debug(f"MEDIA_ROOT: {settings.MEDIA_ROOT}")
+            logger.debug(f"Percorso ricevuto originale: {request.POST.get('file_path')}")
+            logger.debug(f"Percorso pulito: {file_path}")
             
             try:
                 if os.path.exists(full_path):
@@ -4285,19 +4343,19 @@ def file_manager(request):
                 else:
                     messages.error(request, f'File o cartella non trovata: {file_path}')
                     # Aggiungi più dettagli per il debug
-                    print(f"Percorso completo non trovato: {full_path}")
+                    logger.debug(f"Percorso completo non trovato: {full_path}")
                     # Prova a listare i file nella directory padre per debug
                     parent_dir = os.path.dirname(full_path)
                     if os.path.exists(parent_dir):
-                        print(f"File nella directory padre {parent_dir}:")
+                        logger.debug(f"File nella directory padre {parent_dir}:")
                         try:
                             for item in os.listdir(parent_dir):
-                                print(f"  - {item}")
+                                logger.debug(f"  - {item}")
                         except Exception as e:
-                            print(f"Errore nel listare la directory: {e}")
+                            logger.debug(f"Errore nel listare la directory: {e}")
             except Exception as e:
                 messages.error(request, f'Errore durante l\'eliminazione: {str(e)}')
-                print(f"Errore durante l'eliminazione: {e}")
+                logger.error(f"Errore durante l'eliminazione: {e}")
         else:
             messages.error(request, 'Percorso del file non specificato')
     
@@ -4364,16 +4422,16 @@ def file_manager(request):
                     # Pulisci il nome del file se contiene caratteri non validi
                     clean_file_name = re.sub(r'[^\x00-\x7F]', '', file_name)
                     if clean_file_name != file_name:
-                        print(f"WARNING - Nome file pulito: '{file_name}' -> '{clean_file_name}'")
+                        logger.warning(f"Nome file pulito: '{file_name}' -> '{clean_file_name}'")
                         file_name = clean_file_name
                     
                     file_path_debug = os.path.join(rel_path_debug, file_name)
                     
-                    print(f"DEBUG - root: {root}")
-                    print(f"DEBUG - file_name: {file_name}")
-                    print(f"DEBUG - rel_path: {rel_path_debug}")
-                    print(f"DEBUG - file_path costruito: {file_path_debug}")
-                    print(f"DEBUG - caratteri nel file_path: {[ord(c) for c in file_path_debug]}")
+                    logger.debug(f"root: {root}")
+                    logger.debug(f"file_name: {file_name}")
+                    logger.debug(f"rel_path: {rel_path_debug}")
+                    logger.debug(f"file_path costruito: {file_path_debug}")
+                    logger.debug(f"caratteri nel file_path: {[ord(c) for c in file_path_debug]}")
                     
                     file_info = {
                         'name': file_name,
@@ -4529,6 +4587,12 @@ def create_transaction_from_document(request, document_id):
                 filename = f"{time.time()}_{original_filename}"
                 file_to_save = ContentFile(file_content)
 
+            # Controllo limite storage
+            has_space, error_msg = check_organization_storage_limit(request.user, len(file_content))
+            if not has_space:
+                messages.error(request, error_msg)
+                return redirect('Cripto1:send_document_as_transaction', document_id=document_id)
+            
             file_path = default_storage.save(f'transaction_files/{filename}', file_to_save)
             transaction_data['file'] = file_path
 
@@ -5255,7 +5319,168 @@ def search_transactions_ajax(request):
         }, status=500)
 
 @login_required
+def advanced_analytics(request):
+    """
+    Vista per analytics avanzate del dashboard
+    """
+    user_profile = UserProfile.objects.get(user=request.user)
+    user_org = request.user.userprofile.organization
+    
+    # Metriche avanzate
+    analytics = get_dashboard_analytics(request.user, user_org)
+    
+    # Analisi temporale estesa (ultimi 30 giorni)
+    extended_activity = get_extended_activity_analysis(request.user, user_org)
+    
+    # Analisi della rete di collaborazioni
+    network_analysis = get_collaboration_network_analysis(request.user)
+    
+    # Previsioni e raccomandazioni
+    recommendations = get_user_recommendations(request.user)
+    
+    context = {
+        'user_profile': user_profile,
+        'analytics': analytics,
+        'extended_activity': extended_activity,
+        'network_analysis': network_analysis,
+        'recommendations': recommendations,
+    }
+    
+    return render(request, 'Cripto1/advanced_analytics.html', context)
+
+def get_extended_activity_analysis(user, user_org):
+    """
+    Analisi estesa dell'attività utente
+    """
+    try:
+        # Attività per ora del giorno
+        hourly_activity = [0] * 24
+        
+        # Analizza le transazioni degli ultimi 30 giorni
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        
+        transactions = Transaction.objects.filter(
+            models.Q(sender__userprofile__organization=user_org) & 
+            models.Q(receiver__userprofile__organization=user_org) &
+            (models.Q(sender=user) | models.Q(receiver=user)),
+            timestamp__gte=thirty_days_ago.timestamp()
+        )
+        
+        for tx in transactions:
+            tx_datetime = datetime.fromtimestamp(tx.timestamp, tz=timezone.get_current_timezone())
+            hourly_activity[tx_datetime.hour] += 1
+        
+        # Trova i picchi di attività
+        peak_hours = sorted(range(24), key=lambda x: hourly_activity[x], reverse=True)[:3]
+        
+        return {
+            'hourly_activity': hourly_activity,
+            'peak_hours': peak_hours,
+            'total_activity': sum(hourly_activity)
+        }
+    except Exception as e:
+        logger.error(f"Errore nell'analisi estesa attività: {e}")
+        return {'hourly_activity': [0]*24, 'peak_hours': [], 'total_activity': 0}
+
+def get_collaboration_network_analysis(user):
+    """
+    Analizza la rete di collaborazioni dell'utente
+    """
+    try:
+        from .models import SharedDocument
+        from django.db.models import Count
+        
+        # Top collaboratori
+        top_collaborators = SharedDocument.objects.filter(
+            owner=user,
+            is_active=True
+        ).values(
+            'shared_with__username',
+            'shared_with__first_name',
+            'shared_with__last_name'
+        ).annotate(
+            collaboration_count=Count('id')
+        ).order_by('-collaboration_count')[:5]
+        
+        # Utenti che collaborano con me
+        collaborating_with_me = SharedDocument.objects.filter(
+            shared_with=user,
+            is_active=True
+        ).values(
+            'owner__username',
+            'owner__first_name',
+            'owner__last_name'
+        ).annotate(
+            collaboration_count=Count('id')
+        ).order_by('-collaboration_count')[:5]
+        
+        return {
+            'top_collaborators': list(top_collaborators),
+            'collaborating_with_me': list(collaborating_with_me)
+        }
+    except Exception as e:
+        logger.error(f"Errore nell'analisi rete collaborazioni: {e}")
+        return {'top_collaborators': [], 'collaborating_with_me': []}
+
+def get_user_recommendations(user):
+    """
+    Genera raccomandazioni personalizzate per l'utente
+    """
+    try:
+        recommendations = []
+        user_profile = UserProfile.objects.get(user=user)
+        
+        # Raccomandazione 2FA
+        if not user_profile.two_factor_enabled:
+            recommendations.append({
+                'type': 'security',
+                'title': 'Abilita Autenticazione a Due Fattori',
+                'description': 'Migliora la sicurezza del tuo account abilitando il 2FA',
+                'action_url': reverse('Cripto1:setup_2fa'),
+                'priority': 'high'
+            })
+        
+        # Raccomandazione storage
+        storage_percentage = user_profile.get_storage_percentage()
+        if storage_percentage > 80:
+            recommendations.append({
+                'type': 'storage',
+                'title': 'Spazio di Archiviazione in Esaurimento',
+                'description': f'Hai utilizzato il {storage_percentage:.1f}% del tuo spazio. Considera di eliminare file non necessari.',
+                'action_url': reverse('Cripto1:personal_documents'),
+                'priority': 'medium'
+            })
+        
+        # Raccomandazione backup
+        from .models import PersonalDocument
+        unencrypted_docs = PersonalDocument.objects.filter(
+            user=user,
+            is_encrypted=False
+        ).count()
+        
+        if unencrypted_docs > 0:
+            recommendations.append({
+                'type': 'security',
+                'title': 'Documenti Non Crittografati',
+                'description': f'Hai {unencrypted_docs} documenti non crittografati. Considera di crittografarli per maggiore sicurezza.',
+                'action_url': reverse('Cripto1:personal_documents'),
+                'priority': 'low'
+            })
+        
+        return recommendations
+    except Exception as e:
+        logger.error(f"Errore nella generazione raccomandazioni: {e}")
+        return []
+
+@login_required
 def personal_statistics(request):
+    # Cache per le statistiche personali
+    cache_key = f'user_stats_{request.user.id}'
+    cached_stats = cache.get(cache_key)
+    
+    if cached_stats:
+        return render(request, 'Cripto1/personal_statistics.html', cached_stats)
+    
     user_profile = UserProfile.objects.get(user=request.user)
     user_org = request.user.userprofile.organization
     
@@ -5314,9 +5539,20 @@ def personal_statistics(request):
     
     # Transazioni per mese (ultimi 6 mesi)
     monthly_stats = []
+    from dateutil.relativedelta import relativedelta
+    
     for i in range(6):
-        month_start = timezone.now() - timedelta(days=30 * (i + 1))
-        month_end = timezone.now() - timedelta(days=30 * i)
+        # Calcola il primo giorno del mese (i mesi fa)
+        target_date = timezone.now().replace(day=1) - relativedelta(months=i)
+        month_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Calcola l'ultimo giorno del mese
+        if i == 0:
+            # Mese corrente: fino ad ora
+            month_end = timezone.now()
+        else:
+            # Mesi precedenti: fino alla fine del mese
+            month_end = (month_start + relativedelta(months=1)) - timedelta(seconds=1)
         
         month_transactions = Transaction.objects.filter(
             models.Q(sender__userprofile__organization=user_org) & 
@@ -5420,9 +5656,16 @@ def personal_statistics(request):
     weekly_sent = [0] * 7
     weekly_received = [0] * 7
     
+    # Ottieni l'inizio della settimana corrente (lunedì)
+    today = timezone.now().date()
+    days_since_monday = today.weekday()  # 0=lunedì, 6=domenica
+    start_of_week = today - timedelta(days=days_since_monday)
+    
     for i in range(7):
-        day_start = timezone.now() - timedelta(days=i+1)
-        day_end = timezone.now() - timedelta(days=i)
+        # Calcola il giorno specifico della settimana
+        current_day = start_of_week + timedelta(days=i)
+        day_start = timezone.make_aware(datetime.combine(current_day, datetime.min.time()))
+        day_end = timezone.make_aware(datetime.combine(current_day, datetime.max.time()))
         
         sent_count = Transaction.objects.filter(
             sender=request.user,
@@ -5438,8 +5681,8 @@ def personal_statistics(request):
             timestamp__lt=day_end.timestamp()
         ).count()
         
-        weekly_sent[6-i] = sent_count  # Inverti l'ordine per avere lunedì-domenica
-        weekly_received[6-i] = received_count
+        weekly_sent[i] = sent_count  # i=0 è lunedì, i=6 è domenica
+        weekly_received[i] = received_count
     
     # Sostituisci il vecchio calcolo di total_file_size_mb
     total_file_size_mb = total_storage_mb
@@ -5480,10 +5723,20 @@ def personal_statistics(request):
         'received_from': received_from,
         # Statistiche storage
         'total_storage_mb': total_storage_mb,
+        'used_storage_mb': total_storage_mb,
+        'available_storage_mb': remaining_storage_mb,
         'storage_limit_mb': storage_limit_mb,
         'storage_percentage': storage_percentage,
         'remaining_storage_mb': remaining_storage_mb,
-        # Dettagli per categoria
+        # Dettagli per categoria - AGGIUNTO per il grafico
+        'storage_by_category': {
+            'personal_documents': round(personal_docs_storage, 2),
+            'transaction_files': round(transaction_files_storage, 2),
+            'images': round(images_storage, 2),
+            'pdf': round(pdf_storage, 2),
+            'others': round(other_files_storage, 2)
+        },
+        # Mantieni anche le variabili esistenti per compatibilità
         'personal_docs_storage_mb': round(personal_docs_storage, 2),
         'transaction_files_storage_mb': round(transaction_files_storage, 2),
         'images_storage_mb': round(images_storage, 2),
@@ -5497,7 +5750,53 @@ def personal_statistics(request):
         'weekly_received': weekly_received,
     }
     
+    # Cache delle statistiche per 5 minuti
+    cache.set(cache_key, context, timeout=300)
+    
     return render(request, 'Cripto1/personal_statistics.html', context)
+
+@login_required
+def dashboard_widget_data(request):
+    """
+    API endpoint per dati dei widget del dashboard (AJAX)
+    """
+    try:
+        widget_type = request.GET.get('widget')
+        user_org = request.user.userprofile.organization
+        
+        if widget_type == 'activity':
+            data = get_daily_activity_chart(request.user, user_org)
+        elif widget_type == 'files':
+            data = get_file_type_stats(request.user, user_org)
+        elif widget_type == 'security':
+            data = calculate_security_score(request.user)
+        elif widget_type == 'storage':
+            data = get_storage_trend(request.user)
+        elif widget_type == 'collaboration':
+            data = get_collaboration_stats(request.user)
+        else:
+            return JsonResponse({'error': 'Widget type not found'}, status=400)
+        
+        return JsonResponse({'success': True, 'data': data})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def refresh_dashboard_analytics(request):
+    """
+    Aggiorna le analytics del dashboard
+    """
+    try:
+        user_org = request.user.userprofile.organization
+        analytics = get_dashboard_analytics(request.user, user_org)
+        
+        return JsonResponse({
+            'success': True,
+            'analytics': analytics,
+            'timestamp': timezone.now().isoformat()
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # Funzioni di utilità per le condivisioni
 def can_share_document(user, document_type, document_id):
@@ -5569,7 +5868,7 @@ def send_share_notification_email(shared_doc, action_type):
         )
         
     except Exception as e:
-        print(f"Errore nell'invio email di condivisione: {e}")
+        logger.error(f"Errore nell'invio email di condivisione: {e}")
 
 @login_required
 def create_share(request):
@@ -6027,7 +6326,7 @@ def encrypt_document_content(document, content):
             document.save()
             
     except Exception as e:
-        print(f"Errore crittografia documento: {e}")
+        logger.error(f"Errore crittografia documento: {e}")
 
 def decrypt_document_content(document):
     """Decrittografa il contenuto del documento"""
@@ -6038,7 +6337,7 @@ def decrypt_document_content(document):
             # Qui dovresti richiedere la password, per ora uso contenuto non crittografato
             return document.content
     except Exception as e:
-        print(f"Errore decrittografia documento: {e}")
+        logger.error(f"Errore decrittografia documento: {e}")
     
     return document.content
 
@@ -7154,9 +7453,9 @@ def send_invoice_email_and_save_pdf(invoice):
         
         try:
             email.send()
-            print(f"Email inviata a {recipient_email} per fattura {invoice.invoice_number}")
+            logger.info(f"Email inviata a {recipient_email} per fattura {invoice.invoice_number}")
         except Exception as e:
-            print(f"Errore invio email: {e}")
+            logger.error(f"Errore invio email: {e}")
     
     # 2. Salva PDF nei documenti del superuser
     try:
@@ -7185,10 +7484,10 @@ def send_invoice_email_and_save_pdf(invoice):
                 file=saved_path
             )
             
-            print(f"PDF salvato nei documenti del superuser: {saved_path}")
+            logger.info(f"PDF salvato nei documenti del superuser: {saved_path}")
         
     except Exception as e:
-        print(f"Errore salvataggio PDF superuser: {e}")
+        logger.error(f"Errore salvataggio PDF superuser: {e}")
     
     # 3. Salva PDF nei documenti dell'admin dell'organizzazione
     if admin_user:
@@ -7214,10 +7513,10 @@ def send_invoice_email_and_save_pdf(invoice):
                 file=admin_saved_path
             )
             
-            print(f"PDF salvato nei documenti dell'admin dell'organizzazione: {admin_saved_path}")
+            logger.info(f"PDF salvato nei documenti dell'admin dell'organizzazione: {admin_saved_path}")
             
         except Exception as e:
-            print(f"Errore salvataggio PDF admin organizzazione: {e}")
+            logger.error(f"Errore salvataggio PDF admin organizzazione: {e}")
     
     # Chiudi sempre il buffer alla fine
     pdf_buffer.close()
@@ -7311,3 +7610,305 @@ def clear_expired_sessions(request):
                 'message': f'Errore durante la pulizia: {str(e)}'
             })
     return JsonResponse({'success': False, 'message': 'Metodo non consentito'})
+
+def check_storage_limit(user, file_size):
+    """
+    Verifica se l'utente ha spazio sufficiente per caricare un file
+    Restituisce (bool, str) - (ha_spazio, messaggio_errore)
+    """
+    try:
+        user_profile = UserProfile.objects.get(user=user)
+        user_profile.update_storage_usage()
+        
+        if user_profile.storage_used_bytes + file_size > user_profile.storage_quota_bytes:
+            remaining_mb = (user_profile.storage_quota_bytes - user_profile.storage_used_bytes) / (1024 * 1024)
+            file_size_mb = file_size / (1024 * 1024)
+            error_msg = f'Spazio insufficiente. Spazio rimanente: {remaining_mb:.1f}MB, dimensione file: {file_size_mb:.1f}MB'
+            return False, error_msg
+        
+        return True, ''
+    except UserProfile.DoesNotExist:
+        return False, 'Profilo utente non trovato'
+    except Exception as e:
+        return False, f'Errore durante la verifica dello storage: {str(e)}'
+
+def check_organization_storage_limit(user, file_size):
+    """
+    Verifica se l'organizzazione ha spazio sufficiente per caricare un file
+    Controlla sia il limite utente che quello dell'organizzazione
+    Restituisce (bool, str) - (ha_spazio, messaggio_errore)
+    """
+    try:
+        # Prima controlla il limite utente
+        user_has_space, user_error = check_storage_limit(user, file_size)
+        if not user_has_space:
+            return False, user_error
+        
+        # Poi controlla il limite organizzazione
+        user_profile = UserProfile.objects.get(user=user)
+        organization = user_profile.organization
+        
+        if not organization:
+            return True, ''  # Nessuna organizzazione, solo limite utente
+        
+        # Calcola storage totale usato dall'organizzazione
+        total_org_storage = UserProfile.objects.filter(
+            organization=organization
+        ).aggregate(
+            total=models.Sum('storage_used_bytes')
+        )['total'] or 0
+        
+        # Converte max_storage_gb in bytes
+        org_limit_bytes = organization.max_storage_gb * 1024 * 1024 * 1024
+        
+        if total_org_storage + file_size > org_limit_bytes:
+            remaining_gb = (org_limit_bytes - total_org_storage) / (1024 * 1024 * 1024)
+            file_size_mb = file_size / (1024 * 1024)
+            error_msg = f'Limite storage organizzazione superato. Spazio rimanente organizzazione: {remaining_gb:.2f}GB, dimensione file: {file_size_mb:.1f}MB'
+            return False, error_msg
+        
+        return True, ''
+    except UserProfile.DoesNotExist:
+        return False, 'Profilo utente non trovato'
+    except Exception as e:
+        return False, f'Errore durante la verifica dello storage organizzazione: {str(e)}'
+
+def get_dashboard_analytics(user, user_org):
+    """
+    Calcola metriche avanzate per il dashboard
+    """
+    try:
+        # Attività giornaliera (ultimi 7 giorni)
+        daily_activity = get_daily_activity_chart(user, user_org)
+        
+        # Distribuzione tipi di file
+        file_type_distribution = get_file_type_stats(user, user_org)
+        
+        # Punteggio di sicurezza
+        security_score = calculate_security_score(user)
+        
+        # Trend dello storage
+        storage_trend = get_storage_trend(user)
+        
+        # Statistiche collaborazioni
+        collaboration_stats = get_collaboration_stats(user)
+        
+        return {
+            'daily_activity': daily_activity,
+            'file_type_distribution': file_type_distribution,
+            'security_score': security_score,
+            'storage_trend': storage_trend,
+            'collaboration_stats': collaboration_stats
+        }
+    except Exception as e:
+        logger.error(f"Errore nel calcolo analytics dashboard: {e}")
+        return {}
+
+def get_daily_activity_chart(user, user_org):
+    """
+    Genera dati per il grafico dell'attività giornaliera
+    """
+    try:
+        activity_data = []
+        today = timezone.now().date()
+        
+        for i in range(7):
+            day = today - timedelta(days=i)
+            day_start = timezone.make_aware(datetime.combine(day, datetime.min.time()))
+            day_end = timezone.make_aware(datetime.combine(day, datetime.max.time()))
+            
+            # Transazioni inviate
+            sent_count = Transaction.objects.filter(
+                sender=user,
+                receiver__userprofile__organization=user_org,
+                timestamp__gte=day_start.timestamp(),
+                timestamp__lt=day_end.timestamp()
+            ).count()
+            
+            # Transazioni ricevute
+            received_count = Transaction.objects.filter(
+                receiver=user,
+                sender__userprofile__organization=user_org,
+                timestamp__gte=day_start.timestamp(),
+                timestamp__lt=day_end.timestamp()
+            ).count()
+            
+            # Documenti creati
+            from .models import PersonalDocument
+            docs_count = PersonalDocument.objects.filter(
+                user=user,
+                uploaded_at__gte=day_start,
+                uploaded_at__lt=day_end
+            ).count()
+            
+            activity_data.append({
+                'date': day.strftime('%d/%m'),
+                'sent': sent_count,
+                'received': received_count,
+                'documents': docs_count,
+                'total': sent_count + received_count + docs_count
+            })
+        
+        return list(reversed(activity_data))
+    except Exception as e:
+        logger.error(f"Errore nel calcolo attività giornaliera: {e}")
+        return []
+
+def get_file_type_stats(user, user_org):
+    """
+    Calcola statistiche sui tipi di file
+    """
+    try:
+        file_stats = {
+            'pdf': 0,
+            'images': 0,
+            'documents': 0,
+            'others': 0
+        }
+        
+        # Documenti personali
+        from .models import PersonalDocument
+        personal_docs = PersonalDocument.objects.filter(user=user)
+        
+        for doc in personal_docs:
+            if doc.file and doc.file.name:
+                ext = doc.file.name.lower().split('.')[-1]
+                if ext == 'pdf':
+                    file_stats['pdf'] += 1
+                elif ext in ['jpg', 'jpeg', 'png', 'gif', 'bmp']:
+                    file_stats['images'] += 1
+                elif ext in ['doc', 'docx', 'txt', 'rtf']:
+                    file_stats['documents'] += 1
+                else:
+                    file_stats['others'] += 1
+        
+        # File delle transazioni
+        file_transactions = Transaction.objects.filter(
+            models.Q(sender__userprofile__organization=user_org) & 
+            models.Q(receiver__userprofile__organization=user_org) &
+            (models.Q(sender=user) | models.Q(receiver=user)),
+            type='file',
+            file__isnull=False
+        )
+        
+        for tx in file_transactions:
+            if tx.file and tx.file.name:
+                ext = tx.file.name.lower().split('.')[-1]
+                if ext == 'pdf':
+                    file_stats['pdf'] += 1
+                elif ext in ['jpg', 'jpeg', 'png', 'gif', 'bmp']:
+                    file_stats['images'] += 1
+                elif ext in ['doc', 'docx', 'txt', 'rtf']:
+                    file_stats['documents'] += 1
+                else:
+                    file_stats['others'] += 1
+        
+        return file_stats
+    except Exception as e:
+        logger.error(f"Errore nel calcolo statistiche file: {e}")
+        return {'pdf': 0, 'images': 0, 'documents': 0, 'others': 0}
+
+def calculate_security_score(user):
+    """
+    Calcola un punteggio di sicurezza per l'utente
+    """
+    try:
+        score = 0
+        max_score = 100
+        
+        user_profile = UserProfile.objects.get(user=user)
+        
+        # 2FA abilitato (30 punti)
+        if user_profile.two_factor_enabled:
+            score += 30
+        
+        # Password forte (verifica se ha caratteri speciali, numeri, etc.) (20 punti)
+        # Questo è un placeholder - in produzione dovresti verificare la complessità
+        if len(user.password) > 60:  # Hash lungo indica password complessa
+            score += 20
+        
+        # Chiavi crittografiche generate (25 punti)
+        if user_profile.public_key and user_profile.private_key:
+            score += 25
+        
+        # Ultimo accesso recente (10 punti)
+        if user_profile.last_login_date and user_profile.last_login_date > timezone.now() - timedelta(days=7):
+            score += 10
+        
+        # Nessun tentativo di login fallito recente (15 punti)
+        if user_profile.login_attempts == 0:
+            score += 15
+        
+        return {
+            'score': score,
+            'max_score': max_score,
+            'percentage': round((score / max_score) * 100, 1),
+            'level': 'Alto' if score >= 80 else 'Medio' if score >= 50 else 'Basso'
+        }
+    except Exception as e:
+        logger.error(f"Errore nel calcolo security score: {e}")
+        return {'score': 0, 'max_score': 100, 'percentage': 0, 'level': 'Sconosciuto'}
+
+def get_storage_trend(user):
+    """
+    Calcola il trend di utilizzo dello storage
+    """
+    try:
+        user_profile = UserProfile.objects.get(user=user)
+        user_profile.update_storage_usage()
+        
+        current_usage_gb = user_profile.get_storage_used_gb()
+        quota_gb = user_profile.get_storage_quota_gb()
+        percentage = user_profile.get_storage_percentage()
+        
+        # Calcola crescita stimata (placeholder - in produzione useresti dati storici)
+        estimated_growth = 5  # 5% al mese
+        
+        return {
+            'current_gb': current_usage_gb,
+            'quota_gb': quota_gb,
+            'percentage': percentage,
+            'estimated_growth': estimated_growth,
+            'status': 'critical' if percentage > 90 else 'warning' if percentage > 75 else 'good'
+        }
+    except Exception as e:
+        logger.error(f"Errore nel calcolo storage trend: {e}")
+        return {'current_gb': 0, 'quota_gb': 0, 'percentage': 0, 'estimated_growth': 0, 'status': 'unknown'}
+
+def get_collaboration_stats(user):
+    """
+    Calcola statistiche sulle collaborazioni
+    """
+    try:
+        from .models import SharedDocument, CreatedDocument
+        
+        # Documenti condivisi da me
+        shared_by_me = SharedDocument.objects.filter(
+            owner=user,
+            is_active=True
+        ).count()
+        
+        # Documenti condivisi con me
+        shared_with_me = SharedDocument.objects.filter(
+            shared_with=user,
+            is_active=True
+        ).count()
+        
+        # Documenti creati
+        created_docs = CreatedDocument.objects.filter(user=user).count()
+        
+        # Collaboratori unici
+        unique_collaborators = SharedDocument.objects.filter(
+            owner=user,
+            is_active=True
+        ).values('shared_with').distinct().count()
+        
+        return {
+            'shared_by_me': shared_by_me,
+            'shared_with_me': shared_with_me,
+            'created_documents': created_docs,
+            'unique_collaborators': unique_collaborators
+        }
+    except Exception as e:
+        logger.error(f"Errore nel calcolo collaboration stats: {e}")
+        return {'shared_by_me': 0, 'shared_with_me': 0, 'created_documents': 0, 'unique_collaborators': 0}

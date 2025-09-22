@@ -66,7 +66,6 @@ def user_management_dashboard(request):
 
 @permission_required('view_users')
 def user_list(request):
-    print("DEBUG - FUNZIONE user_list CHIAMATA!", flush=True)
     """Lista degli utenti con filtri e paginazione"""
     
     # I superuser vedono tutti gli utenti, gli altri solo della loro organizzazione
@@ -85,15 +84,6 @@ def user_list(request):
     status = request.GET.get('status', '')
     role_filter = request.GET.get('role', '')
     
-    # DEBUG: Stampa i parametri ricevuti
-    print(f"DEBUG - Parametri ricevuti:", flush=True)
-    print(f"  username: '{username}'", flush=True)
-    print(f"  email: '{email}'", flush=True)
-    print(f"  search: '{search}'", flush=True)
-    print(f"  status: '{status}'", flush=True)
-    print(f"  role_filter: '{role_filter}'", flush=True)
-    print(f"  Utenti totali prima dei filtri: {users.count()}", flush=True)
-    
     if search:
         users = users.filter(
             Q(user__username__icontains=search) |
@@ -106,9 +96,7 @@ def user_list(request):
     
     # Filtro specifico per username
     if username:
-        print(f"DEBUG - Applicando filtro username: '{username}'", flush=True)
         users = users.filter(user__username__iexact=username)
-        print(f"DEBUG - Utenti dopo filtro username: {users.count()}", flush=True)
     
     # Filtro specifico per email
     if email:
@@ -123,14 +111,12 @@ def user_list(request):
     
     # CORREZIONE: Filtro per ruolo usando l'ID invece del nome
     if role_filter:
-        print(f"DEBUG - Applicando filtro ruolo: '{role_filter}'", flush=True)
         users = users.filter(
             user_roles__role__id=role_filter,  # Cambiato da name a id
             user_roles__is_active=True
         ).exclude(
             user_roles__expires_at__lt=timezone.now()
         )
-        print(f"DEBUG - Utenti dopo filtro ruolo: {users.count()}", flush=True)
     
     # Paginazione
     paginator = Paginator(users, 20)
@@ -224,6 +210,12 @@ def create_user(request):
             if default_role:
                 try:
                     role = Role.objects.get(name=default_role)
+                    
+                    # Blocca completamente l'assegnazione del ruolo Super Admin
+                    if role.name == 'Super Admin':
+                        messages.error(request, 'Il ruolo Super Admin non può essere assegnato tramite questa interfaccia')
+                        return redirect('Cripto1:create_user')
+                        
                     user_profile.assign_role(role, assigned_by=request.user)
                 except Role.DoesNotExist:
                     pass
@@ -251,8 +243,8 @@ def create_user(request):
         except Exception as e:
             messages.error(request, f'Errore durante la creazione dell\'utente: {str(e)}')
     
-    # Ruoli disponibili per l'assegnazione di default
-    roles = Role.objects.filter(is_active=True)
+    # Ruoli disponibili per l'assegnazione di default (escluso Super Admin)
+    roles = Role.objects.filter(is_active=True).exclude(name='Super Admin')
     
     context = {
         'roles': roles,
@@ -273,10 +265,6 @@ def edit_user(request, user_id):
         if form.is_valid():
             user_profile = form.save()
             
-            # DEBUG: Verifica l'assegnazione dell'organizzazione
-            print(f"DEBUG EDIT USER: User {user_profile.user.username} assigned to organization: {user_profile.organization.name if user_profile.organization else 'None'}")
-            print(f"DEBUG EDIT USER: Organization ID: {user_profile.organization.id if user_profile.organization else 'None'}")
-            
             # Log dell'azione
             AuditLog.log_action(
                 user=request.user,
@@ -293,17 +281,11 @@ def edit_user(request, user_id):
     else:
         form = UserProfileEditForm(instance=user_profile, user=request.user)
     
-    # DEBUG: Stampa i valori
-    print(f"DEBUG: request.user.is_superuser = {request.user.is_superuser}")
-    print(f"DEBUG: request.user.username = {request.user.username}")
-    
     context = {
         'form': form,
         'user_profile': user_profile,
         'can_edit_organization': request.user.is_superuser,
     }
-    
-    print(f"DEBUG: context['can_edit_organization'] = {context['can_edit_organization']}")
     
     return render(request, 'Cripto1/user_management/edit_user.html', context)
 
@@ -349,6 +331,17 @@ def assign_role(request, user_id):
     
     try:
         role = Role.objects.get(id=role_id)
+        
+        # Verifica restrizioni: solo Super Admin di sistema possono assegnare il ruolo Super Admin
+        try:
+            user_profile_current = UserProfile.objects.get(user=request.user)
+            if role.name == 'Super Admin' and not (request.user.is_superuser or user_profile_current.has_role('Super Admin')):
+                messages.error(request, 'Non hai i permessi per assegnare il ruolo Super Admin')
+                return redirect('Cripto1:user_detail', user_id=user_id)
+        except UserProfile.DoesNotExist:
+            if role.name == 'Super Admin':
+                messages.error(request, 'Non hai i permessi per assegnare il ruolo Super Admin')
+                return redirect('Cripto1:user_detail', user_id=user_id)
         
         # Converti la data di scadenza se fornita
         expires_date = None
@@ -720,6 +713,14 @@ def assign_role_form(request, user_id):
     
     # Ruoli disponibili per l'assegnazione
     all_roles = Role.objects.filter(is_active=True)
+    
+    # Restrizione: solo i Super Admin di sistema possono assegnare il ruolo Super Admin
+    try:
+        user_profile_current = UserProfile.objects.get(user=request.user)
+        if not (request.user.is_superuser or user_profile_current.has_role('Super Admin')):
+            all_roles = all_roles.exclude(name='Super Admin')
+    except UserProfile.DoesNotExist:
+        all_roles = all_roles.exclude(name='Super Admin')
     
     context = {
         'user_profile': user_profile,
@@ -803,6 +804,12 @@ def create_user(request):
             if default_role:
                 try:
                     role = Role.objects.get(name=default_role)
+                    
+                    # Blocca completamente l'assegnazione del ruolo Super Admin
+                    if role.name == 'Super Admin':
+                        messages.error(request, 'Il ruolo Super Admin non può essere assegnato tramite questa interfaccia')
+                        return redirect('Cripto1:create_user')
+                        
                     user_profile.assign_role(role, assigned_by=request.user)
                 except Role.DoesNotExist:
                     pass
@@ -830,8 +837,8 @@ def create_user(request):
         except Exception as e:
             messages.error(request, f'Errore durante la creazione dell\'utente: {str(e)}')
     
-    # Ruoli disponibili per l'assegnazione di default
-    roles = Role.objects.filter(is_active=True)
+    # Ruoli disponibili per l'assegnazione di default (escluso Super Admin)
+    roles = Role.objects.filter(is_active=True).exclude(name='Super Admin')
     
     context = {
         'roles': roles,
@@ -852,10 +859,6 @@ def edit_user(request, user_id):
         if form.is_valid():
             user_profile = form.save()
             
-            # DEBUG: Verifica l'assegnazione dell'organizzazione
-            print(f"DEBUG EDIT USER: User {user_profile.user.username} assigned to organization: {user_profile.organization.name if user_profile.organization else 'None'}")
-            print(f"DEBUG EDIT USER: Organization ID: {user_profile.organization.id if user_profile.organization else 'None'}")
-            
             # Log dell'azione
             AuditLog.log_action(
                 user=request.user,
@@ -872,17 +875,11 @@ def edit_user(request, user_id):
     else:
         form = UserProfileEditForm(instance=user_profile, user=request.user)
     
-    # DEBUG: Stampa i valori
-    print(f"DEBUG: request.user.is_superuser = {request.user.is_superuser}")
-    print(f"DEBUG: request.user.username = {request.user.username}")
-    
     context = {
         'form': form,
         'user_profile': user_profile,
         'can_edit_organization': request.user.is_superuser,
     }
-    
-    print(f"DEBUG: context['can_edit_organization'] = {context['can_edit_organization']}")
     
     return render(request, 'Cripto1/user_management/edit_user.html', context)
 
@@ -928,6 +925,17 @@ def assign_role(request, user_id):
     
     try:
         role = Role.objects.get(id=role_id)
+        
+        # Verifica restrizioni: solo Super Admin di sistema possono assegnare il ruolo Super Admin
+        try:
+            user_profile_current = UserProfile.objects.get(user=request.user)
+            if role.name == 'Super Admin' and not (request.user.is_superuser or user_profile_current.has_role('Super Admin')):
+                messages.error(request, 'Non hai i permessi per assegnare il ruolo Super Admin')
+                return redirect('Cripto1:user_detail', user_id=user_id)
+        except UserProfile.DoesNotExist:
+            if role.name == 'Super Admin':
+                messages.error(request, 'Non hai i permessi per assegnare il ruolo Super Admin')
+                return redirect('Cripto1:user_detail', user_id=user_id)
         
         # Converti la data di scadenza se fornita
         expires_date = None
@@ -1299,6 +1307,14 @@ def assign_role_form(request, user_id):
     
     # Ruoli disponibili per l'assegnazione
     all_roles = Role.objects.filter(is_active=True)
+    
+    # Restrizione: solo i Super Admin di sistema possono assegnare il ruolo Super Admin
+    try:
+        user_profile_current = UserProfile.objects.get(user=request.user)
+        if not (request.user.is_superuser or user_profile_current.has_role('Super Admin')):
+            all_roles = all_roles.exclude(name='Super Admin')
+    except UserProfile.DoesNotExist:
+        all_roles = all_roles.exclude(name='Super Admin')
     
     context = {
         'user_profile': user_profile,

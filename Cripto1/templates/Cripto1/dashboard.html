@@ -210,7 +210,15 @@
 </div>
 
 <!-- Toast Container for Welcome Message -->
-<div class="toast-container position-fixed bottom-0 end-0 p-3">
+<!-- Aggiungere indicatori di caricamento -->
+<div class="loading-overlay" id="loadingOverlay" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Caricamento...</span>
+    </div>
+</div>
+
+<!-- Migliorare feedback utente -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toast-container"></div>
     <div id="welcomeToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
         <div class="toast-header">
             <strong class="me-auto">Benvenuto!</strong>

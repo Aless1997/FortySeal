@@ -6,6 +6,7 @@ import json
 import pyotp
 import base64
 import uuid  # Aggiungi questa riga
+import os
 from encrypted_model_fields.fields import EncryptedTextField
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import ValidationError
@@ -177,6 +178,8 @@ class Block(models.Model):
         ordering = ['index']
         unique_together = ['organization', 'index']  # L'index è unico per organizzazione
 
+import mimetypes
+'''
 class Transaction(models.Model):
     TRANSACTION_TYPES = [
         ('text', 'Text Message'),
@@ -191,7 +194,18 @@ class Transaction(models.Model):
     sender_public_key = models.TextField(null=True, blank=True)  # Nuovo campo
     content = models.TextField(blank=True)  # For text messages
     file = models.FileField(upload_to='transaction_files/', null=True, blank=True,
-                          validators=[FileExtensionValidator(allowed_extensions=['pdf', 'csv', 'xlsx', 'xls', 'doc', 'docx', 'txt'])])
+                          validators=[FileExtensionValidator(allowed_extensions=[
+                              # Documenti
+                              'pdf', 'csv', 'xlsx', 'xls', 'doc', 'docx', 'txt',
+                              # Immagini
+                              'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'svg',
+                              # Video
+                              'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', '3gp', 'm4v',
+                              # File compressi
+                              'zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz',
+                              # Disegni tecnici
+                              'dwg', 'dxf', 'dwf', 'step', 'stp', 'iges', 'igs'
+                          ])])
     timestamp = models.FloatField()
     transaction_hash = models.CharField(max_length=255, unique=True)
     signature = models.TextField(null=True, blank=True)
@@ -277,7 +291,7 @@ class Transaction(models.Model):
             print(f"[DEBUG] Data to verify (hash): {self.calculate_hash()}")
             print(f"[DEBUG] Signature (hex): {self.signature}")
             return False
-
+'''
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='user_profiles', null=True, blank=True)
@@ -458,7 +472,8 @@ class UserProfile(models.Model):
         """Restituisce tutti i ruoli attivi dell'utente"""
         return Role.objects.filter(
             user_assignments__user=self.user,
-            user_assignments__is_active=True
+            user_assignments__is_active=True,
+            is_active=True  # ✅ AGGIUNTO: Controlla che il ruolo sia attivo
         ).exclude(
             user_assignments__expires_at__lt=timezone.now()
         )
@@ -487,6 +502,7 @@ class UserProfile(models.Model):
         return Permission.objects.filter(
             role__user_assignments__user=self.user,
             role__user_assignments__is_active=True,
+            role__is_active=True,  # ✅ AGGIUNTO: Controlla che il ruolo sia attivo
             is_active=True
         ).exclude(
             role__user_assignments__expires_at__lt=timezone.now()
@@ -524,22 +540,14 @@ class UserProfile(models.Model):
             user_role.save()
             
             # Aggiunta: se il ruolo è Super Admin, rimuovi anche is_superuser
-            # ma solo se non ci sono altri ruoli Super Admin attivi
             if role.name == 'Super Admin' and self.user.is_superuser:
-                # Verifica se l'utente ha ancora altri ruoli Super Admin attivi
-                has_other_super_admin = UserRole.objects.filter(
-                    user=self.user, 
-                    role__name='Super Admin',
-                    is_active=True
-                ).exclude(id=user_role.id).exists()
+                self.user.is_superuser = False
+                self.user.save()
                 
-                if not has_other_super_admin:
-                    self.user.is_superuser = False
-                    self.user.save()
-            
-            return True
         except UserRole.DoesNotExist:
-            return False
+            pass  # Il ruolo non era assegnato all'utente
+        
+        return True
 
     def get_active_roles_count(self):
         """Restituisce il numero di ruoli attivi"""
@@ -954,15 +962,173 @@ class PersonalDocument(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     file = models.FileField(upload_to='personal_documents/', 
-                          validators=[FileExtensionValidator(allowed_extensions=['pdf', 'csv', 'xlsx', 'xls', 'doc', 'docx', 'txt'])])
+                          validators=[FileExtensionValidator(allowed_extensions=[
+                              # Documenti
+                              'pdf', 'csv', 'xlsx', 'xls', 'doc', 'docx', 'txt',
+                              # Immagini
+                              'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'svg',
+                              # Video
+                              'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', '3gp', 'm4v',
+                              # File compressi
+                              'zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz',
+                              # Disegni tecnici
+                              'dwg', 'dxf', 'dwf', 'step', 'stp', 'iges', 'igs'
+                          ])])
     uploaded_at = models.DateTimeField(auto_now_add=True)
     is_encrypted = models.BooleanField(default=False)
     original_filename = models.CharField(max_length=255, blank=True, null=True)
     encrypted_symmetric_key = models.BinaryField(null=True, blank=True)
-    is_shareable = models.BooleanField(default=False)  # Nuovo campo per indicare se il file è condivisibile
+    is_shareable = models.BooleanField(default=False)
+    
+    # Campi utilizzati per gestione avanzata
+    file_hash = models.CharField(max_length=64, blank=True, help_text="SHA-256 hash del file")
+    file_size = models.BigIntegerField(default=0, help_text="Dimensione file in bytes")
+    mime_type = models.CharField(max_length=255, blank=True)
+    
+    # Metadati compilati automaticamente
+    metadata = models.JSONField(default=dict, blank=True, help_text="Metadati aggiuntivi del file")
     
     def __str__(self):
         return f"{self.title} - {self.user.username}"
+    
+    def save(self, *args, **kwargs):
+        # Calcola hash e dimensione se il file è presente
+        if self.file:
+            if hasattr(self.file, 'read'):
+                content = self.file.read()
+                self.file.seek(0)
+                self.file_hash = hashlib.sha256(content).hexdigest()
+                self.file_size = len(content)
+            
+            # Determina MIME type
+            if self.original_filename:
+                self.mime_type = mimetypes.guess_type(self.original_filename)[0] or 'application/octet-stream'
+            
+            # Compila automaticamente i metadati
+            self.metadata = {
+                'original_name': self.original_filename or self.file.name,
+                'upload_date': self.uploaded_at.isoformat() if self.uploaded_at else None,
+                'file_extension': os.path.splitext(self.original_filename or self.file.name)[1].lower(),
+                'content_type': self.mime_type,
+                'size_bytes': self.file_size,
+                'hash_sha256': self.file_hash,
+                'is_encrypted': self.is_encrypted,
+                'is_shareable': self.is_shareable
+            }
+        
+        super().save(*args, **kwargs)
+
+class Transaction(models.Model):
+    TRANSACTION_TYPES = [
+        ('text', 'Text Message'),
+        ('file', 'File Upload'),
+    ]
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='transactions', null=True, blank=True)
+    block = models.ForeignKey('Block', on_delete=models.CASCADE, null=True, blank=True, related_name='transactions')
+    type = models.CharField(max_length=50, choices=TRANSACTION_TYPES)
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_transactions')
+    receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_transactions')
+    sender_public_key = models.TextField(null=True, blank=True)  # Nuovo campo
+    content = models.TextField(blank=True)  # For text messages
+    file = models.FileField(upload_to='transaction_files/', null=True, blank=True,
+                          validators=[FileExtensionValidator(allowed_extensions=[
+                              # Documenti
+                              'pdf', 'csv', 'xlsx', 'xls', 'doc', 'docx', 'txt',
+                              # Immagini
+                              'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'svg',
+                              # Video
+                              'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', '3gp', 'm4v',
+                              # File compressi
+                              'zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz',
+                              # Disegni tecnici
+                              'dwg', 'dxf', 'dwf', 'step', 'stp', 'iges', 'igs'
+                          ])])
+    timestamp = models.FloatField()
+    transaction_hash = models.CharField(max_length=255, unique=True)
+    signature = models.TextField(null=True, blank=True)
+    is_encrypted = models.BooleanField(default=False)
+    is_shareable = models.BooleanField(default=False)  # Aggiungi questo campo
+    original_filename = models.CharField(max_length=255, blank=True, null=True) # Per salvare il nome originale del file cifrato
+    encrypted_symmetric_key = models.BinaryField(null=True, blank=True) # Per la chiave simmetrica cifrata del file
+    receiver_public_key_at_encryption = models.TextField(null=True, blank=True) # Public key of receiver at the time of encryption
+    max_downloads = models.IntegerField(null=True, blank=True, default=None) # Numero massimo di download consentiti
+    current_downloads = models.IntegerField(default=0) # Contatore dei download effettuati
+    is_viewed = models.BooleanField(default=False) # Indica se la transazione è stata visualizzata dal destinatario
+    
+    # Aggiungi questi campi
+    sender_encrypted_content = models.TextField(blank=True, null=True)  # Contenuto crittografato per il mittente (per messaggi di testo)
+    sender_encrypted_symmetric_key = models.BinaryField(null=True, blank=True)  # Chiave simmetrica crittografata per il mittente (per file)
+    
+    def __str__(self):
+        return f"Transaction {self.transaction_hash[:10]}..."
+
+    def to_dict(self):
+        """Returns a dictionary representation of the transaction for signing/hashing."""
+        return {
+            'type': self.type,
+            'sender': self.sender.id,
+            'receiver': self.receiver.id,
+            'sender_public_key': self.sender_public_key or '',
+            'content': self.content,
+            'file': str(self.file) if self.file else '',
+            'timestamp': self.timestamp,
+            'is_encrypted': self.is_encrypted,
+            'original_filename': self.original_filename or '', # Include original filename
+            'encrypted_symmetric_key': self.encrypted_symmetric_key.hex() if self.encrypted_symmetric_key else '',
+            'receiver_public_key_at_encryption': self.receiver_public_key_at_encryption or '',
+            'sender_encrypted_content': self.sender_encrypted_content or '',
+            'sender_encrypted_symmetric_key': self.sender_encrypted_symmetric_key.hex() if self.sender_encrypted_symmetric_key else '',
+        }
+
+    def calculate_hash(self):
+        """Calculates the SHA-256 hash of the transaction data."""
+        transaction_string = json.dumps(self.to_dict(), sort_keys=True).encode()
+        print(f"[DEBUG VERIFYING] transaction_dict: {self.to_dict()}")
+        print(f"[DEBUG VERIFYING] transaction_string: {transaction_string}")
+        return hashlib.sha256(transaction_string).hexdigest()
+
+    def verify_signature(self):
+        """Verifies the digital signature of the transaction."""
+        if not self.signature:
+            print(f"[DEBUG] No signature for transaction {self.transaction_hash}")
+            return False
+
+        try:
+            # Usa la chiave pubblica salvata nella transazione
+            if not self.sender_public_key:
+                print(f"[DEBUG] No sender_public_key saved in transaction {self.transaction_hash}")
+                return False
+            public_key = serialization.load_pem_public_key(
+                self.sender_public_key.encode(),
+                backend=default_backend()
+            )
+            
+            # Calculate the hash of the transaction data
+            tx_dict = self.to_dict()
+            print(f"[DEBUG] Transaction dict for verification: {tx_dict}")
+            data_to_verify = self.calculate_hash().encode()
+            print(f"[DEBUG] Data to verify (hash): {self.calculate_hash()}")
+            print(f"[DEBUG] Signature (hex): {self.signature}")
+            
+            # Verify the signature
+            public_key.verify(
+                bytes.fromhex(self.signature),
+                data_to_verify,
+                PSS(
+                    mgf=MGF1(hashes.SHA256()),
+                    salt_length=PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+            print(f"[DEBUG] Signature valid for transaction {self.transaction_hash}")
+            return True
+        except Exception as e:
+            print(f"Error verifying signature for transaction {self.transaction_hash}: {type(e).__name__}: {e}")
+            print(f"[DEBUG] Transaction dict: {self.to_dict()}")
+            print(f"[DEBUG] Data to verify (hash): {self.calculate_hash()}")
+            print(f"[DEBUG] Signature (hex): {self.signature}")
+            return False
 
 class SharedDocument(models.Model):
     """Modello per gestire la condivisione di documenti tra utenti"""

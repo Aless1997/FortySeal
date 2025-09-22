@@ -1,7 +1,8 @@
-from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.conf import settings
 from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.utils import timezone
 from datetime import datetime
 import logging
 
@@ -320,3 +321,31 @@ def send_admin_welcome_email(user, user_profile, request):
     except Exception as e:
         logger.error(f"Errore nell'invio email admin a {user.email}: {str(e)}")
         return False
+
+
+def send_meeting_invite(email, meeting_id, meeting_url, invited_by):
+    """Invia email di invito per riunione video"""
+    subject = f'Invito alla riunione video da {invited_by.get_full_name() or invited_by.username}'
+    
+    message = f"""
+    Ciao,
+    
+    Sei stato invitato a partecipare a una riunione video.
+    
+    Organizzatore: {invited_by.get_full_name() or invited_by.username}
+    ID Riunione: {meeting_id}
+    
+    Per partecipare, clicca sul seguente link:
+    {meeting_url}
+    
+    Cordiali saluti,
+    Il team di {settings.SITE_NAME if hasattr(settings, 'SITE_NAME') else 'Sistema'}
+    """
+    
+    send_mail(
+        subject,
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        [email],
+        fail_silently=False,
+    )

@@ -1,18 +1,29 @@
 import os
-from pathlib import Path
+from pathlib import Path  # AGGIUNGERE QUESTA RIGA
+from django.core.checks import Debug
+from dotenv import load_dotenv
 import dj_database_url
-import django
-from django.core.management import call_command
-import sys
+
+# Carica le variabili d'ambiente dal file .env
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-your-secret-key-here'
+# Configurazioni di sicurezza da variabili d'ambiente
+SECRET_KEY = os.getenv('SECRET_KEY')
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
+FERNET_KEY = os.getenv('FERNET_KEY').encode() if os.getenv('FERNET_KEY') else None
+FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY').encode() if os.getenv('FIELD_ENCRYPTION_KEY') else None
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Validazione chiavi obbligatorie
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY deve essere definita nel file .env")
+if not FERNET_KEY:
+    raise ValueError("FERNET_KEY deve essere definita nel file .env")
+if not FIELD_ENCRYPTION_KEY:
+    raise ValueError("FIELD_ENCRYPTION_KEY deve essere definita nel file .env")
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'block-lxlw.onrender.com', 'fortyseal-1.onrender.com']
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -22,7 +33,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'encrypted_model_fields',
-    'Cripto1' #Installed 25/05/2025
+    'Cripto1'
 ]
 
 MIDDLEWARE = [
@@ -35,7 +46,7 @@ MIDDLEWARE = [
     'Cripto1.middleware.MultiTenantMiddleware',
     'Cripto1.middleware.AuditLogMiddleware',
     'Cripto1.middleware.SecurityMiddleware',
-    'Cripto1.middleware.FileSizeMiddleware',  # ← AGGIUNGI QUESTA RIGA
+    'Cripto1.middleware.FileSizeMiddleware',
     'Cripto1.middleware.SmartAutoCleanupMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'Cripto1.middleware.RoleExpirationMiddleware',
@@ -54,7 +65,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'Cripto1.context_processors.organization_context',  # Context processor per multi-tenancy
+                'Cripto1.context_processors.organization_context',
             ],
         },
     },
@@ -62,8 +73,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'Cripto.wsgi.application'
 
+# Database configuration
 if os.getenv("DATABASE_URL"):
-    # 🔹 Produzione (Render) → prende tutto da DATABASE_URL
+    # Produzione (Render)
     DATABASES = {
         "default": dj_database_url.config(
             default=os.getenv("DATABASE_URL"),
@@ -72,27 +84,39 @@ if os.getenv("DATABASE_URL"):
         )
     }
 else:
-    # 🔹 Locale (sviluppo) → usa i parametri fissi
+    # Sviluppo locale
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": "forty_seal",
-            "USER": "forty_admin",
-            "PASSWORD": "123",
-            "HOST": "localhost",
-            "PORT": "5432",
+            "NAME": os.getenv('DB_NAME'),
+            "USER": os.getenv('DB_USER'),
+            "PASSWORD": os.getenv('DB_PASSWORD'),
+            "HOST": os.getenv('DB_HOST', 'localhost'),
+            "PORT": os.getenv('DB_PORT', '5432'),
             "OPTIONS": {
                 "sslmode": "prefer",
+                "options": "-c default_transaction_isolation=serializable"
             },
         }
     }
 
-# Configurazione per ambiente di produzione (Heroku, etc.)
-import os
-if os.environ.get('DATABASE_URL'):
-    import dj_database_url
-    DATABASES['default'] = dj_database_url.parse(os.environ.get('DATABASE_URL'))
+# Header di sicurezza
+SECURE_SSL_REDIRECT = not Debug #True in Produzione
+SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
+# Session security
+SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Strict'
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SAMESITE = 'Strict'
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -109,80 +133,63 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
-
 LANGUAGE_CODE = 'it-it'
-
 TIME_ZONE = 'Europe/Rome'
-
 USE_I18N = True
-
 USE_TZ = True
 
 STATIC_URL = 'static/'
-
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'Cripto1', 'static'),
+]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Login URL
+# Login URLs
 LOGIN_URL = 'Cripto1:login'
 LOGIN_REDIRECT_URL = 'Cripto1:dashboard'
 LOGOUT_REDIRECT_URL = 'Cripto1:login'
-FERNET_KEY = b'JelaY1G0OlEEPMOnb-q9jVuxr88GAUiyzWD4u4fgEUs='
 
-# Encryption key for encrypted model fields
-FIELD_ENCRYPTION_KEY = b'JelaY1G0OlEEPMOnb-q9jVuxr88GAUiyzWD4u4fgEUs='
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Error pages
 HANDLER403 = 'Cripto1.views.permission_denied'
 
-import sentry_sdk
-
+# Email configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'sealforty@gmail.com'  # Sostituisci con la tua email
-EMAIL_HOST_PASSWORD = 'sssw jaei ppqg tbuy'  # Usa una App Password di Google
-DEFAULT_FROM_EMAIL = 'FortySeal <sealforty@gmail.com>'
-SERVER_EMAIL = 'sealforty@gmail.com'
+# Email Configuration
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() == 'true'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = f'FortySeal <{EMAIL_HOST_USER}>'
+SERVER_EMAIL = EMAIL_HOST_USER
 
-# URL del sito per le email
-#SITE_URL = 'http://127.0.0.1:8000'  # Per sviluppo locale
-SITE_URL = 'https://fortyseal-1.onrender.com'  # Per produzione
+# Site Configuration
+SITE_URL = os.getenv('SITE_URL', 'http://127.0.0.1:8000')
 
-
-# Ottimizzazioni PostgreSQL per applicazioni blockchain
-if 'postgresql' in DATABASES['default']['ENGINE']:
-    # Parametri di connessione corretti
-    DATABASES['default'].update({
-        'CONN_MAX_AGE': 600,  # Riutilizzo connessioni per 10 minuti
-        'OPTIONS': {
-            'sslmode': 'prefer',
-            'options': '-c default_transaction_isolation=serializable'  # Per integrità blockchain
-        },
-    })
-    
-# Configurazione cache per PostgreSQL
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
-        'LOCATION': 'cache_table',
+# Cache configuration
+# Migliorare la configurazione cache per produzione
+if not DEBUG:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+        }
     }
-}
-# Configurazione cache alternativa (in memoria)
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
+        }
     }
-}
 
-# Configurazione Logging per Debug
+# Logging configuration
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -197,31 +204,35 @@ LOGGING = {
         },
     },
     'handlers': {
-        'file': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': 'debug.log',
-            'formatter': 'verbose',
-        },
         'console': {
-            'level': 'DEBUG',
+            'level': 'INFO',
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
         },
     },
     'loggers': {
-        'django.db.backends': {
-            'handlers': ['file', 'console'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
         'Cripto1': {
-            'handlers': ['file', 'console'],
-            'level': 'DEBUG',
+            'handlers': ['console'],
+            'level': 'INFO',
             'propagate': True,
         },
     },
 }
-# Per vedere tutte le query SQL
-if DEBUG:
-    LOGGING['loggers']['django.db.backends']['level'] = 'DEBUG'
+
+# Aggiungi dopo le configurazioni esistenti
+
+# Security headers aggiuntivi
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_TZ = True
+
+# Limita upload file
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024   # 10MB
+
+# Rate limiting
+SESSION_COOKIE_AGE = 3600  # 1 ora
+
+# Content Security Policy
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'")
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")

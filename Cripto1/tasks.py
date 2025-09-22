@@ -4,6 +4,7 @@ from datetime import timedelta
 import os
 import logging
 from .models import Organization, Transaction
+from celery import shared_task
 
 logger = logging.getLogger(__name__)
 
@@ -71,3 +72,10 @@ def cleanup_expired_files():  # RINOMINATO: da smart_cleanup_expired_files
 def trigger_cleanup_if_needed():
     """Trigger cleanup solo se necessario"""
     return cleanup_expired_files()
+
+
+@shared_task
+def update_overdue_invoices():
+    """Task periodico per aggiornare fatture scadute"""
+    call_command('update_overdue_invoices')
+    return "Fatture scadute aggiornate"
