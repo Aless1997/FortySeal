@@ -236,7 +236,7 @@ LOGGING = {
         },
     },
 }
-
+}
 # Aggiungi dopo le configurazioni esistenti
 
 # Security headers aggiuntivi
