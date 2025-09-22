@@ -50,7 +50,7 @@ MIDDLEWARE = [
     'Cripto1.middleware.SmartAutoCleanupMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'Cripto1.middleware.RoleExpirationMiddleware',
-    'yourapp.middleware.Log500Middleware', 
+    'Cripto1.middleware.Log500Middleware', 
 ]
 
 ROOT_URLCONF = 'Cripto.urls'
@@ -102,7 +102,7 @@ else:
     }
 
 # Header di sicurezza
-SECURE_SSL_REDIRECT = not Debug #True in Produzione
+SECURE_SSL_REDIRECT = not DEBUG #True in Produzione
 SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
@@ -210,18 +210,6 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
         },
-    },
-    'loggers': {
-        'Cripto1': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-    },
-    {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
         'file': {
             'level': 'ERROR',
             'class': 'logging.FileHandler',
@@ -229,6 +217,11 @@ LOGGING = {
         },
     },
     'loggers': {
+        'Cripto1': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
         'django': {
             'handlers': ['file'],
             'level': 'ERROR',
@@ -236,8 +229,7 @@ LOGGING = {
         },
     },
 }
-}
-# Aggiungi dopo le configurazioni esistenti
+
 
 # Security headers aggiuntivi
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
