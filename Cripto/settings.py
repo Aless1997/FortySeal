@@ -23,7 +23,7 @@ if not FERNET_KEY:
 if not FIELD_ENCRYPTION_KEY:
     raise ValueError("FIELD_ENCRYPTION_KEY deve essere definita nel file .env")
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,fortyseal-1.onrender.com').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
