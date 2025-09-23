@@ -225,8 +225,7 @@ urlpatterns = [
     path('blockchain/', views.blockchain_list, name='blockchain_list'),
     path('blockchain/block/<int:block_id>/', views.block_detail_view, name='block_detail_view'),
     path('blockchain/blocks/', views.block_details_list, name='block_details_list'),
-    path('workflow/', views.workflow, name='workflow'),  # Sposta questa riga qui dentro
 ]
 # Rimuovi questa riga che è fuori dagli urlpatterns:
-# path('workflow/', views.workflow, name='workflow'),
+
 path('finance/invoice/<int:invoice_id>/pdf/', views.generate_invoice_pdf_view, name='generate_invoice_pdf'),

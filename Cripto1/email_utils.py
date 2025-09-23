@@ -199,7 +199,7 @@ def send_block_confirmation_emails(block, transactions):
         logger.error(f"Errore nell'invio delle email di conferma blocco #{block.index}: {str(e)}")
         return False
 
-# Mantieni la funzione originale per compatibilità (ora deprecata)
+# RIMUOVI queste righe (203-205):
 def send_transaction_notification(transaction, user, request, direction='sent'):
     """DEPRECATA: Usa send_immediate_transaction_notification invece"""
     return send_immediate_transaction_notification(transaction, user, request, direction)

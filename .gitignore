@@ -1,0 +1,115 @@
+# Environment variables
+*.env
+.env
+.env.local
+.env.production
+.env.development
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+PIPFILE.lock
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Media files (uploads)
+media/
+
+# Static files (collected)
+staticfiles/
+static_root/
+
+# Cache
+.cache/
+*.cache
+
+# Testing
+.coverage
+.pytest_cache/
+.tox/
+test_results.txt
+htmlcov/
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Logs
+logs/
+*.log
+
+# Virtual environment
+venv/
+env/
+ENV/
+.venv/
+
+# Node modules (se usi frontend tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+*.csr
+
+# Database dumps
+*.sql
+*.dump
+
+# Secrets and keys
+secrets/
+keys/
+*.secret

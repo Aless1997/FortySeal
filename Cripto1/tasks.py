@@ -1,14 +1,14 @@
+from django.core.cache import cache  # ← AGGIUNGI QUESTA RIGA
+from django.core.management import call_command
 from django.utils import timezone
-from django.core.cache import cache  # AGGIUNTO: import mancante
 from datetime import timedelta
 import os
 import logging
 from .models import Organization, Transaction
-from celery import shared_task
 
 logger = logging.getLogger(__name__)
 
-def cleanup_expired_files():  # RINOMINATO: da smart_cleanup_expired_files
+def cleanup_expired_files():
     """Sistema MRP intelligente - controlla cache per evitare cleanup troppo frequenti"""
     
     # Controlla se è già stato fatto cleanup di recente
@@ -36,19 +36,17 @@ def cleanup_expired_files():  # RINOMINATO: da smart_cleanup_expired_files
                 ).select_related('organization')
                 
                 org_deleted = 0
-                # Correggere le righe 38-47:
                 for transaction in expired_transactions:
                     try:
                         file_deleted = False
                         if transaction.file and os.path.exists(transaction.file.path):
-                            file_path = transaction.file.path  # Salva il path prima di rimuovere il riferimento
-                            os.remove(file_path)  # Elimina il file fisico
+                            file_path = transaction.file.path
+                            os.remove(file_path)
                             file_deleted = True
                         
-                        # Solo dopo aver eliminato il file, rimuovi il riferimento
                         if file_deleted:
-                            transaction.file = None  # Rimuove il riferimento al file
-                            transaction.save()       # Mantiene la transazione per lo storico
+                            transaction.file = None
+                            transaction.save()
                             org_deleted += 1
                             deleted_count += 1
                     except Exception as e:
@@ -58,7 +56,7 @@ def cleanup_expired_files():  # RINOMINATO: da smart_cleanup_expired_files
                     logger.info(f'Org {org.name}: {org_deleted} file eliminati')
         
         # Aggiorna cache
-        cache.set('last_cleanup_time', now, timeout=3600)  # Cache per 1 ora
+        cache.set('last_cleanup_time', now, timeout=3600)
         
         if deleted_count > 0:
             logger.info(f'Cleanup completato: {deleted_count} file totali eliminati')
@@ -68,14 +66,15 @@ def cleanup_expired_files():  # RINOMINATO: da smart_cleanup_expired_files
     
     return deleted_count
 
-# Funzione helper per trigger manuali
 def trigger_cleanup_if_needed():
     """Trigger cleanup solo se necessario"""
     return cleanup_expired_files()
 
-
-@shared_task
 def update_overdue_invoices():
-    """Task periodico per aggiornare fatture scadute"""
-    call_command('update_overdue_invoices')
-    return "Fatture scadute aggiornate"
+    """Funzione per aggiornare fatture scadute"""
+    try:
+        call_command('update_overdue_invoices')
+        return "Fatture scadute aggiornate"
+    except Exception as e:
+        logger.error(f'Errore aggiornando fatture scadute: {e}')
+        return f"Errore: {e}"

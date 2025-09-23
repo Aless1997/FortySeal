@@ -1,6 +1,6 @@
 import os
 from pathlib import Path  # AGGIUNGERE QUESTA RIGA
-from django.core.checks import Debug
+# from django.core.checks import Debug
 from dotenv import load_dotenv
 import dj_database_url
 
@@ -101,7 +101,7 @@ else:
     }
 
 # Header di sicurezza
-SECURE_SSL_REDIRECT = not Debug #True in Produzione
+SECURE_SSL_REDIRECT = not DEBUG  # Cambiato da 'Debug' a 'DEBUG'
 SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True

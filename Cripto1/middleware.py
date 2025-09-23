@@ -4,8 +4,9 @@ from django.contrib import messages
 from django.utils import timezone
 from .models import AuditLog, UserProfile
 import json
-from datetime import timedelta
-import threading
+# RIMUOVI questi duplicati:
+from datetime import timedelta  # Riga 7
+import threading  # Riga 8
 import time
 from django.core.cache import cache
 from datetime import timedelta
@@ -476,8 +477,6 @@ class Require2FAMiddleware:
             if (user_profile.organization and 
                 user_profile.organization.require_2fa and 
                 not user_profile.two_factor_verified):
-                
-                from django.shortcuts import redirect
                 return redirect('Cripto1:setup_2fa')
         
         response = self.get_response(request)

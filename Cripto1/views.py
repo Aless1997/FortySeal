@@ -1,57 +1,54 @@
+# Django core imports
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import login, authenticate, logout
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponse, FileResponse
-from .models import Block, Transaction, UserProfile, SmartContract, AuditLog, Permission, Role, UserRole, PersonalDocument, BlockchainState, SharedDocument, ShareNotification, CreatedDocument, Organization
-from django.db import transaction, models
-import hashlib
-import json
-import time
-import logging
-from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.models import User
-import datetime
-from django.conf import settings
-from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from django.utils import timezone
-import random
-from .forms import UserProfileEditForm
 from django.contrib.admin.views.decorators import staff_member_required
-from django.db.models import Sum, Q
-import csv
-import os
-from cryptography.hazmat.primitives.asymmetric.padding import PSS, MGF1
+from django.contrib.auth.forms import UserChangeForm, PasswordResetForm
+from django.contrib.sessions.models import Session
+from django.conf import settings
+from django.core.cache import caches, cache
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.core.exceptions import PermissionDenied
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.backends import default_backend
-from django.contrib.auth.forms import UserChangeForm, PasswordResetForm
-import uuid
-from cryptography.hazmat.primitives.asymmetric import padding
-import base64
-import os
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-
-from datetime import datetime, timedelta
-from django.core.exceptions import PermissionDenied
 from django.views.decorators.http import require_POST
-import pyotp
-import qrcode
-import io
+from django.views.decorators.csrf import csrf_exempt
+from django.db import transaction, models
+from django.db.models import Sum, Q, Count
+from django.http import JsonResponse, HttpResponse, FileResponse
+from django.template.loader import render_to_string
+from django.utils import timezone
+from django.urls import reverse
+
+# Standard library imports
+import os
+import json
+import time
+import datetime
+import random
+import csv
+import uuid
+import base64
 import re
 import zipfile
 import subprocess
 import sys
-from .decorators import permission_required, role_required, admin_required, active_user_required, external_forbidden, user_manager_forbidden
-from .email_utils import send_welcome_email, send_transaction_notification, send_block_confirmation_emails, send_admin_welcome_email
-from django.core.cache import caches, cache
-from django.contrib.sessions.models import Session
-from django.contrib.auth.decorators import user_passes_test
-from django.db.models import Count
-from django.template.loader import render_to_string
 import traceback
+import hashlib
+import logging
+import pyotp
+from datetime import datetime, timedelta
+from io import BytesIO
+
+# Third party imports
+import qrcode
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric.padding import PSS, MGF1
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.backends import default_backend
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -59,19 +56,19 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib import colors
-from io import BytesIO
+
+# Local imports
+from .models import Block, Transaction, UserProfile, SmartContract, AuditLog, Permission, Role, UserRole, PersonalDocument, BlockchainState, SharedDocument, ShareNotification, CreatedDocument, Organization
+from .forms import UserProfileEditForm
+from .decorators import permission_required, role_required, admin_required, active_user_required, external_forbidden, user_manager_forbidden
+from .email_utils import send_welcome_email, send_transaction_notification, send_block_confirmation_emails, send_admin_welcome_email
 from .tasks import cleanup_expired_files, trigger_cleanup_if_needed
-from django.urls import reverse
 
 cipher_suite = Fernet(settings.FERNET_KEY)
 logger = logging.getLogger(__name__)
 
 def homepage(request):
     return render(request, 'Cripto1/index.html')
-
-def workflow(request):
-    """Pagina workflow dettagliata"""
-    return render(request, 'Cripto1/workflow.html')
 
 def register_organization(request):
     """Registrazione di una nuova organizzazione con amministratore"""
@@ -778,10 +775,10 @@ def create_transaction(request):
             # Invia notifiche email
             try:
                 # Email al mittente
-                send_transaction_notification(new_tx, request.user, request, direction='sent')
+                send_immediate_transaction_notification(new_tx, request.user, request, direction='sent')
                 
                 # Email al destinatario
-                send_transaction_notification(new_tx, receiver, request, direction='received')
+                send_immediate_transaction_notification(new_tx, receiver, request, direction='received')
             except Exception as e:
                 logger.error(f"Errore nell'invio delle notifiche email per la transazione {new_tx.id}: {str(e)}")
 
@@ -2796,8 +2793,6 @@ def backup_management(request):
                 success_msg = f'Backup avviato per {user_org.name}!'
             
             # Esegui il comando di backup in un processo separato
-            import subprocess
-            import sys
             try:
                 cmd = [sys.executable, 'manage.py', 'backup_blockchain']
                 if include_files:
@@ -6432,11 +6427,6 @@ def create_transaction_from_created_document(request, document_id):
                 content = document.content
 
             # Converti HTML in PDF usando reportlab
-            from io import BytesIO
-            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-            from reportlab.lib.units import inch
-            from reportlab.lib.enums import TA_CENTER
             import re
             
             # Crea un buffer per il PDF
