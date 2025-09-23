@@ -175,25 +175,15 @@ SERVER_EMAIL = EMAIL_HOST_USER
 SITE_URL = os.getenv('SITE_URL', 'http://127.0.0.1:8000')
 
 # Cache configuration
-# Migliorare la configurazione cache per produzione
-if not DEBUG:
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-            'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
-        }
+# Usa LocMemCache sia in sviluppo che in produzione per evitare dipendenze Redis
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
     }
-else:
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'LOCATION': 'unique-snowflake',
-        }
-    }
+}
 
-# Logging configuration
-# Cambia il livello di logging da DEBUG a INFO/WARNING in produzione
-# ... existing code ...
+
 import sys
 
 # Aggiungi questa configurazione LOGGING
