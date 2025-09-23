@@ -67,8 +67,7 @@ urlpatterns = [
     path('user-management/roles/create/', views.create_role, name='create_role'),
     path('user-management/roles/<int:role_id>/', views.role_detail, name='role_detail'),
     path('users/<int:user_id>/storage/', views.manage_user_storage, name='manage_user_storage'),
-    # Debug URLs
-    path('debug/permissions/', views.debug_permissions, name='debug_permissions'),
+
 
     # Blockchain mining
     path('mine-block/', views.mine_block, name='mine_block'),
@@ -97,6 +96,134 @@ urlpatterns = [
     path('admdashboard/backup/upload/', views.upload_backup, name='upload_backup'),
     path('admdashboard/backup/download/<str:filename>/', views.download_backup, name='download_backup'),
     # Aggiungi questi URL al tuo file urls.py
+    path('transaction/<int:transaction_id>/export-pdf/', views.export_transaction_pdf, name='export_transaction_pdf'),
+    path('transaction/<int:transaction_id>/save-to-documents/', views.save_transaction_details_to_personal_documents, name='save_transaction_details_to_personal_documents'),
+    path('setup-2fa/', views.setup_2fa, name='setup_2fa'),
+    path('manage-2fa/', views.manage_2fa, name='manage_2fa'),
+    path('verify-2fa/', views.verify_2fa, name='verify_2fa'),
+    # Nelle URL patterns
+    path('user-management/user/<int:user_id>/2fa-qrcode/', user_management_views.view_user_2fa_qrcode, name='view_user_2fa_qrcode'),
+    # File Manager URLs
+    path('admdashboard/file-manager/', views.file_manager, name='file_manager'),
+    # Aggiungi questi URL
+    path('documents/create/', views.create_document, name='create_document'),
+    path('documents/created/', views.created_documents_list, name='created_documents_list'),
+    path('documents/edit/<int:document_id>/', views.edit_document, name='edit_document'),
+    # Aggiungi questa riga dopo le altre URL dei documenti
+    path('documents/delete/<int:document_id>/', views.delete_created_document, name='delete_created_document'),
+    # Aggiungi queste righe nelle URL patterns esistenti, prima della chiusura della lista
+    # Sostituisci la riga esistente con queste due righe complete
+    path('admdashboard/sessions/', views.session_management, name='session_management'),
+    path('terminate-all-sessions/', views.terminate_all_sessions, name='terminate_all_sessions'),
+    path('clear-expired-sessions/', views.clear_expired_sessions, name='clear_expired_sessions'),
+    path('admdashboard/my-sessions/', views.my_sessions, name='my_sessions'),
+    path('admdashboard/terminate-session/', views.terminate_session, name='terminate_session'),
+    # Sharing URLs
+    path('share/create/', views.create_share, name='create_share'),
+    path('share/my-shares/', views.my_shares, name='my_shares'),
+    path('share/<uuid:share_id>/', views.view_shared_document, name='view_shared_document'),
+    path('share/<uuid:share_id>/download/', views.download_shared_document, name='download_shared_document'),
+    path('share/<uuid:share_id>/edit/', views.edit_shared_document, name='edit_shared_document'),
+    path('share/<uuid:share_id>/revoke/', views.revoke_share, name='revoke_share'),
+    path('documents/created/<int:document_id>/add-collaborator/', views.add_collaborator, name='add_collaborator'),
+    # Notification URLs
+    path('notifications/', views.notifications, name='notifications'),
+    path('notifications/<int:notification_id>/mark-read/', views.mark_notification_as_read, name='mark_notification_as_read'),
+    # ... Organization Admin URLs
+    path('org-admin/dashboard/', organization_admin_views.org_admin_dashboard, name='org_admin_dashboard'),
+    path('org-admin/users/', organization_admin_views.org_user_management, name='org_user_management'),
+    path('org-admin/roles/', organization_admin_views.org_role_management, name='org_role_management'),
+    path('org-admin/logs/', organization_admin_views.org_audit_logs, name='org_audit_logs'),
+    path('org-admin/sessions/', organization_admin_views.org_sessions, name='org_sessions'),
+    # Organization Management (Superuser only)
+    path('organization-management/', organization_views.organization_management_dashboard, name='organization_management_dashboard'),
+    path('organization-management/list/', organization_views.organization_management_list, name='organization_management_list'),
+    path('organization-management/detail/<int:org_id>/', organization_views.organization_management_detail, name='organization_management_detail'),
+    path('organization-management/create/', organization_views.organization_create, name='organization_create'),
+    path('organization-management/edit/<int:org_id>/', organization_views.organization_edit, name='organization_edit'),
+    path('organizations/<int:org_id>/delete/', organization_views.organization_delete, name='organization_delete'),
+    path('organization-management/create/', organization_views.organization_create, name='organization_create'),
+    # Commenta o rimuovi questa riga:
+    # path('org-admin/file-retention/', organization_admin_views.file_retention_settings, name='file_retention_settings'),
+    
+    # Finance URLs
+    path('finance/', finance_views.finance_dashboard, name='finance_dashboard'),
+    path('finance/organization/<int:org_id>/', finance_views.organization_billing_detail, name='organization_billing_detail'),
+    path('finance/payment-received/<int:org_id>/', finance_views.mark_payment_received, name='mark_payment_received'),
+    path('finance/send-request/<int:org_id>/', finance_views.send_payment_request, name='send_payment_request'),
+    path('finance/analytics/', finance_views.billing_analytics, name='billing_analytics'),
+    path('finance/register-organization-payment/<int:organization_id>/', finance_views.register_organization_payment, name='register_organization_payment'),
+    path('finance/payment-history/', finance_views.payment_history, name='payment_history'),
+    # Aggiungi questa riga per risolvere l'errore
+    path('finance/invoice/<int:invoice_id>/', finance_views.invoice_detail, name='invoice_detail'),
+    # Blockchain URLs
+    path('blockchain/', views.blockchain_list, name='blockchain_list'),
+    path('blockchain/block/<int:block_id>/', views.block_detail_view, name='block_detail_view'),
+    path('blockchain/blocks/', views.block_details_list, name='block_details_list'),
+    path('transaction/<int:transaction_id>/export-pdf/', views.export_transaction_pdf, name='export_transaction_pdf'),
+    path('transaction/<int:transaction_id>/save-to-documents/', views.save_transaction_details_to_personal_documents, name='save_transaction_details_to_personal_documents'),
+    path('setup-2fa/', views.setup_2fa, name='setup_2fa'),
+    path('manage-2fa/', views.manage_2fa, name='manage_2fa'),
+    path('verify-2fa/', views.verify_2fa, name='verify_2fa'),
+    # Nelle URL patterns
+    path('user-management/user/<int:user_id>/2fa-qrcode/', user_management_views.view_user_2fa_qrcode, name='view_user_2fa_qrcode'),
+    # File Manager URLs
+    path('admdashboard/file-manager/', views.file_manager, name='file_manager'),
+    # Aggiungi questi URL
+    path('documents/create/', views.create_document, name='create_document'),
+    path('documents/created/', views.created_documents_list, name='created_documents_list'),
+    path('documents/edit/<int:document_id>/', views.edit_document, name='edit_document'),
+    # Aggiungi questa riga dopo le altre URL dei documenti
+    path('documents/delete/<int:document_id>/', views.delete_created_document, name='delete_created_document'),
+    # Aggiungi queste righe nelle URL patterns esistenti, prima della chiusura della lista
+    # Sostituisci la riga esistente con queste due righe complete
+    path('admdashboard/sessions/', views.session_management, name='session_management'),
+    path('terminate-all-sessions/', views.terminate_all_sessions, name='terminate_all_sessions'),
+    path('clear-expired-sessions/', views.clear_expired_sessions, name='clear_expired_sessions'),
+    path('admdashboard/my-sessions/', views.my_sessions, name='my_sessions'),
+    path('admdashboard/terminate-session/', views.terminate_session, name='terminate_session'),
+    # Sharing URLs
+    path('share/create/', views.create_share, name='create_share'),
+    path('share/my-shares/', views.my_shares, name='my_shares'),
+    path('share/<uuid:share_id>/', views.view_shared_document, name='view_shared_document'),
+    path('share/<uuid:share_id>/download/', views.download_shared_document, name='download_shared_document'),
+    path('share/<uuid:share_id>/edit/', views.edit_shared_document, name='edit_shared_document'),
+    path('share/<uuid:share_id>/revoke/', views.revoke_share, name='revoke_share'),
+    path('documents/created/<int:document_id>/add-collaborator/', views.add_collaborator, name='add_collaborator'),
+    # Notification URLs
+    path('notifications/', views.notifications, name='notifications'),
+    path('notifications/<int:notification_id>/mark-read/', views.mark_notification_as_read, name='mark_notification_as_read'),
+    # ... Organization Admin URLs
+    path('org-admin/dashboard/', organization_admin_views.org_admin_dashboard, name='org_admin_dashboard'),
+    path('org-admin/users/', organization_admin_views.org_user_management, name='org_user_management'),
+    path('org-admin/roles/', organization_admin_views.org_role_management, name='org_role_management'),
+    path('org-admin/logs/', organization_admin_views.org_audit_logs, name='org_audit_logs'),
+    path('org-admin/sessions/', organization_admin_views.org_sessions, name='org_sessions'),
+    # Organization Management (Superuser only)
+    path('organization-management/', organization_views.organization_management_dashboard, name='organization_management_dashboard'),
+    path('organization-management/list/', organization_views.organization_management_list, name='organization_management_list'),
+    path('organization-management/detail/<int:org_id>/', organization_views.organization_management_detail, name='organization_management_detail'),
+    path('organization-management/create/', organization_views.organization_create, name='organization_create'),
+    path('organization-management/edit/<int:org_id>/', organization_views.organization_edit, name='organization_edit'),
+    path('organizations/<int:org_id>/delete/', organization_views.organization_delete, name='organization_delete'),
+    path('organization-management/create/', organization_views.organization_create, name='organization_create'),
+    # Commenta o rimuovi questa riga:
+    # path('org-admin/file-retention/', organization_admin_views.file_retention_settings, name='file_retention_settings'),
+    
+    # Finance URLs
+    path('finance/', finance_views.finance_dashboard, name='finance_dashboard'),
+    path('finance/organization/<int:org_id>/', finance_views.organization_billing_detail, name='organization_billing_detail'),
+    path('finance/payment-received/<int:org_id>/', finance_views.mark_payment_received, name='mark_payment_received'),
+    path('finance/send-request/<int:org_id>/', finance_views.send_payment_request, name='send_payment_request'),
+    path('finance/analytics/', finance_views.billing_analytics, name='billing_analytics'),
+    path('finance/register-organization-payment/<int:organization_id>/', finance_views.register_organization_payment, name='register_organization_payment'),
+    path('finance/payment-history/', finance_views.payment_history, name='payment_history'),
+    # Aggiungi questa riga per risolvere l'errore
+    path('finance/invoice/<int:invoice_id>/', finance_views.invoice_detail, name='invoice_detail'),
+    # Blockchain URLs
+    path('blockchain/', views.blockchain_list, name='blockchain_list'),
+    path('blockchain/block/<int:block_id>/', views.block_detail_view, name='block_detail_view'),
+    path('blockchain/blocks/', views.block_details_list, name='block_details_list'),
     path('transaction/<int:transaction_id>/export-pdf/', views.export_transaction_pdf, name='export_transaction_pdf'),
     path('transaction/<int:transaction_id>/save-to-documents/', views.save_transaction_details_to_personal_documents, name='save_transaction_details_to_personal_documents'),
     path('setup-2fa/', views.setup_2fa, name='setup_2fa'),

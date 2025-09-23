@@ -246,20 +246,16 @@ class Transaction(models.Model):
     def calculate_hash(self):
         """Calculates the SHA-256 hash of the transaction data."""
         transaction_string = json.dumps(self.to_dict(), sort_keys=True).encode()
-        print(f"[DEBUG VERIFYING] transaction_dict: {self.to_dict()}")
-        print(f"[DEBUG VERIFYING] transaction_string: {transaction_string}")
         return hashlib.sha256(transaction_string).hexdigest()
 
     def verify_signature(self):
         """Verifies the digital signature of the transaction."""
         if not self.signature:
-            print(f"[DEBUG] No signature for transaction {self.transaction_hash}")
             return False
 
         try:
             # Usa la chiave pubblica salvata nella transazione
             if not self.sender_public_key:
-                print(f"[DEBUG] No sender_public_key saved in transaction {self.transaction_hash}")
                 return False
             public_key = serialization.load_pem_public_key(
                 self.sender_public_key.encode(),
@@ -268,10 +264,7 @@ class Transaction(models.Model):
             
             # Calculate the hash of the transaction data
             tx_dict = self.to_dict()
-            print(f"[DEBUG] Transaction dict for verification: {tx_dict}")
             data_to_verify = self.calculate_hash().encode()
-            print(f"[DEBUG] Data to verify (hash): {self.calculate_hash()}")
-            print(f"[DEBUG] Signature (hex): {self.signature}")
             
             # Verify the signature
             public_key.verify(
@@ -283,13 +276,8 @@ class Transaction(models.Model):
                 ),
                 hashes.SHA256()
             )
-            print(f"[DEBUG] Signature valid for transaction {self.transaction_hash}")
             return True
         except Exception as e:
-            print(f"Error verifying signature for transaction {self.transaction_hash}: {type(e).__name__}: {e}")
-            print(f"[DEBUG] Transaction dict: {self.to_dict()}")
-            print(f"[DEBUG] Data to verify (hash): {self.calculate_hash()}")
-            print(f"[DEBUG] Signature (hex): {self.signature}")
             return False
 '''
 class UserProfile(models.Model):
@@ -410,10 +398,8 @@ class UserProfile(models.Model):
                 password=password, # Use the password for decryption
                 backend=default_backend()
             )
-            print(f"DEBUG: Private key decrypted successfully with provided password.")
             return private_key
         except Exception as e:
-            print(f"DEBUG: Error decrypting private key with provided password: {e}")
             return None
 
     @property
@@ -431,9 +417,6 @@ class UserProfile(models.Model):
             if not private_key:
                 return 'Errore: chiave privata non disponibile.'
             
-            print(f"DEBUG: Encrypted hex received for decryption: {encrypted_hex}")
-            print(f"DEBUG: Length of encrypted hex: {len(encrypted_hex)}")
-
             from cryptography.hazmat.primitives.asymmetric import padding
             decrypted = private_key.decrypt(
                 bytes.fromhex(encrypted_hex),
@@ -1084,20 +1067,16 @@ class Transaction(models.Model):
     def calculate_hash(self):
         """Calculates the SHA-256 hash of the transaction data."""
         transaction_string = json.dumps(self.to_dict(), sort_keys=True).encode()
-        print(f"[DEBUG VERIFYING] transaction_dict: {self.to_dict()}")
-        print(f"[DEBUG VERIFYING] transaction_string: {transaction_string}")
         return hashlib.sha256(transaction_string).hexdigest()
 
     def verify_signature(self):
         """Verifies the digital signature of the transaction."""
         if not self.signature:
-            print(f"[DEBUG] No signature for transaction {self.transaction_hash}")
             return False
 
         try:
             # Usa la chiave pubblica salvata nella transazione
             if not self.sender_public_key:
-                print(f"[DEBUG] No sender_public_key saved in transaction {self.transaction_hash}")
                 return False
             public_key = serialization.load_pem_public_key(
                 self.sender_public_key.encode(),
@@ -1106,10 +1085,7 @@ class Transaction(models.Model):
             
             # Calculate the hash of the transaction data
             tx_dict = self.to_dict()
-            print(f"[DEBUG] Transaction dict for verification: {tx_dict}")
             data_to_verify = self.calculate_hash().encode()
-            print(f"[DEBUG] Data to verify (hash): {self.calculate_hash()}")
-            print(f"[DEBUG] Signature (hex): {self.signature}")
             
             # Verify the signature
             public_key.verify(
@@ -1121,13 +1097,9 @@ class Transaction(models.Model):
                 ),
                 hashes.SHA256()
             )
-            print(f"[DEBUG] Signature valid for transaction {self.transaction_hash}")
             return True
         except Exception as e:
             print(f"Error verifying signature for transaction {self.transaction_hash}: {type(e).__name__}: {e}")
-            print(f"[DEBUG] Transaction dict: {self.to_dict()}")
-            print(f"[DEBUG] Data to verify (hash): {self.calculate_hash()}")
-            print(f"[DEBUG] Signature (hex): {self.signature}")
             return False
 
 class SharedDocument(models.Model):

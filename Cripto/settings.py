@@ -23,7 +23,7 @@ if not FERNET_KEY:
 if not FIELD_ENCRYPTION_KEY:
     raise ValueError("FIELD_ENCRYPTION_KEY deve essere definita nel file .env")
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,fortyseal-1.onrender.com').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -50,7 +50,6 @@ MIDDLEWARE = [
     'Cripto1.middleware.SmartAutoCleanupMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'Cripto1.middleware.RoleExpirationMiddleware',
-    'Cripto1.middleware.Log500Middleware', 
 ]
 
 ROOT_URLCONF = 'Cripto.urls'
@@ -102,11 +101,8 @@ else:
     }
 
 # Header di sicurezza
-<<<<<<< HEAD
-SECURE_SSL_REDIRECT = not DEBUG  # Cambiato da 'Debug' a 'DEBUG'
-=======
-SECURE_SSL_REDIRECT = not DEBUG #True in Produzione
->>>>>>> e74b388e856cb84b802083a1c4064c2649357f90
+# Rimuovi le righe di conflitto e mantieni:
+SECURE_SSL_REDIRECT = not DEBUG
 SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
@@ -195,6 +191,7 @@ else:
     }
 
 # Logging configuration
+# Cambia il livello di logging da DEBUG a INFO/WARNING in produzione
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -214,26 +211,26 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
         },
-        'file': {
-            'level': 'ERROR',
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'errors.log'),
-        },
+        # Aggiungi alla configurazione LOGGING:
+        'handlers': {
+            'file': {
+                'level': 'ERROR',
+                'class': 'logging.FileHandler',
+                'filename': os.path.join(BASE_DIR, 'errors.log'),
+                'formatter': 'verbose',
+            },
+        }
     },
     'loggers': {
         'Cripto1': {
             'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-        'django': {
-            'handlers': ['file'],
-            'level': 'ERROR',
+            'level': 'WARNING' if not DEBUG else 'INFO',  # Cambia qui
             'propagate': True,
         },
     },
 }
 
+# Aggiungi dopo le configurazioni esistenti
 
 # Security headers aggiuntivi
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
