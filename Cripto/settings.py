@@ -23,7 +23,7 @@ if not FERNET_KEY:
 if not FIELD_ENCRYPTION_KEY:
     raise ValueError("FIELD_ENCRYPTION_KEY deve essere definita nel file .env")
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,fortyseal-1.onrender.com').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -50,6 +50,7 @@ MIDDLEWARE = [
     'Cripto1.middleware.SmartAutoCleanupMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'Cripto1.middleware.RoleExpirationMiddleware',
+    'Cripto1.middleware.Log500Middleware', 
 ]
 
 ROOT_URLCONF = 'Cripto.urls'
@@ -101,7 +102,11 @@ else:
     }
 
 # Header di sicurezza
+<<<<<<< HEAD
 SECURE_SSL_REDIRECT = not DEBUG  # Cambiato da 'Debug' a 'DEBUG'
+=======
+SECURE_SSL_REDIRECT = not DEBUG #True in Produzione
+>>>>>>> e74b388e856cb84b802083a1c4064c2649357f90
 SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
@@ -209,6 +214,11 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
         },
+        'file': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'errors.log'),
+        },
     },
     'loggers': {
         'Cripto1': {
@@ -216,10 +226,14 @@ LOGGING = {
             'level': 'INFO',
             'propagate': True,
         },
+        'django': {
+            'handlers': ['file'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
     },
 }
 
-# Aggiungi dopo le configurazioni esistenti
 
 # Security headers aggiuntivi
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
