@@ -193,40 +193,47 @@ else:
 
 # Logging configuration
 # Cambia il livello di logging da DEBUG a INFO/WARNING in produzione
+# ... existing code ...
+import sys
+
+# Aggiungi questa configurazione LOGGING
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
+            'format': "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)s] %(message)s",
+            'datefmt': "%d/%b/%Y %H:%M:%S"
         },
         'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
+            'format': '%(levelname)s %(message)s'
         },
     },
     'handlers': {
         'console': {
-            'level': 'INFO',
+            'level': 'DEBUG',
             'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-        },
-        'file': {
-            'level': 'ERROR',
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'errors.log'),
-            'formatter': 'verbose',
+            'stream': sys.stdout,
+            'formatter': 'verbose'
         },
     },
     'loggers': {
-        'Cripto1': {
-            'handlers': ['console', 'file'],
-            'level': 'WARNING' if not DEBUG else 'INFO',
+        'django': {
+            'handlers': ['console'],
             'propagate': True,
+            'level': 'INFO',
         },
-    },
+        'Cripto1': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+        'root': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+        },
+    }
 }
+ 
 
 
 # Security headers aggiuntivi
