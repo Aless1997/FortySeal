@@ -211,20 +211,17 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
         },
-        # Aggiungi alla configurazione LOGGING:
-        'handlers': {
-            'file': {
-                'level': 'ERROR',
-                'class': 'logging.FileHandler',
-                'filename': os.path.join(BASE_DIR, 'errors.log'),
-                'formatter': 'verbose',
-            },
-        }
+        'file': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'errors.log'),
+            'formatter': 'verbose',
+        },
     },
     'loggers': {
         'Cripto1': {
-            'handlers': ['console'],
-            'level': 'WARNING' if not DEBUG else 'INFO',  # Cambia qui
+            'handlers': ['console', 'file'],
+            'level': 'WARNING' if not DEBUG else 'INFO',
             'propagate': True,
         },
     },
