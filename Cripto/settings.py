@@ -227,7 +227,6 @@ LOGGING = {
     },
 }
 
-# Aggiungi dopo le configurazioni esistenti
 
 # Security headers aggiuntivi
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -244,3 +243,5 @@ SESSION_COOKIE_AGE = 3600  # 1 ora
 CSP_DEFAULT_SRC = ("'self'",)
 CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'")
 CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")
+
+# FINE DEL FILE - RIMUOVI TUTTO QUELLO CHE VIENE DOPO
